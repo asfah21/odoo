@@ -2,9 +2,9 @@
 <odoo>
     <data>
 
-        <!-- TREE VIEW -->
-        <record id="view_it_asset_tree" model="ir.ui.view">
-            <field name="name">it.asset.tree</field>
+        <!-- LIST VIEW -->
+        <record id="view_it_asset_list" model="ir.ui.view">
+            <field name="name">it.asset.list</field>
             <field name="model">it.asset</field>
             <field name="arch" type="xml">
                 <list>

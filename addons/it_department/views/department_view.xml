@@ -3,12 +3,12 @@
     <record id="action_it_department" model="ir.actions.act_window">
         <field name="name">IT Department</field>
         <field name="res_model">it.department</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
     </record>
 
     <!-- Root Menu -->
     <menuitem id="menu_it_root" 
-              name="IT Management" 
+              name="IT" 
               sequence="10" 
               web_icon="it_department,static/description/icon.png"/>
 
@@ -25,16 +25,16 @@
               action="action_it_department" 
               sequence="10"/>
 
-    <!-- Department Tree View -->
-    <record id="view_it_department_tree" model="ir.ui.view">
-        <field name="name">it.department.tree</field>
+    <!-- Department List View -->
+    <record id="view_it_department_list" model="ir.ui.view">
+        <field name="name">it.department.list</field>
         <field name="model">it.department</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="code"/>
                 <field name="manager_id"/>
-            </tree>
+            </list>
         </field>
     </record>
 
