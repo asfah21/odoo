@@ -1,0 +1,3 @@
+<odoo>	
+	<menuitem id="menu_it_asset_root" name="IT Asset" action="action_it_asset" sequence="10"/>
+</odoo>

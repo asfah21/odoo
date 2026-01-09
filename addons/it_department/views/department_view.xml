@@ -1,0 +1,66 @@
+<odoo>
+    <!-- Action for IT Department -->
+    <record id="action_it_department" model="ir.actions.act_window">
+        <field name="name">IT Department</field>
+        <field name="res_model">it.department</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <!-- Root Menu -->
+    <menuitem id="menu_it_root" 
+              name="IT Management" 
+              sequence="10" 
+              web_icon="it_department,static/description/icon.png"/>
+
+    <!-- Configuration Menu -->
+    <menuitem id="menu_it_config" 
+              name="Configuration" 
+              parent="menu_it_root" 
+              sequence="100"/>
+
+    <!-- Department Menu -->
+    <menuitem id="menu_it_department" 
+              name="Departments" 
+              parent="menu_it_config" 
+              action="action_it_department" 
+              sequence="10"/>
+
+    <!-- Department Tree View -->
+    <record id="view_it_department_tree" model="ir.ui.view">
+        <field name="name">it.department.tree</field>
+        <field name="model">it.department</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="manager_id"/>
+            </tree>
+        </field>
+    </record>
+
+    <!-- Department Form View -->
+    <record id="view_it_department_form" model="ir.ui.view">
+        <field name="name">it.department.form</field>
+        <field name="model">it.department</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="code"/>
+                        </group>
+                        <group>
+                            <field name="manager_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Notes">
+                            <field name="note"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+</odoo>

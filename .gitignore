@@ -1,0 +1,42 @@
+# Odoo
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.cache/
+.pytest_cache/
+*.swp
+*~
+*.log
+
+# Odoo Data & Config
+/config/odoo.conf
+/data/
+/filestore/
+/sessions/
+
+# Integrated Development Environment (IDE)
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS related files
+.DS_Store
+Thumbs.db
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Python Virtual Environment
+venv/
+.venv/
+env/
+.env
+bin/
+lib64/
+lib/
+include/
+share/
+pyvenv.cfg
