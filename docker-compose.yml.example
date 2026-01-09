@@ -1,0 +1,24 @@
+services:
+  odoo:
+    image: odoo:18
+    container_name: odoo18-app
+    restart: always
+    ports:
+      - "8069:8069"
+    environment:
+      HOST: 
+      USER: 
+      PASSWORD: 
+    volumes:
+      - odoo18-web-data:/var/lib/odoo
+      - ./addons:/mnt/extra-addons
+      - ./config:/etc/odoo
+    networks:
+      - app-network
+
+volumes:
+  odoo18-web-data:
+
+networks:
+  app-network:
+    external: true

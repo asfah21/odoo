@@ -40,3 +40,6 @@ lib/
 include/
 share/
 pyvenv.cfg
+
+# Local docker compose
+docker-compose.yml
