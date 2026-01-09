@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_asset_assignment_list" model="ir.ui.view">
+        <field name="name">it.asset.assignment.list</field>
+        <field name="model">it_asset.assignment</field>
+        <field name="arch" type="xml">
+            <list string="Asset Assignments">
+                <field name="asset_id"/>
+                <field name="employee_id"/>
+                <field name="assignment_date"/>
+                <field name="return_date"/>
+                <field name="state" widget="badge" decoration-info="state == 'active'" decoration-success="state == 'returned'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_it_asset_assignment" model="ir.actions.act_window">
+        <field name="name">Assignments</field>
+        <field name="res_model">it_asset.assignment</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- Pindah ke bawah dropdown parent -->
+    <menuitem id="menu_it_asset_assignment" 
+              name="Assignments" 
+              parent="menu_it_asset_main_dropdown" 
+              action="action_it_asset_assignment" 
+              sequence="20"/>
+</odoo>

@@ -1,8 +1,0 @@
-
-<odoo>
-    <record id="action_it_asset" model="ir.actions.act_window">
-        <field name="name">IT Asset</field>
-        <field name="res_model">it.asset</field>
-        <field name="view_mode">list,form</field>
-    </record>
-</odoo>

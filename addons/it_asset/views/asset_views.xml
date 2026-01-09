@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_asset_list" model="ir.ui.view">
+        <field name="name">it.asset.list</field>
+        <field name="model">it_asset.asset</field>
+        <field name="arch" type="xml">
+            <list string="IT Assets">
+                <field name="asset_tag"/>
+                <field name="name"/>
+                <field name="category_id"/>
+                <field name="product_id"/>
+                <field name="lot_id"/>
+                <field name="employee_id"/>
+                <field name="state" widget="badge" 
+                       decoration-info="state == 'available'" 
+                       decoration-success="state == 'assigned'"
+                       decoration-warning="state == 'repair'"
+                       decoration-danger="state == 'retired'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_form" model="ir.ui.view">
+        <field name="name">it.asset.form</field>
+        <field name="model">it_asset.asset</field>
+        <field name="arch" type="xml">
+            <form string="IT Asset">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="available,assigned,repair,retired"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="asset_tag" placeholder="Asset Tag..."/>
+                        </h1>
+                        <label for="name" string="Asset Name"/>
+                        <h2>
+                            <field name="name" placeholder="e.g. MacBook Pro..."/>
+                        </h2>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="category_id"/>
+                            <field name="product_id"/>
+                            <field name="lot_id" domain="[('product_id', '=', product_id)]" context="{'default_product_id': product_id}"/>
+                        </group>
+                        <group>
+                            <field name="employee_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Assignment History" name="assignments">
+                            <field name="assignment_ids">
+                                <list editable="bottom">
+                                    <field name="employee_id"/>
+                                    <field name="assignment_date"/>
+                                    <field name="return_date"/>
+                                    <field name="state" widget="badge"/>
+                                    <button name="action_return" type="object" string="Return" invisible="state == 'returned'" icon="fa-undo"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Maintenance History" name="maintenance">
+                            <field name="maintenance_ids">
+                                <list editable="bottom">
+                                    <field name="maintenance_date"/>
+                                    <field name="maintenance_type"/>
+                                    <field name="description"/>
+                                    <field name="cost"/>
+                                    <field name="technician"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset" model="ir.actions.act_window">
+        <field name="name">Assets</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- [1] ROOT MENU (App Switcher) -->
+    <menuitem id="menu_it_asset_root" 
+              name="IT Asset" 
+              sequence="10" 
+              web_icon="it_asset,static/description/icon.png"/>
+
+    <!-- [2] TOP BAR MENU (The Dropdown Parent) -->
+    <menuitem id="menu_it_asset_main_dropdown" 
+              name="Asset Management" 
+              parent="menu_it_asset_root" 
+              sequence="10"/>
+
+    <!-- [3] CHILD DROP_DOWN ITEMS -->
+    <menuitem id="menu_it_asset_list_child" 
+              name="Assets" 
+              parent="menu_it_asset_main_dropdown" 
+              action="action_it_asset" 
+              sequence="10"/>
+</odoo>

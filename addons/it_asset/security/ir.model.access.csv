@@ -1,2 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_it_asset_user,it.asset user,model_it_asset,,1,1,1,1
+access_it_asset,it_asset.asset,model_it_asset_asset,base.group_user,1,1,1,1
+access_it_asset_category,it_asset.category,model_it_asset_category,base.group_user,1,1,1,1
+access_it_asset_assignment,it_asset.assignment,model_it_asset_assignment,base.group_user,1,1,1,1
+access_it_asset_maintenance,it_asset.maintenance,model_it_asset_maintenance,base.group_user,1,1,1,1
