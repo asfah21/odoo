@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="it_asset.DashboardMain">
+        <div class="o_action_manager o_content bg-light p-4 overflow-auto">
+            <div class="container-fluid">
+                <!-- Welcome Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between bg-white p-4 rounded shadow-sm border-start border-primary border-4">
+                            <div>
+                                <h2 class="fw-bold mb-1">IT Asset Analytics</h2>
+                                <p class="text-muted mb-0">PT GSI Site Wolo - Overview and Statistics</p>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
+                                <i class="fa fa-dashboard fa-2x"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="row g-4">
+                    <!-- Total Assets -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card" t-on-click="() => this.openView('all')">
+                            <div class="card-body p-4 text-center">
+                                <div class="bg-dark bg-opacity-10 text-dark p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="fa fa-laptop fa-2x"></i>
+                                </div>
+                                <h3 class="fw-bold mb-0" t-esc="stats.total_assets"/>
+                                <small class="text-muted fw-bold">TOTAL ASSETS</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Available -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-info border-4" t-on-click="() => this.openView('available')">
+                            <div class="card-body p-4 text-center text-info">
+                                <div class="bg-info bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="fa fa-check-circle fa-2x"></i>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.available"/>
+                                <small class="text-muted fw-bold">AVAILABLE</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Assigned -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-success border-4" t-on-click="() => this.openView('assigned')">
+                            <div class="card-body p-4 text-center text-success">
+                                <div class="bg-success bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="fa fa-user fa-2x"></i>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.assigned"/>
+                                <small class="text-muted fw-bold">ASSIGNED</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Repair -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-warning border-4" t-on-click="() => this.openView('repair')">
+                            <div class="card-body p-4 text-center text-warning">
+                                <div class="bg-warning bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="fa fa-wrench fa-2x"></i>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.repair"/>
+                                <small class="text-muted fw-bold">UNDER REPAIR</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Retired -->
+                    <div class="col-md-4 col-xl-2">
+                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-danger border-4" t-on-click="() => this.openView('retired')">
+                            <div class="card-body p-4 text-center text-danger">
+                                <div class="bg-danger bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                    <i class="fa fa-trash fa-2x"></i>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.retired"/>
+                                <small class="text-muted fw-bold">RETIRED</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Styling in Template (Optional) -->
+                <style>
+                    .hover-card {
+                        transition: transform 0.3s ease, box-shadow 0.3s ease;
+                    }
+                    .hover-card:hover {
+                        transform: translateY(-5px);
+                        box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important;
+                    }
+                    .cursor-pointer {
+                        cursor: pointer;
+                    }
+                </style>
+            </div>
+        </div>
+    </t>
+</templates>

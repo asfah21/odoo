@@ -72,3 +72,16 @@ class ITAsset(models.Model):
                 record.state = 'assigned'
             else:
                 record.state = 'available'
+
+    @api.model
+    def get_dashboard_stats(self):
+        """
+        Returns stats for the dashboard
+        """
+        return {
+            'total_assets': self.search_count([]),
+            'available': self.search_count([('state', '=', 'available')]),
+            'assigned': self.search_count([('state', '=', 'assigned')]),
+            'repair': self.search_count([('state', '=', 'repair')]),
+            'retired': self.search_count([('state', '=', 'retired')]),
+        }

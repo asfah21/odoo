@@ -24,7 +24,7 @@
         <field name="name">it.asset.form</field>
         <field name="model">it_asset.asset</field>
         <field name="arch" type="xml">
-            <form string="IT Asset">
+            <form string="IT">
                 <header>
                     <field name="state" widget="statusbar" statusbar_visible="available,assigned,repair,retired"/>
                 </header>
@@ -85,7 +85,7 @@
 
     <!-- [1] ROOT MENU (App Switcher) -->
     <menuitem id="menu_it_asset_root" 
-              name="IT Asset" 
+              name="IT" 
               sequence="10" 
               web_icon="it_asset,static/description/icon.png"/>
 
