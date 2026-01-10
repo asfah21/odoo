@@ -9,7 +9,7 @@
     <!-- Dashboard Menu - Sequence 1 agar muncul paling kiri -->
     <menuitem id="menu_it_asset_dashboard" 
               name="Dashboard" 
-              parent="menu_it_asset_root" 
+              parent="it_asset_menu_root" 
               action="action_it_asset_dashboard" 
               sequence="1"/>
 </odoo>

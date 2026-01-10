@@ -22,9 +22,9 @@
     </record>
 
     <!-- Pindah ke bawah dropdown parent -->
-    <menuitem id="menu_it_asset_maintenance" 
+    <menuitem id="it_asset_menu_maintenances" 
               name="Maintenances" 
-              parent="menu_it_asset_main_dropdown" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_maintenance" 
               sequence="30"/>
 </odoo>

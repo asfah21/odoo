@@ -17,9 +17,9 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <menuitem id="menu_it_asset_category_child" 
+    <menuitem id="it_asset_menu_categories" 
               name="Categories" 
-              parent="menu_it_asset_main_dropdown" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_category" 
               sequence="40"/>
 </odoo>

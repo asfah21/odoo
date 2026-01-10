@@ -4,16 +4,16 @@
         <div class="o_action_manager o_content o_it_asset_dashboard scroll-y">
             
             <!-- Standard Odoo-Style Control Panel -->
-            <div class="control-panel">
+            <div class="control-panel shadow-sm">
                 <div class="cp-left">
-                    <div class="cp-title">Asset Overview</div>
+                    <div class="cp-title" t-esc="'IT Dashboard Overview'"/>
                 </div>
                 <div class="cp-right">
                     <!-- Category Filter -->
-                    <div class="filter-group shadow-sm">
-                        <label><i class="fa fa-tag me-1"></i>Category</label>
+                    <div class="filter-group">
+                        <label><i class="fa fa-tag"></i>Category</label>
                         <select class="category-select" t-on-change="onFilterCategory">
-                            <option value="">All Category</option>
+                            <option value="">All Categories</option>
                             <t t-foreach="categories" t-as="cat" t-key="cat.id">
                                 <option t-att-value="cat.id" t-att-selected="selectedCategory === cat.id">
                                     <t t-esc="cat.name"/>
@@ -23,12 +23,12 @@
                     </div>
                     
                     <!-- Date Filters -->
-                    <div class="filter-group shadow-sm">
-                        <label><i class="fa fa-calendar me-1"></i>From</label>
+                    <div class="filter-group">
+                        <label><i class="fa fa-calendar-check-o"></i>From</label>
                         <input type="date" t-on-change="(ev) => this.onDateChange('start', ev)" t-att-value="dateStart"/>
                     </div>
-                    <div class="filter-group shadow-sm">
-                        <label><i class="fa fa-calendar me-1"></i>To</label>
+                    <div class="filter-group">
+                        <label><i class="fa fa-calendar-times-o"></i>To</label>
                         <input type="date" t-on-change="(ev) => this.onDateChange('end', ev)" t-att-value="dateEnd"/>
                     </div>
                 </div>
@@ -39,8 +39,8 @@
                 <!-- Summary Section -->
                 <div class="section-header">INVENTORY STATUS</div>
                 <div class="row g-3 mb-4">
-                    <div class="col-md-3">
-                        <div class="modern-card card-purple shadow-sm" t-on-click="() => this.openView('all')">
+                    <div class="col-6 col-md-3">
+                        <div class="modern-card card-purple" t-on-click="() => this.openView('all')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
                                 <div class="stat-label">Total Assets</div>
@@ -48,8 +48,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="modern-card card-green shadow-sm" t-on-click="() => this.openView('available')">
+                    <div class="col-6 col-md-3">
+                        <div class="modern-card card-green" t-on-click="() => this.openView('available')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-check-circle"></i></div>
                                 <div class="stat-label">Available</div>
@@ -57,8 +57,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="modern-card card-blue shadow-sm" t-on-click="() => this.openView('assigned')">
+                    <div class="col-6 col-md-3">
+                        <div class="modern-card card-blue" t-on-click="() => this.openView('assigned')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
                                 <div class="stat-label">Assigned</div>
@@ -66,8 +66,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-3">
-                        <div class="modern-card card-amber shadow-sm" t-on-click="() => this.openView('repair')">
+                    <div class="col-6 col-md-3">
+                        <div class="modern-card card-amber" t-on-click="() => this.openView('repair')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
                                 <div class="stat-label">Maintenance</div>
@@ -77,12 +77,12 @@
                     </div>
                 </div>
 
-                <div class="row g-4">
+                <div class="row g-4 mb-4">
                     <!-- Distribution Chart -->
-                    <div class="col-lg-4">
-                        <div class="chart-panel h-100 shadow-sm">
+                    <div class="col-12 col-lg-5 col-xl-4">
+                        <div class="chart-panel shadow-sm">
                             <h4 class="mb-4">Status Map</h4>
-                            <div class="donut-wrapper mb-4 shadow-sm rounded-circle" 
+                            <div class="donut-wrapper mb-4 shadow-sm" 
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (stats.available / (stats.total_assets or 1)) * 100 }}%, 
                                     #0284c7 {{ (stats.available / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}%, 
@@ -113,8 +113,8 @@
                     </div>
 
                     <!-- Category Bar Chart -->
-                    <div class="col-lg-8">
-                        <div class="chart-panel h-100 shadow-sm">
+                    <div class="col-12 col-lg-7 col-xl-8">
+                        <div class="chart-panel shadow-sm">
                             <h4 class="mb-4">Top Asset Categories</h4>
                             <div class="category-list">
                                 <t t-foreach="stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
@@ -141,25 +141,25 @@
                 </div>
 
                 <!-- Footer Stats (Support & Recent) -->
-                <div class="row g-4 mt-1">
-                    <div class="col-lg-6">
+                <div class="row g-4">
+                    <div class="col-12 col-md-6">
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-3">Global Service Stats (Upcoming)</h4>
                             <div class="row g-2">
                                 <div class="col-6">
                                     <div class="p-3 bg-light rounded-3 border d-flex align-items-center">
-                                        <div class="me-3 p-2 bg-white rounded shadow-sm"><i class="fa fa-ticket text-primary"></i></div>
+                                        <div class="me-2 me-md-3 p-2 bg-white rounded shadow-sm d-none d-sm-block"><i class="fa fa-ticket text-primary"></i></div>
                                         <div>
-                                            <div class="text-muted small fw-bold">ACTIVE TICKETS</div>
+                                            <div class="text-muted small fw-bold" style="font-size: 0.65rem;">ACTIVE TICKETS</div>
                                             <div class="h4 mb-0 fw-bold" t-esc="stats.tickets_open"/>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-6">
                                     <div class="p-3 bg-light rounded-3 border d-flex align-items-center">
-                                        <div class="me-3 p-2 bg-white rounded shadow-sm"><i class="fa fa-user-plus text-success"></i></div>
+                                        <div class="me-2 me-md-3 p-2 bg-white rounded shadow-sm d-none d-sm-block"><i class="fa fa-user-plus text-success"></i></div>
                                         <div>
-                                            <div class="text-muted small fw-bold">ACCOUNTS REQ</div>
+                                            <div class="text-muted small fw-bold" style="font-size: 0.65rem;">ACCOUNTS REQ</div>
                                             <div class="h4 mb-0 fw-bold" t-esc="stats.account_requests_pending"/>
                                         </div>
                                     </div>
@@ -167,7 +167,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-lg-6">
+                    <div class="col-12 col-md-6">
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-3">Recent Operations</h4>
                             <div class="activity-log">
@@ -178,11 +178,11 @@
                                             <i t-if="activity.type == 'request'" class="fa fa-user-plus"></i>
                                             <i t-if="activity.type == 'asset'" class="fa fa-laptop"></i>
                                         </div>
-                                        <div class="flex-grow-1">
-                                            <div class="fw-bold small" t-esc="activity.title"/>
-                                            <div class="text-muted" style="font-size: 0.7rem;" t-esc="activity.time"/>
+                                        <div class="flex-grow-1 overflow-hidden">
+                                            <div class="fw-bold small text-truncate" t-esc="activity.title"/>
+                                            <div class="text-muted text-truncate" style="font-size: 0.7rem;" t-esc="activity.time"/>
                                         </div>
-                                        <span t-attf-class="badge rounded-pill bg-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} bg-opacity-10 text-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} small px-3">
+                                        <span t-attf-class="badge rounded-pill bg-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} bg-opacity-10 text-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} small px-2 px-md-3">
                                             <t t-esc="activity.status.toUpperCase()"/>
                                         </span>
                                     </div>

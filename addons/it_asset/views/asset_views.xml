@@ -84,21 +84,21 @@
     </record>
 
     <!-- [1] ROOT MENU (App Switcher) -->
-    <menuitem id="menu_it_asset_root" 
+    <menuitem id="it_asset_menu_root" 
               name="IT" 
               sequence="10" 
               web_icon="it_asset,static/description/icon.png"/>
 
-    <!-- [2] TOP BAR MENU (The Dropdown Parent) -->
-    <menuitem id="menu_it_asset_main_dropdown" 
+    <!-- [2] TOP BAR MENU (Parent Dropdown) -->
+    <menuitem id="it_asset_menu_management" 
               name="Asset Management" 
-              parent="menu_it_asset_root" 
+              parent="it_asset_menu_root" 
               sequence="10"/>
 
     <!-- [3] CHILD DROP_DOWN ITEMS -->
-    <menuitem id="menu_it_asset_list_child" 
+    <menuitem id="it_asset_menu_assets" 
               name="Assets" 
-              parent="menu_it_asset_main_dropdown" 
+              parent="it_asset_menu_management" 
               action="action_it_asset" 
               sequence="10"/>
 </odoo>

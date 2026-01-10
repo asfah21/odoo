@@ -21,9 +21,9 @@
     </record>
 
     <!-- Pindah ke bawah dropdown parent -->
-    <menuitem id="menu_it_asset_assignment" 
+    <menuitem id="it_asset_menu_assignments" 
               name="Assignments" 
-              parent="menu_it_asset_main_dropdown" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_assignment" 
               sequence="20"/>
 </odoo>
