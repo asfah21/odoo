@@ -8,10 +8,34 @@ export class ITAssetDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
-        this.stats = {};
+        this.stats = {
+            total_assets: 0,
+            available: 0,
+            assigned: 0,
+            repair: 0,
+            tickets_open: 0,
+            account_requests_pending: 0,
+            recent_activities: []
+        };
 
         onWillStart(async () => {
-            this.stats = await this.orm.call("it_asset.asset", "get_dashboard_stats", []);
+            const realStats = await this.orm.call("it_asset.asset", "get_dashboard_stats", []);
+            this.stats = {
+                ...realStats,
+                // Dummy data for future features
+                tickets_open: 12,
+                tickets_pending: 5,
+                tickets_resolved: 45,
+                account_requests_pending: 8,
+                account_requests_approved: 24,
+                kpi_performance: 94.5,
+                kpi_trend: 1.2,
+                recent_activities: [
+                    { id: 1, type: 'ticket', title: 'Keyboard not working', user: 'Agus', time: '2 mins ago', status: 'new' },
+                    { id: 2, type: 'request', title: 'New ERP Account', user: 'Siti', time: '15 mins ago', status: 'pending' },
+                    { id: 3, type: 'asset', title: 'Macbook Air M2 Assigned', user: 'Budi', time: '1 hour ago', status: 'done' },
+                ]
+            };
         });
     }
 

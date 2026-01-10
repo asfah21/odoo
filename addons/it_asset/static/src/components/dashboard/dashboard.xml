@@ -1,104 +1,193 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="it_asset.DashboardMain">
-        <div class="o_action_manager o_content bg-light p-4 overflow-auto">
+        <div class="o_action_manager o_content o_it_asset_dashboard p-4 overflow-auto">
             <div class="container-fluid">
-                <!-- Welcome Section -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <div class="d-flex align-items-center justify-content-between bg-white p-4 rounded shadow-sm border-start border-primary border-4">
-                            <div>
-                                <h2 class="fw-bold mb-1">IT Asset Analytics</h2>
-                                <p class="text-muted mb-0">PT GSI Site Wolo - Overview and Statistics</p>
-                            </div>
-                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle text-primary">
-                                <i class="fa fa-dashboard fa-2x"></i>
+                <!-- Header -->
+                <div class="dashboard-header mb-4">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h2 class="mb-1">IT Operations Center</h2>
+                            <p class="mb-0">Unified Asset &amp; Service Management Dashboard</p>
+                        </div>
+                        <div class="col-auto">
+                            <div class="text-end">
+                                <span class="badge rounded-pill bg-white text-dark shadow-sm p-2 px-3 border">
+                                    <i class="fa fa-calendar me-1"></i>
+                                    Januari 2026
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Stats Cards -->
+                <!-- Asset Summary (Real Data) -->
+                <h5 class="fw-bold mb-3 text-uppercase small text-muted letter-spacing-1">Asset Inventory</h5>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-3">
+                        <div class="card stat-card card-indigo" t-on-click="() => this.openView('all')">
+                            <div class="card-body">
+                                <div class="icon-box">
+                                    <i class="fa fa-laptop"></i>
+                                </div>
+                                <div class="stat-value" t-esc="stats.total_assets"/>
+                                <div class="stat-label">Total Assets</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card card-success" t-on-click="() => this.openView('available')">
+                            <div class="card-body">
+                                <div class="icon-box">
+                                    <i class="fa fa-check-circle"></i>
+                                </div>
+                                <div class="stat-value" t-esc="stats.available"/>
+                                <div class="stat-label">Available</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card card-primary" t-on-click="() => this.openView('assigned')">
+                            <div class="card-body">
+                                <div class="icon-box">
+                                    <i class="fa fa-user-circle"></i>
+                                </div>
+                                <div class="stat-value" t-esc="stats.assigned"/>
+                                <div class="stat-label">Assigned</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card stat-card card-warning" t-on-click="() => this.openView('repair')">
+                            <div class="card-body">
+                                <div class="icon-box">
+                                    <i class="fa fa-tools"></i>
+                                </div>
+                                <div class="stat-value" t-esc="stats.repair"/>
+                                <div class="stat-label">In Maintenance</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Future Features (Dummy Data) -->
+                <h5 class="fw-bold mb-3 text-uppercase small text-muted letter-spacing-1">Support &amp; Requests (Upcoming)</h5>
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4">
+                        <div class="card stat-card card-purple">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="icon-box">
+                                            <i class="fa fa-ticket"></i>
+                                        </div>
+                                        <div class="stat-value" t-esc="stats.tickets_open"/>
+                                        <div class="stat-label">Open Tickets</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="text-success small fw-bold"><i class="fa fa-arrow-up"></i> 12%</span>
+                                        <div class="text-muted small">vs last month</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card card-info">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <div class="icon-box">
+                                            <i class="fa fa-user-plus"></i>
+                                        </div>
+                                        <div class="stat-value" t-esc="stats.account_requests_pending"/>
+                                        <div class="stat-label">Account Requests</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="text-danger small fw-bold"><i class="fa fa-arrow-down"></i> 3%</span>
+                                        <div class="text-muted small">vs yesterday</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card stat-card bg-white border">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="stat-label">Service Level (SLO)</span>
+                                    <span class="stat-value text-primary" style="font-size: 1.25rem;">94.5%</span>
+                                </div>
+                                <div class="progress" style="height: 8px; border-radius: 4px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 94.5%;" aria-valuenow="94.5" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="mt-2 small text-muted">Awaiting 5 pending reviews</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="row g-4">
-                    <!-- Total Assets -->
-                    <div class="col-md-4 col-xl-2">
-                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card" t-on-click="() => this.openView('all')">
-                            <div class="card-body p-4 text-center">
-                                <div class="bg-dark bg-opacity-10 text-dark p-3 rounded-circle d-inline-block mb-3">
-                                    <i class="fa fa-laptop fa-2x"></i>
+                    <!-- Insights Visualization Mockup -->
+                    <div class="col-lg-8">
+                        <div class="chart-container">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0">Asset Lifecycle &amp; Ticket Trends</h4>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-light border" type="button">
+                                        Monthly <i class="fa fa-chevron-down ms-1"></i>
+                                    </button>
                                 </div>
-                                <h3 class="fw-bold mb-0" t-esc="stats.total_assets"/>
-                                <small class="text-muted fw-bold">TOTAL ASSETS</small>
+                            </div>
+                            <!-- Mock Visualization -->
+                            <div class="d-flex align-items-end justify-content-between" style="height: 200px; padding-bottom: 20px;">
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 60%; opacity: 0.6;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 85%; opacity: 0.8;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 45%;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 75%; opacity: 0.7;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 95%;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 55%; opacity: 0.6;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 80%;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 40%; opacity: 0.5;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 65%;"></div>
+                                <div class="bg-primary rounded-top" style="width: 8%; height: 90%;"></div>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted small mt-2">
+                                <span>Jan 01</span><span>Jan 05</span><span>Jan 10</span><span>Jan 15</span><span>Jan 20</span><span>Jan 25</span><span>Jan 30</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Available -->
-                    <div class="col-md-4 col-xl-2">
-                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-info border-4" t-on-click="() => this.openView('available')">
-                            <div class="card-body p-4 text-center text-info">
-                                <div class="bg-info bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                                    <i class="fa fa-check-circle fa-2x"></i>
-                                </div>
-                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.available"/>
-                                <small class="text-muted fw-bold">AVAILABLE</small>
+                    <!-- Recent Activities Mockup -->
+                    <div class="col-lg-4">
+                        <div class="chart-container">
+                            <h4 class="mb-4">Recent Activities</h4>
+                            <div class="activity-list">
+                                <t t-foreach="stats.recent_activities" t-as="activity" t-key="activity.id">
+                                    <div class="activity-item d-flex align-items-center">
+                                        <div t-attf-class="activity-icon me-3 bg-{{activity.status}} bg-opacity-10 text-{{activity.status}}">
+                                            <i t-if="activity.type == 'ticket'" class="fa fa-ticket"></i>
+                                            <i t-if="activity.type == 'request'" class="fa fa-user-plus"></i>
+                                            <i t-if="activity.type == 'asset'" class="fa fa-laptop"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold small" t-esc="activity.title"/>
+                                            <div class="text-muted" style="font-size: 0.75rem;">
+                                                <span t-esc="activity.user"/> • <span t-esc="activity.time"/>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span t-attf-class="badge-soft bg-{{activity.status}}" t-esc="activity.status"/>
+                                        </div>
+                                    </div>
+                                </t>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Assigned -->
-                    <div class="col-md-4 col-xl-2">
-                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-success border-4" t-on-click="() => this.openView('assigned')">
-                            <div class="card-body p-4 text-center text-success">
-                                <div class="bg-success bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                                    <i class="fa fa-user fa-2x"></i>
-                                </div>
-                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.assigned"/>
-                                <small class="text-muted fw-bold">ASSIGNED</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Repair -->
-                    <div class="col-md-4 col-xl-2">
-                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-warning border-4" t-on-click="() => this.openView('repair')">
-                            <div class="card-body p-4 text-center text-warning">
-                                <div class="bg-warning bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                                    <i class="fa fa-wrench fa-2x"></i>
-                                </div>
-                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.repair"/>
-                                <small class="text-muted fw-bold">UNDER REPAIR</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Retired -->
-                    <div class="col-md-4 col-xl-2">
-                        <div class="card border-0 shadow-sm h-100 cursor-pointer hover-card border-bottom border-danger border-4" t-on-click="() => this.openView('retired')">
-                            <div class="card-body p-4 text-center text-danger">
-                                <div class="bg-danger bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
-                                    <i class="fa fa-trash fa-2x"></i>
-                                </div>
-                                <h3 class="fw-bold mb-0 text-dark" t-esc="stats.retired"/>
-                                <small class="text-muted fw-bold">RETIRED</small>
+                            <div class="text-center mt-4">
+                                <button class="btn btn-link btn-sm text-decoration-none fw-bold">View All Activities</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <!-- Custom Styling in Template (Optional) -->
-                <style>
-                    .hover-card {
-                        transition: transform 0.3s ease, box-shadow 0.3s ease;
-                    }
-                    .hover-card:hover {
-                        transform: translateY(-5px);
-                        box-shadow: 0 1rem 3rem rgba(0,0,0,.175)!important;
-                    }
-                    .cursor-pointer {
-                        cursor: pointer;
-                    }
-                </style>
             </div>
         </div>
     </t>

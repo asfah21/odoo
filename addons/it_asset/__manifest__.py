@@ -18,6 +18,7 @@
         'web.assets_backend': [
             'it_asset/static/src/components/dashboard/dashboard.js',
             'it_asset/static/src/components/dashboard/dashboard.xml',
+            'it_asset/static/src/components/dashboard/dashboard.scss',
         ],
     },
     'installable': True,
