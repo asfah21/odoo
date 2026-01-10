@@ -1,193 +1,199 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="it_asset.DashboardMain">
-        <div class="o_action_manager o_content o_it_asset_dashboard p-4 overflow-auto">
-            <div class="container-fluid">
-                <!-- Header -->
-                <div class="dashboard-header mb-4">
-                    <div class="row align-items-center">
-                        <div class="col">
-                            <h2 class="mb-1">IT Operations Center</h2>
-                            <p class="mb-0">Unified Asset &amp; Service Management Dashboard</p>
-                        </div>
-                        <div class="col-auto">
-                            <div class="text-end">
-                                <span class="badge rounded-pill bg-white text-dark shadow-sm p-2 px-3 border">
-                                    <i class="fa fa-calendar me-1"></i>
-                                    Januari 2026
-                                </span>
-                            </div>
-                        </div>
+        <div class="o_action_manager o_content o_it_asset_dashboard scroll-y">
+            
+            <!-- Standard Odoo-Style Control Panel -->
+            <div class="control-panel">
+                <div class="cp-left">
+                    <div class="cp-title">Asset Overview</div>
+                </div>
+                <div class="cp-right">
+                    <!-- Category Filter -->
+                    <div class="filter-group shadow-sm">
+                        <label><i class="fa fa-tag me-1"></i>Category</label>
+                        <select class="category-select" t-on-change="onFilterCategory">
+                            <option value="">All Category</option>
+                            <t t-foreach="categories" t-as="cat" t-key="cat.id">
+                                <option t-att-value="cat.id" t-att-selected="selectedCategory === cat.id">
+                                    <t t-esc="cat.name"/>
+                                </option>
+                            </t>
+                        </select>
+                    </div>
+                    
+                    <!-- Date Filters -->
+                    <div class="filter-group shadow-sm">
+                        <label><i class="fa fa-calendar me-1"></i>From</label>
+                        <input type="date" t-on-change="(ev) => this.onDateChange('start', ev)" t-att-value="dateStart"/>
+                    </div>
+                    <div class="filter-group shadow-sm">
+                        <label><i class="fa fa-calendar me-1"></i>To</label>
+                        <input type="date" t-on-change="(ev) => this.onDateChange('end', ev)" t-att-value="dateEnd"/>
                     </div>
                 </div>
+            </div>
 
-                <!-- Asset Summary (Real Data) -->
-                <h5 class="fw-bold mb-3 text-uppercase small text-muted letter-spacing-1">Asset Inventory</h5>
-                <div class="row g-4 mb-5">
+            <div class="dashboard-content">
+                
+                <!-- Summary Section -->
+                <div class="section-header">INVENTORY STATUS</div>
+                <div class="row g-3 mb-4">
                     <div class="col-md-3">
-                        <div class="card stat-card card-indigo" t-on-click="() => this.openView('all')">
+                        <div class="modern-card card-purple shadow-sm" t-on-click="() => this.openView('all')">
                             <div class="card-body">
-                                <div class="icon-box">
-                                    <i class="fa fa-laptop"></i>
-                                </div>
-                                <div class="stat-value" t-esc="stats.total_assets"/>
+                                <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
                                 <div class="stat-label">Total Assets</div>
+                                <div class="stat-value" t-esc="stats.total_assets"/>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card stat-card card-success" t-on-click="() => this.openView('available')">
+                        <div class="modern-card card-green shadow-sm" t-on-click="() => this.openView('available')">
                             <div class="card-body">
-                                <div class="icon-box">
-                                    <i class="fa fa-check-circle"></i>
-                                </div>
-                                <div class="stat-value" t-esc="stats.available"/>
+                                <div class="icon-circle shadow-sm"><i class="fa fa-check-circle"></i></div>
                                 <div class="stat-label">Available</div>
+                                <div class="stat-value" t-esc="stats.available"/>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card stat-card card-primary" t-on-click="() => this.openView('assigned')">
+                        <div class="modern-card card-blue shadow-sm" t-on-click="() => this.openView('assigned')">
                             <div class="card-body">
-                                <div class="icon-box">
-                                    <i class="fa fa-user-circle"></i>
-                                </div>
-                                <div class="stat-value" t-esc="stats.assigned"/>
+                                <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
                                 <div class="stat-label">Assigned</div>
+                                <div class="stat-value" t-esc="stats.assigned"/>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-3">
-                        <div class="card stat-card card-warning" t-on-click="() => this.openView('repair')">
+                        <div class="modern-card card-amber shadow-sm" t-on-click="() => this.openView('repair')">
                             <div class="card-body">
-                                <div class="icon-box">
-                                    <i class="fa fa-tools"></i>
-                                </div>
+                                <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
+                                <div class="stat-label">Maintenance</div>
                                 <div class="stat-value" t-esc="stats.repair"/>
-                                <div class="stat-label">In Maintenance</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Future Features (Dummy Data) -->
-                <h5 class="fw-bold mb-3 text-uppercase small text-muted letter-spacing-1">Support &amp; Requests (Upcoming)</h5>
-                <div class="row g-4 mb-5">
-                    <div class="col-md-4">
-                        <div class="card stat-card card-purple">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <div class="icon-box">
-                                            <i class="fa fa-ticket"></i>
-                                        </div>
-                                        <div class="stat-value" t-esc="stats.tickets_open"/>
-                                        <div class="stat-label">Open Tickets</div>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="text-success small fw-bold"><i class="fa fa-arrow-up"></i> 12%</span>
-                                        <div class="text-muted small">vs last month</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card stat-card card-info">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <div class="icon-box">
-                                            <i class="fa fa-user-plus"></i>
-                                        </div>
-                                        <div class="stat-value" t-esc="stats.account_requests_pending"/>
-                                        <div class="stat-label">Account Requests</div>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="text-danger small fw-bold"><i class="fa fa-arrow-down"></i> 3%</span>
-                                        <div class="text-muted small">vs yesterday</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="card stat-card bg-white border">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="stat-label">Service Level (SLO)</span>
-                                    <span class="stat-value text-primary" style="font-size: 1.25rem;">94.5%</span>
-                                </div>
-                                <div class="progress" style="height: 8px; border-radius: 4px;">
-                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 94.5%;" aria-valuenow="94.5" aria-valuemin="0" aria-valuemax="100"></div>
-                                </div>
-                                <div class="mt-2 small text-muted">Awaiting 5 pending reviews</div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="row g-4">
-                    <!-- Insights Visualization Mockup -->
-                    <div class="col-lg-8">
-                        <div class="chart-container">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h4 class="mb-0">Asset Lifecycle &amp; Ticket Trends</h4>
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-light border" type="button">
-                                        Monthly <i class="fa fa-chevron-down ms-1"></i>
-                                    </button>
+                    <!-- Distribution Chart -->
+                    <div class="col-lg-4">
+                        <div class="chart-panel h-100 shadow-sm">
+                            <h4 class="mb-4">Status Map</h4>
+                            <div class="donut-wrapper mb-4 shadow-sm rounded-circle" 
+                                 t-attf-style="background: conic-gradient(
+                                    #16a34a 0% {{ (stats.available / (stats.total_assets or 1)) * 100 }}%, 
+                                    #0284c7 {{ (stats.available / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}%, 
+                                    #d97706 {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned + stats.repair) / (stats.total_assets or 1)) * 100 }}%,
+                                    #ef4444 {{ ((stats.available + stats.assigned + stats.repair) / (stats.total_assets or 1)) * 100 }}% 100%
+                                 );">
+                                <div class="donut-hole shadow-inner">
+                                    <span class="hole-value" t-esc="stats.total_assets"/>
+                                    <span class="hole-label">Total</span>
                                 </div>
                             </div>
-                            <!-- Mock Visualization -->
-                            <div class="d-flex align-items-end justify-content-between" style="height: 200px; padding-bottom: 20px;">
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 60%; opacity: 0.6;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 85%; opacity: 0.8;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 45%;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 75%; opacity: 0.7;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 95%;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 55%; opacity: 0.6;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 80%;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 40%; opacity: 0.5;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 65%;"></div>
-                                <div class="bg-primary rounded-top" style="width: 8%; height: 90%;"></div>
-                            </div>
-                            <div class="d-flex justify-content-between text-muted small mt-2">
-                                <span>Jan 01</span><span>Jan 05</span><span>Jan 10</span><span>Jan 15</span><span>Jan 20</span><span>Jan 25</span><span>Jan 30</span>
+                            <!-- Legend -->
+                            <div class="d-flex flex-column gap-2 mt-2 px-2">
+                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-success"></i>Available</span>
+                                    <span t-esc="stats.available"/>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>Assigned</span>
+                                    <span t-esc="stats.assigned"/>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Repair</span>
+                                    <span t-esc="stats.repair"/>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Recent Activities Mockup -->
-                    <div class="col-lg-4">
-                        <div class="chart-container">
-                            <h4 class="mb-4">Recent Activities</h4>
-                            <div class="activity-list">
+                    <!-- Category Bar Chart -->
+                    <div class="col-lg-8">
+                        <div class="chart-panel h-100 shadow-sm">
+                            <h4 class="mb-4">Top Asset Categories</h4>
+                            <div class="category-list">
+                                <t t-foreach="stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
+                                    <div class="category-bar-row">
+                                        <div class="bar-info">
+                                            <span t-esc="cat_data.name"/>
+                                            <span class="text-primary" t-esc="cat_data.count"/>
+                                        </div>
+                                        <div class="bar-track">
+                                            <div class="bar-progress" 
+                                                 t-attf-style="width: {{ (cat_data.count / (stats.total_assets or 1)) * 100 }}%"/>
+                                        </div>
+                                    </div>
+                                </t>
+                                <t t-if="!stats.category_distribution.length">
+                                    <div class="text-center py-5">
+                                        <i class="fa fa-info-circle fa-2x text-muted mb-2"></i>
+                                        <p class="text-muted">No category data found for selected period.</p>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Stats (Support & Recent) -->
+                <div class="row g-4 mt-1">
+                    <div class="col-lg-6">
+                        <div class="chart-panel shadow-sm">
+                            <h4 class="mb-3">Global Service Stats (Upcoming)</h4>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <div class="p-3 bg-light rounded-3 border d-flex align-items-center">
+                                        <div class="me-3 p-2 bg-white rounded shadow-sm"><i class="fa fa-ticket text-primary"></i></div>
+                                        <div>
+                                            <div class="text-muted small fw-bold">ACTIVE TICKETS</div>
+                                            <div class="h4 mb-0 fw-bold" t-esc="stats.tickets_open"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="p-3 bg-light rounded-3 border d-flex align-items-center">
+                                        <div class="me-3 p-2 bg-white rounded shadow-sm"><i class="fa fa-user-plus text-success"></i></div>
+                                        <div>
+                                            <div class="text-muted small fw-bold">ACCOUNTS REQ</div>
+                                            <div class="h4 mb-0 fw-bold" t-esc="stats.account_requests_pending"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div class="chart-panel shadow-sm">
+                            <h4 class="mb-3">Recent Operations</h4>
+                            <div class="activity-log">
                                 <t t-foreach="stats.recent_activities" t-as="activity" t-key="activity.id">
-                                    <div class="activity-item d-flex align-items-center">
-                                        <div t-attf-class="activity-icon me-3 bg-{{activity.status}} bg-opacity-10 text-{{activity.status}}">
+                                    <div class="log-entry">
+                                        <div class="entry-icon shadow-sm">
                                             <i t-if="activity.type == 'ticket'" class="fa fa-ticket"></i>
                                             <i t-if="activity.type == 'request'" class="fa fa-user-plus"></i>
                                             <i t-if="activity.type == 'asset'" class="fa fa-laptop"></i>
                                         </div>
                                         <div class="flex-grow-1">
                                             <div class="fw-bold small" t-esc="activity.title"/>
-                                            <div class="text-muted" style="font-size: 0.75rem;">
-                                                <span t-esc="activity.user"/> • <span t-esc="activity.time"/>
-                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;" t-esc="activity.time"/>
                                         </div>
-                                        <div>
-                                            <span t-attf-class="badge-soft bg-{{activity.status}}" t-esc="activity.status"/>
-                                        </div>
+                                        <span t-attf-class="badge rounded-pill bg-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} bg-opacity-10 text-{{activity.status === 'new' ? 'success' : (activity.status === 'pending' ? 'warning' : 'primary')}} small px-3">
+                                            <t t-esc="activity.status.toUpperCase()"/>
+                                        </span>
                                     </div>
                                 </t>
-                            </div>
-                            <div class="text-center mt-4">
-                                <button class="btn btn-link btn-sm text-decoration-none fw-bold">View All Activities</button>
                             </div>
                         </div>
                     </div>
                 </div>
+                
+                <!-- Bottom spacing for aesthetic scroll -->
+                <div style="height: 40px;"></div>
             </div>
         </div>
     </t>
