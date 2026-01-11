@@ -84,6 +84,11 @@
                         </page>
                     </notebook>
                 </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers"/>
+                    <field name="activity_ids" widget="mail_activity"/>
+                    <field name="message_ids" widget="mail_thread"/>
+                </div>
             </form>
         </field>
     </record>
@@ -122,30 +127,12 @@
         <field name="name">Assets</field>
         <field name="res_model">it_asset.asset</field>
         <field name="view_mode">list,form</field>
-        <field name="domain">[('is_consumable', '=', False)]</field>
-        <field name="context">{'default_is_consumable': False, 'search_default_permanent': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Create your first IT Asset!
             </p>
             <p>
-                Track laptops, monitors, and other permanent hardware here.
-            </p>
-        </field>
-    </record>
-
-    <record id="action_it_consumable" model="ir.actions.act_window">
-        <field name="name">Consumables</field>
-        <field name="res_model">it_asset.asset</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('is_consumable', '=', True)]</field>
-        <field name="context">{'default_is_consumable': True, 'search_default_consumable': 1}</field>
-        <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">
-                Add IT Consumables!
-            </p>
-            <p>
-                Track items like mouse, keyboard, cables, or toner.
+                Track laptops, monitors, mouse, and other IT equipment here.
             </p>
         </field>
     </record>
@@ -168,10 +155,4 @@
               parent="it_asset_menu_management" 
               action="action_it_asset" 
               sequence="10"/>
-
-    <menuitem id="it_asset_menu_consumables" 
-              name="Consumables" 
-              parent="it_asset_menu_management" 
-              action="action_it_consumable" 
-              sequence="20"/>
 </odoo>

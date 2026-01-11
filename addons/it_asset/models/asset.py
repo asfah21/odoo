@@ -2,30 +2,35 @@ from odoo import models, fields, api
 
 class ITAsset(models.Model):
     _name = 'it_asset.asset'
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'IT Asset'
 
-    name = fields.Char(string='Asset Name', required=True)
-    model = fields.Char(string='Model')
+    name = fields.Char(string='Asset Name', required=True, tracking=True)
+    model = fields.Char(string='Model', tracking=True)
     specification = fields.Text(string='Spesifikasi')
     product_id = fields.Many2one(
         'product.product',
         string='Product',
         required=True,
-        ondelete='restrict'
+        ondelete='restrict',
+        tracking=True
     )
-    asset_tag = fields.Char(string='Asset Tag')
+    asset_tag = fields.Char(string='Asset Tag', tracking=True)
     category_id = fields.Many2one(
         'it_asset.category',
-        string='Category'
+        string='Category',
+        tracking=True
     )
     is_consumable = fields.Boolean(related='category_id.is_consumable', store=True)
     lot_id = fields.Many2one(
         'stock.lot',
-        string='Serial Number'
+        string='Serial Number',
+        tracking=True
     )
     employee_id = fields.Many2one(
         'hr.employee',
-        string='Assigned To'
+        string='Assigned To',
+        tracking=True
     )
     state = fields.Selection(
         [
@@ -35,7 +40,8 @@ class ITAsset(models.Model):
             ('retired', 'Retired'),
         ],
         string='Status',
-        default='available'
+        default='available',
+        tracking=True
     )
     assignment_ids = fields.One2many(
         'it_asset.assignment',

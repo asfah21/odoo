@@ -1,11 +1,11 @@
 {
     'name': 'IT Department',
     'version': '1.0.0',
-    'summary': 'Centralized IT management for PT GSI – site Wolo',
+    'summary': 'Centralized IT management for PT GSI – Site Wolo',
     'sequence': 1,
     'category': 'IT',
     'author': 'Azvan',
-    'depends': ['base', 'product', 'hr', 'stock', 'web'],
+    'depends': ['base', 'product', 'hr', 'stock', 'web', 'mail'],
     'data': [
         'security/ir.model.access.csv',
         'views/asset_views.xml',
@@ -13,6 +13,8 @@
         'views/asset_category_views.xml',
         'views/asset_assignment_views.xml',
         'views/asset_maintenance_views.xml',
+        'report/asset_report.xml',
+        'report/asset_report_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [

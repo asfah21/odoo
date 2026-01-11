@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_asset_handover_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page">
+                        <div class="oe_structure"/>
+                        
+                        <div class="text-center" style="border-bottom: 2px solid black; margin-bottom: 20px;">
+                            <h2>BERITA ACARA SERAH TERIMA ASSET IT</h2>
+                            <p>Nomor: BAST/<t t-out="datetime.datetime.now().year"/>/<t t-out="o.id"/></p>
+                        </div>
+
+                        <p>Pada hari ini, <strong><t t-out="context_timestamp(datetime.datetime.now()).strftime('%d %B %Y')"/></strong>, yang bertanda tangan di bawah ini:</p>
+
+                        <table class="table table-sm table-borderless" style="margin-left: 20px;">
+                            <tr>
+                                <td style="width: 30%;">Nama Karyawan</td>
+                                <td>: <span t-field="o.employee_id.name"/></td>
+                            </tr>
+                            <tr>
+                                <td>Jabatan / Dept</td>
+                                <td>: <span t-field="o.employee_id.job_id.name"/> / <span t-field="o.employee_id.department_id.name"/></td>
+                            </tr>
+                        </table>
+
+                        <p>Telah menerima asset IT dari Departemen IT dengan rincian sebagai berikut:</p>
+
+                        <table class="table table-bordered">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Asset Tag</th>
+                                    <th>Nama Asset</th>
+                                    <th>Model / Serial Number</th>
+                                    <th>Spesifikasi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span t-field="o.asset_tag"/></td>
+                                    <td><span t-field="o.name"/></td>
+                                    <td>
+                                        <span t-field="o.model"/><br/>
+                                        SN: <span t-field="o.lot_id.name"/>
+                                    </td>
+                                    <td><span t-field="o.specification"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin-top: 30px;">
+                            <strong>Ketetapan &amp; Kewajiban:</strong>
+                            <ol>
+                                <li>Penerima bertanggung jawab penuh atas keamanan dan perawatan asset tersebut.</li>
+                                <li>Asset ini hanya digunakan untuk kepentingan operasional perusahaan.</li>
+                                <li>Apabila terjadi kerusakan atau kehilangan karena kelalaian, akan mengikuti kebijakan perusahaan yang berlaku.</li>
+                                <li>Asset harus dikembalikan dalam kondisi baik saat masa tugas berakhir.</li>
+                            </ol>
+                        </div>
+
+                        <div class="row mt-5">
+                            <div class="col-6 text-center">
+                                <p>Yang Menyerahkan,</p>
+                                <br/><br/><br/>
+                                <p>( IT Administrator )</p>
+                            </div>
+                            <div class="col-6 text-center">
+                                <p>Yang Menerima,</p>
+                                <br/><br/><br/>
+                                <p>( <span t-field="o.employee_id.name"/> )</p>
+                            </div>
+                        </div>
+
+                        <div class="oe_structure"/>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

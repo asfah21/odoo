@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_report_asset_handover" model="ir.actions.report">
+        <field name="name">Berita Acara Serah Terima (BAST)</field>
+        <field name="model">it_asset.asset</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_asset_handover_template</field>
+        <field name="report_file">it_asset.report_asset_handover_template</field>
+        <field name="print_report_name">'BAST - %s - %s' % (object.asset_tag or object.name, object.employee_id.name or 'Unknown')</field>
+        <field name="binding_model_id" ref="model_it_asset_asset"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>
