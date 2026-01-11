@@ -8,6 +8,7 @@
                 <field name="asset_tag"/>
                 <field name="name"/>
                 <field name="model"/>
+                <field name="specification"/>
                 <field name="category_id"/>
                 <field name="product_id"/>
                 <field name="lot_id"/>
@@ -43,6 +44,10 @@
                         <h3>
                             <field name="model" placeholder="e.g. A2338..."/>
                         </h3>
+                        <label for="specification" string="Spesifikasi"/>
+                        <div>
+                            <field name="specification" placeholder="e.g. RAM 16GB, SSD 512GB..."/>
+                        </div>
                     </div>
                     <group>
                         <group>
@@ -88,8 +93,10 @@
         <field name="model">it_asset.asset</field>
         <field name="arch" type="xml">
             <search string="Search IT Assets">
-                <field name="name" string="Asset" filter_domain="['|', '|', ('name', 'ilike', self), ('asset_tag', 'ilike', self), ('model', 'ilike', self)]"/>
+                <field name="name" string="Asset" filter_domain="['|', '|', '|', ('name', 'ilike', self), ('asset_tag', 'ilike', self), ('model', 'ilike', self), ('specification', 'ilike', self)]"/>
                 <field name="asset_tag"/>
+                <field name="model"/>
+                <field name="specification"/>
                 <field name="category_id"/>
                 <field name="employee_id"/>
                 <field name="product_id"/>
@@ -112,7 +119,7 @@
     </record>
 
     <record id="action_it_asset" model="ir.actions.act_window">
-        <field name="name">Permanent Assets</field>
+        <field name="name">Assets</field>
         <field name="res_model">it_asset.asset</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('is_consumable', '=', False)]</field>

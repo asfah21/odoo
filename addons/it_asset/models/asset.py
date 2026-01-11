@@ -6,6 +6,7 @@ class ITAsset(models.Model):
 
     name = fields.Char(string='Asset Name', required=True)
     model = fields.Char(string='Model')
+    specification = fields.Text(string='Spesifikasi')
     product_id = fields.Many2one(
         'product.product',
         string='Product',
