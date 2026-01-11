@@ -5,17 +5,19 @@ class ITAsset(models.Model):
     _description = 'IT Asset'
 
     name = fields.Char(string='Asset Name', required=True)
+    model = fields.Char(string='Model')
     product_id = fields.Many2one(
         'product.product',
         string='Product',
         required=True,
         ondelete='restrict'
     )
-    asset_tag = fields.Char(string='Asset Tag', required=True)
+    asset_tag = fields.Char(string='Asset Tag')
     category_id = fields.Many2one(
         'it_asset.category',
         string='Category'
     )
+    is_consumable = fields.Boolean(related='category_id.is_consumable', store=True)
     lot_id = fields.Many2one(
         'stock.lot',
         string='Serial Number'
@@ -50,8 +52,19 @@ class ITAsset(models.Model):
             'unique_lot_id',
             'unique(lot_id)',
             'This serial number is already assigned to another asset.'
+        ),
+        (
+            'unique_asset_tag',
+            'unique(asset_tag)',
+            'Asset Tag must be unique!'
         )
     ]
+
+    @api.constrains('asset_tag', 'is_consumable')
+    def _check_asset_tag(self):
+        for record in self:
+            if not record.is_consumable and not record.asset_tag:
+                raise models.ValidationError("Asset Tag is required for non-consumable assets.")
 
     @api.onchange('product_id')
     def _onchange_product_id(self):

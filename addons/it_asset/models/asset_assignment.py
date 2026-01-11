@@ -27,6 +27,14 @@ class ITAssetAssignment(models.Model):
         ('returned', 'Returned')
     ], string='Status', default='active')
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            asset = self.env['it_asset.asset'].browse(vals.get('asset_id'))
+            if asset.is_consumable:
+                raise models.ValidationError("Consumable items cannot be assigned to employees.")
+        return super().create(vals_list)
+
     def action_return(self):
         for record in self:
             record.write({

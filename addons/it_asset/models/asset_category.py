@@ -7,3 +7,4 @@ class ITAssetCategory(models.Model):
     name = fields.Char(string='Category Name', required=True)
     description = fields.Text(string='Description')
     color = fields.Integer(string='Color')
+    is_consumable = fields.Boolean(string='Is Consumable', default=False)

@@ -1,0 +1,20 @@
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important; // Modern purple-blue fallback
+    background-image: url('/it_asset/static/src/img/login_bg.png') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+
+    // Menambahkan sedikit overlay agar form login tetap terbaca dengan jelas
+    &::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.05);
+        z-index: -1;
+    }
+}

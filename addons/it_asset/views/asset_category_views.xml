@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <list string="Asset Categories" editable="bottom">
                 <field name="name"/>
+                <field name="is_consumable"/>
                 <field name="description"/>
             </list>
         </field>
