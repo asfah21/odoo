@@ -17,9 +17,8 @@ export class ITAssetDashboard extends Component {
             total_assets: 0,
             available: 0,
             assigned: 0,
-            repair: 0,
-            tickets_open: 12,
-            account_requests_pending: 8,
+            unavailable_broken: 0,
+            maintenance_count: 0,
             recent_activities: [],
             state_distribution: [],
             category_distribution: []
@@ -44,12 +43,9 @@ export class ITAssetDashboard extends Component {
         this.stats = {
             ...this.stats,
             ...res,
-            tickets_open: 12,
-            account_requests_pending: 8,
             recent_activities: [
-                { id: 1, type: 'ticket', title: 'Keyboard not working', user: 'Agus', time: '2 mins ago', status: 'new' },
-                { id: 2, type: 'request', title: 'New ERP Account', user: 'Siti', time: '15 mins ago', status: 'pending' },
-                { id: 3, type: 'asset', title: 'Macbook Air M2 Assigned', user: 'Budi', time: '1 hour ago', status: 'done' },
+                { id: 1, type: 'asset', title: 'Asset audit completed', user: 'Admin', time: 'Just now', status: 'done' },
+                { id: 2, type: 'asset', title: 'New laptop registered', user: 'Admin', time: '1 hour ago', status: 'new' },
             ]
         };
     }
@@ -70,7 +66,20 @@ export class ITAssetDashboard extends Component {
     openView(state) {
         let domain = [];
         let name = "All Assets";
-        if (state !== 'all') {
+
+        if (state === 'unavailable') {
+            domain = [['condition', '=', 'broken']];
+            name = "Broken Assets (Unavailable)";
+        } else if (state === 'maintenance_logs') {
+            this.action.doAction({
+                type: 'ir.actions.act_window',
+                name: "Maintenance History",
+                res_model: 'it_asset.maintenance',
+                views: [[false, 'list'], [false, 'form']],
+                target: 'current',
+            });
+            return;
+        } else if (state !== 'all') {
             domain = [['state', '=', state]];
             name = state.charAt(0).toUpperCase() + state.slice(1) + " Assets";
         }

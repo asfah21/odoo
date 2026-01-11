@@ -39,7 +39,8 @@
                 <!-- Summary Section -->
                 <div class="section-header">INVENTORY STATUS</div>
                 <div class="row g-3 mb-4">
-                    <div class="col-6 col-md-3">
+                    <!-- Total Assets -->
+                    <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-purple" t-on-click="() => this.openView('all')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
@@ -48,7 +49,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <!-- Available -->
+                    <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-green" t-on-click="() => this.openView('available')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-check-circle"></i></div>
@@ -57,7 +59,8 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <!-- Assigned -->
+                    <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-blue" t-on-click="() => this.openView('assigned')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
@@ -66,12 +69,23 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
-                        <div class="modern-card card-amber" t-on-click="() => this.openView('repair')">
+                    <!-- Unavailable -->
+                    <div class="col-6 col-md-4 col-xl">
+                        <div class="modern-card card-red" t-on-click="() => this.openView('unavailable')">
+                            <div class="card-body">
+                                <div class="icon-circle shadow-sm"><i class="fa fa-ban text-danger"></i></div>
+                                <div class="stat-label">Unavailable</div>
+                                <div class="stat-value" t-esc="stats.unavailable_broken"/>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Maintenance -->
+                    <div class="col-6 col-md-4 col-xl">
+                        <div class="modern-card card-amber" t-on-click="() => this.openView('maintenance_logs')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
                                 <div class="stat-label">Maintenance</div>
-                                <div class="stat-value" t-esc="stats.repair"/>
+                                <div class="stat-value" t-esc="stats.maintenance_count"/>
                             </div>
                         </div>
                     </div>
@@ -86,8 +100,7 @@
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (stats.available / (stats.total_assets or 1)) * 100 }}%, 
                                     #0284c7 {{ (stats.available / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}%, 
-                                    #d97706 {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned + stats.repair) / (stats.total_assets or 1)) * 100 }}%,
-                                    #ef4444 {{ ((stats.available + stats.assigned + stats.repair) / (stats.total_assets or 1)) * 100 }}% 100%
+                                    #ef4444 {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}% 100%
                                  );">
                                 <div class="donut-hole shadow-inner">
                                     <span class="hole-value" t-esc="stats.total_assets"/>
@@ -95,7 +108,6 @@
                                 </div>
                             </div>
                             <!-- Legend -->
-                            <div class="d-flex flex-column gap-2 mt-2 px-2">
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-success"></i>Available</span>
                                     <span t-esc="stats.available"/>
@@ -105,15 +117,14 @@
                                     <span t-esc="stats.assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Repair</span>
-                                    <span t-esc="stats.repair"/>
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
+                                    <span t-esc="stats.unavailable_broken"/>
                                 </div>
-                            </div>
                         </div>
                     </div>
 
                     <!-- Category Bar Chart -->
-                    <div class="col-12 col-lg-7 col-xl-8">
+                    <div class="col-12 col-lg-4 col-xl-5">
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-4">Top Asset Categories</h4>
                             <div class="category-list">
@@ -129,13 +140,29 @@
                                         </div>
                                     </div>
                                 </t>
-                                <t t-if="!stats.category_distribution.length">
-                                    <div class="text-center py-5">
-                                        <i class="fa fa-info-circle fa-2x text-muted mb-2"></i>
-                                        <p class="text-muted">No category data found for selected period.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Laptop Condition Column Chart -->
+                    <div class="col-12 col-lg-3 col-xl-3">
+                        <div class="chart-panel shadow-sm">
+                            <h4 class="mb-4">Laptop Condition</h4>
+                            <div class="d-flex align-items-end justify-content-around h-75 mt-4">
+                                <t t-foreach="stats.laptop_condition_distribution" t-as="cond" t-key="cond.label">
+                                    <div class="d-flex flex-column align-items-center flex-grow-1">
+                                        <div class="fw-bold mb-2 small" t-esc="cond.count"/>
+                                        <div class="column-bar shadow-sm"
+                                             t-attf-style="height: {{ cond.perc }}px; background-color: {{ cond.color }}; width: 30px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
+                                        <div class="mt-2 small text-muted text-center" style="font-size: 0.65rem;" t-esc="cond.label"/>
                                     </div>
                                 </t>
                             </div>
+                            <t t-if="!stats.laptop_condition_distribution.length">
+                                <div class="text-center py-4">
+                                    <span class="small text-muted">No Laptop found</span>
+                                </div>
+                            </t>
                         </div>
                     </div>
                 </div>

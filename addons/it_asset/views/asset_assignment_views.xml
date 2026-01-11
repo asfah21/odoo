@@ -15,14 +15,14 @@
     </record>
 
     <record id="action_it_asset_assignment" model="ir.actions.act_window">
-        <field name="name">Assignments</field>
+        <field name="name">Assignments History</field>
         <field name="res_model">it_asset.assignment</field>
         <field name="view_mode">list,form</field>
     </record>
 
     <!-- Pindah ke bawah dropdown parent -->
     <menuitem id="it_asset_menu_assignments" 
-              name="Assignments" 
+              name="Assignments History" 
               parent="it_asset_menu_management" 
               action="action_it_asset_assignment" 
               sequence="20"/>

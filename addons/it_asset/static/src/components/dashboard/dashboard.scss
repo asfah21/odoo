@@ -167,6 +167,13 @@
             }
         }
 
+        &.card-red {
+            .icon-circle {
+                background: #fee2e2;
+                color: #ef4444;
+            }
+        }
+
         .stat-label {
             font-size: 0.813rem;
             font-weight: 600;

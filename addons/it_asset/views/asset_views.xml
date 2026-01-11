@@ -8,16 +8,19 @@
                 <field name="asset_tag"/>
                 <field name="name"/>
                 <field name="model"/>
-                <field name="specification"/>
                 <field name="category_id"/>
-                <field name="product_id"/>
-                <field name="lot_id"/>
                 <field name="employee_id"/>
-                <field name="state" widget="badge" 
+                <field name="state" 
                        decoration-info="state == 'available'" 
-                       decoration-success="state == 'assigned'"
-                       decoration-warning="state == 'repair'"
-                       decoration-danger="state == 'retired'"/>
+                       decoration-success="state == 'assigned'" 
+                       decoration-warning="state == 'repair'" 
+                       decoration-danger="state == 'retired'" 
+                       widget="badge"/>
+                <field name="condition"
+                       decoration-success="condition == 'good'"
+                       decoration-warning="condition == 'damaged'"
+                       decoration-danger="condition == 'broken'"
+                       widget="badge"/>
             </list>
         </field>
     </record>
@@ -25,42 +28,42 @@
     <record id="view_it_asset_form" model="ir.ui.view">
         <field name="name">it.asset.form</field>
         <field name="model">it_asset.asset</field>
+        <field name="priority">1</field>
         <field name="arch" type="xml">
-            <form string="IT">
+            <form>
                 <header>
                     <field name="state" widget="statusbar" statusbar_visible="available,assigned,repair,retired"/>
                 </header>
                 <sheet>
-                    <field name="is_consumable" invisible="1"/>
+                    <field name="is_stock_synced" invisible="1"/>
                     <div class="oe_title">
-                        <h1 invisible="is_consumable">
+                        <label for="asset_tag" class="oe_edit_only"/>
+                        <h1>
                             <field name="asset_tag" placeholder="Asset Tag..."/>
                         </h1>
-                        <label for="name" string="Asset Name"/>
+                        <label for="name" class="oe_edit_only"/>
                         <h2>
                             <field name="name" placeholder="e.g. MacBook Pro..."/>
                         </h2>
-                        <label for="model" string="Model"/>
+                        <label for="model" class="oe_edit_only"/>
                         <h3>
                             <field name="model" placeholder="e.g. A2338..."/>
                         </h3>
-                        <label for="specification" string="Spesifikasi"/>
-                        <div>
-                            <field name="specification" placeholder="e.g. RAM 16GB, SSD 512GB..."/>
-                        </div>
                     </div>
                     <group>
                         <group>
                             <field name="category_id"/>
+                            <field name="is_consumable" invisible="1"/>
+                            <field name="specification"/>
                             <field name="product_id"/>
-                            <field name="lot_id" domain="[('product_id', '=', product_id)]" context="{'default_product_id': product_id}" invisible="is_consumable"/>
+                            <field name="lot_id" domain="[('product_id', '=', product_id)]" invisible="is_consumable == True"/>
                         </group>
                         <group>
-                            <field name="employee_id" invisible="is_consumable"/>
+                            <field name="employee_id" invisible="is_consumable == True"/>
                         </group>
                     </group>
-                    <notebook invisible="is_consumable">
-                        <page string="Assignment History" name="assignments">
+                    <notebook>
+                        <page string="Assignment History" name="assignments" invisible="is_consumable == True">
                             <field name="assignment_ids">
                                 <list editable="bottom">
                                     <field name="employee_id"/>
@@ -71,7 +74,7 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Maintenance History" name="maintenance">
+                        <page string="Maintenance History" name="maintenance" invisible="is_consumable == True">
                             <field name="maintenance_ids">
                                 <list editable="bottom">
                                     <field name="maintenance_date"/>
@@ -82,13 +85,19 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Asset Details" name="asset_details">
+                            <group>
+                                <group>
+                                    <field name="category_id" options="{'no_create': True}"/>
+                                    <field name="state" widget="radio" options="{'horizontal': True}"/>
+                                    <field name="condition" widget="radio" options="{'horizontal': True}"/>
+                                    <field name="is_consumable" invisible="1"/>
+                                </group>
+                            </group>
+                        </page>
                     </notebook>
                 </sheet>
-                <div class="oe_chatter">
-                    <field name="message_follower_ids" widget="mail_followers"/>
-                    <field name="activity_ids" widget="mail_activity"/>
-                    <field name="message_ids" widget="mail_thread"/>
-                </div>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -112,11 +121,15 @@
                 <separator/>
                 <filter string="Consumables" name="consumable" domain="[('is_consumable', '=', True)]"/>
                 <filter string="Permanent Assets" name="permanent" domain="[('is_consumable', '=', False)]"/>
+                <separator/>
+                <filter string="Damaged" name="damaged_condition" domain="[('condition', 'in', ('damaged', 'broken'))]"/>
+                <filter string="Damaged &amp; Assigned" name="damaged_assigned" domain="[('condition', 'in', ('damaged', 'broken')), ('state', '=', 'assigned')]"/>
                 
                 <group expand="0" string="Group By">
-                    <filter string="Category" name="group_category" context="{'group_by': 'category_id'}"/>
-                    <filter string="Status" name="group_status" context="{'group_by': 'state'}"/>
-                    <filter string="Employee" name="group_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Category" name="group_by_category" context="{'group_by': 'category_id'}"/>
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                    <filter string="Condition" name="group_by_condition" context="{'group_by': 'condition'}"/>
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
                     <filter string="Product" name="group_product" context="{'group_by': 'product_id'}"/>
                 </group>
             </search>
@@ -155,4 +168,16 @@
               parent="it_asset_menu_management" 
               action="action_it_asset" 
               sequence="10"/>
+
+    <record id="action_it_asset_sync_inventory" model="ir.actions.server">
+        <field name="name">Sync with Inventory</field>
+        <field name="model_id" ref="model_it_asset_asset"/>
+        <field name="binding_model_id" ref="model_it_asset_asset"/>
+        <field name="binding_view_types">form</field>
+        <field name="state">code</field>
+        <field name="code">
+            if record:
+                record.action_sync_inventory()
+        </field>
+    </record>
 </odoo>
