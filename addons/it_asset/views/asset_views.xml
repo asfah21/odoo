@@ -9,6 +9,7 @@
                 <field name="name"/>
                 <field name="model"/>
                 <field name="category_id"/>
+                <field name="product_id"/>
                 <field name="employee_id"/>
                 <field name="state" 
                        decoration-info="state == 'available'" 
