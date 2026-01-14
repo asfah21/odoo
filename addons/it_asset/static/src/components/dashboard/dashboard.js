@@ -81,7 +81,8 @@ export class ITAssetDashboard extends Component {
             return;
         } else if (state !== 'all') {
             domain = [['state', '=', state]];
-            name = state.charAt(0).toUpperCase() + state.slice(1) + " Assets";
+            const formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            name = formattedState + " Assets";
         }
 
         this.action.doAction({

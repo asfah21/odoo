@@ -11,16 +11,18 @@
                 <field name="specification"/>
                 <field name="category_id"/>
                 <field name="product_id"/>
-                <field name="employee_id"/>
+                <field name="usage_type" optional="show"/>
+                <field name="employee_id" invisible="usage_type == 'shared'"/>
+                <field name="shared_location" invisible="usage_type == 'personal'" optional="hide"/>
                 <field name="state" 
                        decoration-info="state == 'available'" 
-                       decoration-success="state == 'assigned'" 
-                       decoration-warning="state == 'repair'" 
+                       decoration-success="state == 'in_use'" 
+                       decoration-warning="state == 'maintenance'" 
                        decoration-danger="state == 'retired'" 
                        widget="badge"/>
                 <field name="condition"
                        decoration-success="condition == 'good'"
-                       decoration-warning="condition == 'damaged'"
+                       decoration-warning="condition == 'degraded'"
                        decoration-danger="condition == 'broken'"
                        widget="badge"/>
             </list>
@@ -34,7 +36,7 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="available,assigned,repair,retired"/>
+                    <field name="state" widget="statusbar" statusbar_visible="available,in_use,maintenance,retired"/>
                 </header>
                 <sheet>
                     <field name="is_stock_synced" invisible="1"/>
@@ -54,14 +56,17 @@
                     </div>
                     <group>
                         <group>
-                            <field name="category_id"/>
+                            <field name="usage_type" widget="radio" options="{'horizontal': true}" readonly="state == 'retired'"/>
+                            <field name="category_id" readonly="state == 'retired'"/>
                             <field name="is_consumable" invisible="1"/>
-                            <field name="specification"/>
-                            <field name="product_id"/>
-                            <field name="lot_id" domain="[('product_id', '=', product_id)]" invisible="is_consumable == True"/>
+                            <field name="specification" readonly="state == 'retired'"/>
+                            <field name="product_id" readonly="state == 'retired'"/>
+                            <field name="lot_id" domain="[('product_id', '=', product_id)]" invisible="is_consumable == True" readonly="state == 'retired'"/>
                         </group>
                         <group>
-                            <field name="employee_id" invisible="is_consumable == True"/>
+                            <field name="employee_id" invisible="usage_type == 'shared' or is_consumable == True" readonly="state == 'retired'"/>
+                            <field name="shared_location" invisible="usage_type == 'personal'" readonly="state == 'retired'"/>
+                            <field name="shared_pic" invisible="usage_type == 'personal'" readonly="state == 'retired'"/>
                         </group>
                     </group>
                     <notebook>
@@ -118,14 +123,14 @@
                 <field name="product_id"/>
                 
                 <filter string="Available" name="available" domain="[('state', '=', 'available')]"/>
-                <filter string="Assigned" name="assigned" domain="[('state', '=', 'assigned')]"/>
-                <filter string="In Repair" name="repair" domain="[('state', '=', 'repair')]"/>
+                <filter string="In Use" name="in_use" domain="[('state', '=', 'in_use')]"/>
+                <filter string="Maintenance" name="maintenance" domain="[('state', '=', 'maintenance')]"/>
                 <separator/>
                 <filter string="Consumables" name="consumable" domain="[('is_consumable', '=', True)]"/>
                 <filter string="Permanent Assets" name="permanent" domain="[('is_consumable', '=', False)]"/>
                 <separator/>
-                <filter string="Damaged" name="damaged_condition" domain="[('condition', 'in', ('damaged', 'broken'))]"/>
-                <filter string="Damaged &amp; Assigned" name="damaged_assigned" domain="[('condition', 'in', ('damaged', 'broken')), ('state', '=', 'assigned')]"/>
+                <filter string="Degraded" name="degraded_condition" domain="[('condition', 'in', ('degraded', 'broken'))]"/>
+                <filter string="Degraded &amp; In Use" name="degraded_in_use" domain="[('condition', 'in', ('degraded', 'broken')), ('state', '=', 'in_use')]"/>
                 
                 <group expand="0" string="Group By">
                     <filter string="Category" name="group_by_category" context="{'group_by': 'category_id'}"/>

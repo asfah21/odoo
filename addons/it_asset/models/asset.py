@@ -22,16 +22,24 @@ class ITAsset(models.Model):
     
     state = fields.Selection([
         ('available', 'Available'),
-        ('assigned', 'Assigned'),
-        ('repair', 'Under Repair'),
+        ('in_use', 'In Use'),
+        ('maintenance', 'Maintenance'),
         ('retired', 'Retired'),
     ], string='Status', default='available', tracking=True)
     
     condition = fields.Selection([
         ('good', 'Good'),
-        ('damaged', 'Damaged'),
+        ('degraded', 'Degraded'),
         ('broken', 'Broken'),
     ], string='Condition', default='good', tracking=True)
+
+    usage_type = fields.Selection([
+        ('personal', 'Personal'),
+        ('shared', 'Shared'),
+    ], string='Usage Type', default='personal', required=True, tracking=True)
+
+    shared_location = fields.Char(string='Location (Shared)', tracking=True)
+    shared_pic = fields.Char(string='PIC (Shared)', tracking=True)
     
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
@@ -55,12 +63,14 @@ class ITAsset(models.Model):
             if vals.get('product_id'):
                 product = self.env['product.product'].browse(vals['product_id'])
                 if product.type in ['product', 'storable']:
-                    if vals.get('employee_id'):
-                        vals['state'] = 'assigned'
+                    if vals.get('usage_type') == 'shared':
+                         vals['state'] = 'in_use' # Shared assets are "In Use" by location
+                    elif vals.get('employee_id'):
+                        vals['state'] = 'in_use'
                         vals['is_stock_synced'] = True
                     
                     # Pre-flight check (No manual locking)
-                    if vals.get('state', 'available') not in ('retired', 'repair'):
+                    if vals.get('state', 'available') not in ('retired', 'maintenance'):
                         self._preflight_stock_check(product, vals.get('lot_id'))
 
         records = super(ITAsset, self).create(vals_list)
@@ -73,10 +83,21 @@ class ITAsset(models.Model):
         return records
 
     def write(self, vals):
+        # 1. Enforce Retired Read-Only Policy
+        if any(r.state == 'retired' for r in self) and 'state' not in vals:
+             raise UserError(_("Retired assets are read-only. Reactivate the asset to make changes."))
+
+        # 2. Logic: Broken -> Maintenance
+        if vals.get('condition') == 'broken':
+            vals['state'] = 'maintenance'
+
+        # 3. Usage Type Logic
         if 'employee_id' in vals:
-            vals['state'] = 'assigned' if vals['employee_id'] else 'available'
             if vals['employee_id']:
+                vals['state'] = 'in_use'
                 vals['is_stock_synced'] = True
+            else:
+                 vals['state'] = 'available'
 
         if any(k in vals for k in ['product_id', 'lot_id', 'state']):
             for record in self:
@@ -85,7 +106,7 @@ class ITAsset(models.Model):
                 st = vals.get('state', record.state)
                 product = self.env['product.product'].browse(p_id)
                 
-                if product.type in ['product', 'storable'] and st not in ['retired', 'repair']:
+                if product.type in ['product', 'storable'] and st not in ['retired', 'maintenance']:
                     self._preflight_stock_check(product, l_id)
 
         old_employees = {r.id: r.employee_id.id for r in self}
@@ -209,7 +230,7 @@ class ITAsset(models.Model):
         for state, condition, count in groups:
             stats['total_assets'] += count
             if state == 'available' and condition != 'broken': stats['available'] += count
-            if state == 'assigned': stats['assigned'] += count
+            if state == 'in_use': stats['assigned'] += count
             if condition == 'broken': stats['unavailable_broken'] += count
 
         # 2. Category Distribution
@@ -250,7 +271,7 @@ class ITAsset(models.Model):
         total = sum(data_map.values()) or 1
         definitions = [
             ('good', 'Good', '#22c55e'),
-            ('damaged', 'Damaged', '#f59e0b'),
+            ('degraded', 'Degraded', '#f59e0b'),
             ('broken', 'Broken', '#ef4444')
         ]
         

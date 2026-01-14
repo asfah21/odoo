@@ -59,12 +59,12 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Assigned -->
+                    <!-- In Use -->
                     <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-blue" t-on-click="() => this.openView('assigned')">
+                        <div class="modern-card card-blue" t-on-click="() => this.openView('in_use')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
-                                <div class="stat-label">Assigned</div>
+                                <div class="stat-label">In Use</div>
                                 <div class="stat-value" t-esc="stats.assigned"/>
                             </div>
                         </div>
@@ -113,7 +113,7 @@
                                     <span t-esc="stats.available"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>Assigned</span>
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
                                     <span t-esc="stats.assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
