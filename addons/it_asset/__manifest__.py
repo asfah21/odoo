@@ -9,6 +9,7 @@
     'data': [
         'security/ir.model.access.csv',
         'views/asset_views.xml',
+        'views/consumable_views.xml',
         'views/dashboard_views.xml',
         'views/asset_category_views.xml',
         'views/asset_assignment_views.xml',

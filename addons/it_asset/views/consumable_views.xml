@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_consumable_list" model="ir.ui.view">
+        <field name="name">it.consumable.list</field>
+        <field name="model">it_asset.consumable</field>
+        <field name="arch" type="xml">
+            <list string="Consumables">
+                <field name="name"/>
+                <field name="quantity" decoration-danger="quantity &lt; min_quantity"/>
+                <field name="min_quantity" optional="hide"/>
+                <field name="product_id" optional="show"/>
+                <field name="description" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_consumable_form" model="ir.ui.view">
+        <field name="name">it.consumable.form</field>
+        <field name="model">it_asset.consumable</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Mouse Battery AA"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="quantity"/>
+                            <field name="min_quantity"/>
+                        </group>
+                        <group>
+                            <field name="product_id"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Description">
+                            <field name="description" placeholder="Internal notes..."/>
+                        </page>
+                        <page string="Notes">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_it_consumable_search" model="ir.ui.view">
+        <field name="name">it.consumable.search</field>
+        <field name="model">it_asset.consumable</field>
+        <field name="arch" type="xml">
+            <search string="Search Consumables">
+                <field name="name"/>
+                <field name="product_id"/>
+                <filter string="Low Stock" name="low_stock" domain="[('quantity', '&lt;', 5)]"/> 
+                <!-- Note: domain uses literal 5 instead of field because basic search domains don't support field-to-field comparison directly in XML easily without context/advanced domains, 
+                     but for simplicity we use a static value or we can ignore. 
+                     Better: removed automated field comparison in filters to avoid errors if not handled by widget. 
+                     Refined: Let's just filter quantity < 1 -->
+                 <filter string="Out of Stock" name="out_of_stock" domain="[('quantity', '=', 0)]"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_it_consumable" model="ir.actions.act_window">
+        <field name="name">Consumables</field>
+        <field name="res_model">it_asset.consumable</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first IT Consumable!
+            </p>
+            <p>
+                Track items like cables, ink, paper, etc.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="it_asset_menu_consumables" 
+              name="Consumables" 
+              parent="it_asset_menu_management" 
+              action="action_it_consumable" 
+              sequence="15"/> 
+              <!-- Sequence 15 to put it after Assets (10) but before assignments/maintenances if they are higher? 
+                   Let's check asset_views.xml sequence. Assets is 10. 
+                   I'll make Consumables 15 so it appears right after Assets. -->
+</odoo>

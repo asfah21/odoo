@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="action_report_asset_handover" model="ir.actions.report">
-        <field name="name">Berita Acara Serah Terima (BAST)</field>
+        <field name="name">Asset Handover</field>
         <field name="model">it_asset.asset</field>
         <field name="report_type">qweb-pdf</field>
         <field name="report_name">it_asset.report_asset_handover_template</field>

@@ -8,8 +8,8 @@
                         <div class="oe_structure"/>
                         
                         <div class="text-center" style="border-bottom: 2px solid black; margin-bottom: 20px;">
-                            <h2>BERITA ACARA SERAH TERIMA ASSET IT</h2>
-                            <p>Nomor: BAST/<t t-out="datetime.datetime.now().year"/>/<t t-out="o.id"/></p>
+                            <h2>BERITA ACARA SERAH TERIMA</h2>
+                            <p>Nomor: BAST/GSI/IT/<t t-out="datetime.datetime.now().year"/>/<t t-out="o.id"/></p>
                         </div>
 
                         <p>Pada hari ini, <strong><t t-out="context_timestamp(datetime.datetime.now()).strftime('%d %B %Y')"/></strong>, yang bertanda tangan di bawah ini:</p>

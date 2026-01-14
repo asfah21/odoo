@@ -38,8 +38,7 @@ class ITAsset(models.Model):
         ('shared', 'Shared'),
     ], string='Usage Type', default='personal', required=True, tracking=True)
 
-    shared_location = fields.Char(string='Location (Shared)', tracking=True)
-    shared_pic = fields.Char(string='PIC (Shared)', tracking=True)
+
     
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
@@ -63,9 +62,8 @@ class ITAsset(models.Model):
             if vals.get('product_id'):
                 product = self.env['product.product'].browse(vals['product_id'])
                 if product.type in ['product', 'storable']:
-                    if vals.get('usage_type') == 'shared':
-                         vals['state'] = 'in_use' # Shared assets are "In Use" by location
-                    elif vals.get('employee_id'):
+
+                    if vals.get('employee_id'):
                         vals['state'] = 'in_use'
                         vals['is_stock_synced'] = True
                     

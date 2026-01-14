@@ -12,8 +12,7 @@
                 <field name="category_id"/>
                 <field name="product_id"/>
                 <field name="usage_type" optional="show"/>
-                <field name="employee_id" invisible="usage_type == 'shared'"/>
-                <field name="shared_location" invisible="usage_type == 'personal'" optional="hide"/>
+                <field name="employee_id"/>
                 <field name="state" 
                        decoration-info="state == 'available'" 
                        decoration-success="state == 'in_use'" 
@@ -64,9 +63,7 @@
                             <field name="lot_id" domain="[('product_id', '=', product_id)]" invisible="is_consumable == True" readonly="state == 'retired'"/>
                         </group>
                         <group>
-                            <field name="employee_id" invisible="usage_type == 'shared' or is_consumable == True" readonly="state == 'retired'"/>
-                            <field name="shared_location" invisible="usage_type == 'personal'" readonly="state == 'retired'"/>
-                            <field name="shared_pic" invisible="usage_type == 'personal'" readonly="state == 'retired'"/>
+                            <field name="employee_id" invisible="is_consumable == True" readonly="state == 'retired'"/>
                         </group>
                     </group>
                     <notebook>
