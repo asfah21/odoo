@@ -8,6 +8,7 @@
                 <field name="asset_tag"/>
                 <field name="name"/>
                 <field name="model"/>
+                <field name="specification"/>
                 <field name="category_id"/>
                 <field name="product_id"/>
                 <field name="employee_id"/>
