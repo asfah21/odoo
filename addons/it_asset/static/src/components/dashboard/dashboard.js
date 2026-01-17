@@ -9,7 +9,7 @@ export class ITAssetDashboard extends Component {
         this.orm = useService("orm");
         this.action = useService("action");
         this.categories = [];
-        this.selectedCategory = null;
+        this.selectedCategories = [];
         this.dateStart = null;
         this.dateEnd = null;
 
@@ -32,8 +32,8 @@ export class ITAssetDashboard extends Component {
 
     async loadDashboardData() {
         const params = {};
-        if (this.selectedCategory) {
-            params.category_id = this.selectedCategory;
+        if (this.selectedCategories.length > 0) {
+            params.category_ids = this.selectedCategories;
         }
         if (this.dateStart) params.date_start = this.dateStart;
         if (this.dateEnd) params.date_end = this.dateEnd;
@@ -50,8 +50,26 @@ export class ITAssetDashboard extends Component {
         };
     }
 
-    async onFilterCategory(ev) {
-        this.selectedCategory = ev.target.value ? parseInt(ev.target.value) : null;
+    get selectedCategoriesNames() {
+        if (this.selectedCategories.length === 0) return "All Categories";
+        if (this.selectedCategories.length === 1) {
+            const cat = this.categories.find(c => c.id === this.selectedCategories[0]);
+            return cat ? cat.name : "All Categories";
+        }
+        return `${this.selectedCategories.length} Categories`;
+    }
+
+    async toggleCategory(categoryId) {
+        if (categoryId === null) {
+            this.selectedCategories = [];
+        } else {
+            const index = this.selectedCategories.indexOf(categoryId);
+            if (index > -1) {
+                this.selectedCategories.splice(index, 1);
+            } else {
+                this.selectedCategories.push(categoryId);
+            }
+        }
         await this.loadDashboardData();
         this.render();
     }
@@ -67,8 +85,12 @@ export class ITAssetDashboard extends Component {
         let domain = [];
         let name = "All Assets";
 
+        if (this.selectedCategories.length > 0) {
+            domain.push(['category_id', 'in', this.selectedCategories]);
+        }
+
         if (state === 'unavailable') {
-            domain = [['condition', '=', 'broken']];
+            domain.push(['condition', '=', 'broken']);
             name = "Broken Assets (Unavailable)";
         } else if (state === 'maintenance_logs') {
             this.action.doAction({
@@ -76,11 +98,12 @@ export class ITAssetDashboard extends Component {
                 name: "Maintenance History",
                 res_model: 'it_asset.maintenance',
                 views: [[false, 'list'], [false, 'form']],
+                domain: this.selectedCategories.length > 0 ? [['asset_id.category_id', 'in', this.selectedCategories]] : [],
                 target: 'current',
             });
             return;
         } else if (state !== 'all') {
-            domain = [['state', '=', state]];
+            domain.push(['state', '=', state]);
             const formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             name = formattedState + " Assets";
         }

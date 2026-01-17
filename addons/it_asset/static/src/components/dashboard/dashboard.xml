@@ -10,16 +10,40 @@
                 </div>
                 <div class="cp-right">
                     <!-- Category Filter -->
-                    <div class="filter-group">
-                        <label><i class="fa fa-tag"></i>Category</label>
-                        <select class="category-select" t-on-change="onFilterCategory">
-                            <option value="">All Categories</option>
+                    <div class="filter-group dropdown">
+                        <div class="dropdown-toggle d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
+                            <label><i class="fa fa-tag"></i>Category</label>
+                            <span class="ms-2 selected-text" t-esc="selectedCategoriesNames"/>
+                        </div>
+                        <ul class="dropdown-menu shadow-lg border-0 mt-2 py-1">
+                            <!-- All Categories Option -->
+                            <li class="px-0">
+                                <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.length === 0 ? 'active' : ''}}" 
+                                     t-on-click.stop="() => this.toggleCategory(null)">
+                                    <div class="o_checkbox me-3">
+                                        <input type="checkbox" class="form-check-input" t-att-checked="selectedCategories.length === 0"/>
+                                        <span/>
+                                    </div>
+                                    <span class="fw-bold">All Categories</span>
+                                </div>
+                            </li>
+                            
+                            <li><hr class="dropdown-divider mx-3 opacity-50"/></li>
+                            
+                            <!-- Dynamic Categories -->
                             <t t-foreach="categories" t-as="cat" t-key="cat.id">
-                                <option t-att-value="cat.id" t-att-selected="selectedCategory === cat.id">
-                                    <t t-esc="cat.name"/>
-                                </option>
+                                <li class="px-0">
+                                    <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.includes(cat.id) ? 'active' : ''}}" 
+                                         t-on-click.stop="() => this.toggleCategory(cat.id)">
+                                        <div class="o_checkbox me-3">
+                                            <input type="checkbox" class="form-input-check" t-att-checked="selectedCategories.includes(cat.id)"/>
+                                            <span/>
+                                        </div>
+                                        <span t-esc="cat.name"/>
+                                    </div>
+                                </li>
                             </t>
-                        </select>
+                        </ul>
                     </div>
                     
                     <!-- Date Filters -->
@@ -92,8 +116,47 @@
                 </div>
 
                 <div class="row g-4 mb-4">
-                    <!-- Distribution Chart -->
-                    <div class="col-12 col-lg-5 col-xl-4">
+                    <!-- Laptop Condition Column Chart (25%) -->
+                    <div class="col-12 col-lg-3">
+                        <div class="chart-panel shadow-sm">
+                            <h4 class="mb-4 text-truncate">Laptop Condition</h4>
+                            <div class="d-flex align-items-end justify-content-around h-75 mt-4">
+                                <t t-foreach="stats.laptop_condition_distribution" t-as="cond" t-key="cond.label">
+                                    <div class="d-flex flex-column align-items-center flex-grow-1">
+                                        <div class="fw-bold mb-2 small" t-esc="cond.count"/>
+                                        <div class="column-bar shadow-sm"
+                                             t-attf-style="height: {{ cond.perc }}px; background-color: {{ cond.color }}; width: 40px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
+                                        <div class="mt-2 small text-muted text-center" style="font-size: 0.65rem;" t-esc="cond.label"/>
+                                    </div>
+                                </t>
+                            </div>
+                            <t t-if="!stats.laptop_condition_distribution.length">
+                                <div class="text-center py-4">
+                                    <span class="small text-muted">No Laptop found</span>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Asset Category Column Chart (45%) -->
+                    <div class="col-12 col-lg-5">
+                        <div class="chart-panel shadow-sm">
+                            <h4 class="mb-4">Asset Category</h4>
+                            <div class="d-flex align-items-end justify-content-around h-75 mt-4">
+                                <t t-foreach="stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
+                                    <div class="d-flex flex-column align-items-center flex-grow-1 px-1">
+                                        <div class="fw-bold mb-2 small text-primary" t-esc="cat_data.count"/>
+                                        <div class="column-bar shadow-sm"
+                                             t-attf-style="height: {{ (cat_data.count / (stats.total_assets or 1)) * 200 }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 20px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
+                                        <div class="mt-2 small text-muted text-center text-truncate w-100" style="font-size: 0.6rem;" t-esc="cat_data.name"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Map (30%) -->
+                    <div class="col-12 col-lg-4">
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-4">Status Map</h4>
                             <div class="donut-wrapper mb-4 shadow-sm" 
@@ -120,49 +183,6 @@
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
                                     <span t-esc="stats.unavailable_broken"/>
                                 </div>
-                        </div>
-                    </div>
-
-                    <!-- Category Bar Chart -->
-                    <div class="col-12 col-lg-4 col-xl-5">
-                        <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4">Top Asset Categories</h4>
-                            <div class="category-list">
-                                <t t-foreach="stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
-                                    <div class="category-bar-row">
-                                        <div class="bar-info">
-                                            <span t-esc="cat_data.name"/>
-                                            <span class="text-primary" t-esc="cat_data.count"/>
-                                        </div>
-                                        <div class="bar-track">
-                                            <div class="bar-progress" 
-                                                 t-attf-style="width: {{ (cat_data.count / (stats.total_assets or 1)) * 100 }}%"/>
-                                        </div>
-                                    </div>
-                                </t>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Laptop Condition Column Chart -->
-                    <div class="col-12 col-lg-3 col-xl-3">
-                        <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4">Laptop Condition</h4>
-                            <div class="d-flex align-items-end justify-content-around h-75 mt-4">
-                                <t t-foreach="stats.laptop_condition_distribution" t-as="cond" t-key="cond.label">
-                                    <div class="d-flex flex-column align-items-center flex-grow-1">
-                                        <div class="fw-bold mb-2 small" t-esc="cond.count"/>
-                                        <div class="column-bar shadow-sm"
-                                             t-attf-style="height: {{ cond.perc }}px; background-color: {{ cond.color }}; width: 30px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
-                                        <div class="mt-2 small text-muted text-center" style="font-size: 0.65rem;" t-esc="cond.label"/>
-                                    </div>
-                                </t>
-                            </div>
-                            <t t-if="!stats.laptop_condition_distribution.length">
-                                <div class="text-center py-4">
-                                    <span class="small text-muted">No Laptop found</span>
-                                </div>
-                            </t>
                         </div>
                     </div>
                 </div>

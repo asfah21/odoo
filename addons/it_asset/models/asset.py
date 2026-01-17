@@ -54,7 +54,7 @@ class ITAsset(models.Model):
         for record in self:
             record.display_name = f"[{record.asset_tag}] {record.name}" if record.asset_tag else record.name
 
-    # --- REFACTORED CORE LOGIC (V5 - Odoo 18 Gold Standard) ---
+    # --- REFACTORED CORE LOGIC ---
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -216,9 +216,10 @@ class ITAsset(models.Model):
     # --- DASHBOARD (Optimized _read_group) ---
 
     @api.model
-    def get_dashboard_stats(self, category_id=None, date_start=None, date_end=None):
+    def get_dashboard_stats(self, category_ids=None, date_start=None, date_end=None):
         domain = []
-        if category_id: domain.append(('category_id', '=', int(category_id)))
+        if category_ids:
+            domain.append(('category_id', 'in', category_ids))
         if date_start: domain.append(('create_date', '>=', date_start))
         if date_end: domain.append(('create_date', '<=', date_end))
 
@@ -245,19 +246,23 @@ class ITAsset(models.Model):
                 })
 
         m_domain = []
-        if category_id: m_domain.append(('asset_id.category_id', '=', int(category_id)))
+        if category_ids: m_domain.append(('asset_id.category_id', 'in', category_ids))
         if date_start: m_domain.append(('maintenance_date', '>=', date_start))
         
         stats.update({
             'maintenance_count': self.env['it_asset.maintenance'].search_count(m_domain),
-            'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end),
-            'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True)[:5]
+            'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end, category_ids),
+            'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True)
         })
         return stats
 
-    def _get_laptop_condition_stats(self, date_start, date_end):
+    def _get_laptop_condition_stats(self, date_start, date_end, category_ids=None):
         laptop_cat = self.env['it_asset.category'].search([('name', 'ilike', 'laptop')], limit=1)
         if not laptop_cat: return []
+        
+        if category_ids and laptop_cat.id not in category_ids:
+            return []
+            
         domain = [('category_id', '=', laptop_cat.id)]
         if date_start: domain.append(('create_date', '>=', date_start))
         
