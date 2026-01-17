@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_asset_unit_list" model="ir.ui.view">
+        <field name="name">it.asset.unit.list</field>
+        <field name="model">it_asset.unit</field>
+        <field name="arch" type="xml">
+            <list string="Units">
+                <field name="name"/>
+                <field name="code"/>
+                <field name="description"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_unit_form" model="ir.ui.view">
+        <field name="name">it.asset.unit.form</field>
+        <field name="model">it_asset.unit</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. EX-01"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="code"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group string="Description">
+                        <field name="description" nolabel="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Installed Assets" name="assets">
+                            <field name="asset_ids">
+                                <list>
+                                    <field name="asset_tag"/>
+                                    <field name="name"/>
+                                    <field name="category_id"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset_unit" model="ir.actions.act_window">
+        <field name="name">Units</field>
+        <field name="res_model">it_asset.unit</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Manage Operation Units!</p>
+            <p>Define vehicles, heavy equipment, or locations where assets are installed.</p>
+        </field>
+    </record>
+
+    <menuitem id="it_asset_menu_units" 
+              name="Units" 
+              parent="it_asset_menu_management" 
+              action="action_it_asset_unit" 
+              sequence="12"/>
+</odoo>

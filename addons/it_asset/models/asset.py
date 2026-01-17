@@ -24,7 +24,7 @@ class ITAsset(models.Model):
     is_consumable = fields.Boolean(related='category_id.is_consumable', store=True)
     lot_id = fields.Many2one('stock.lot', string='Serial Number', tracking=True)
     employee_id = fields.Many2one('hr.employee', string='Assigned To (User)', tracking=True)
-    vehicle_id = fields.Char(string='Assigned To (Unit)', tracking=True, help="Reference to Excavator, Dump Truck, etc.")
+    unit_id = fields.Many2one('it_asset.unit', string='Assigned Unit', tracking=True, help="Reference to Excavator, Dump Truck, etc.")
     
     state = fields.Selection([
         ('available', 'Available'),
@@ -68,7 +68,7 @@ class ITAsset(models.Model):
                 product = self.env['product.product'].browse(vals['product_id'])
                 if product.type in ['product', 'storable']:
 
-                    if vals.get('employee_id'):
+                    if vals.get('employee_id') or vals.get('unit_id'):
                         vals['state'] = 'in_use'
                         vals['is_stock_synced'] = True
                     
@@ -82,6 +82,8 @@ class ITAsset(models.Model):
             for record in records:
                 if record.employee_id:
                     record._trigger_stock_assignment(record.employee_id)
+                elif record.unit_id:
+                    record._trigger_stock_assignment(record.unit_id)
         
         return records
 
@@ -95,12 +97,13 @@ class ITAsset(models.Model):
             vals['state'] = 'maintenance'
 
         # 3. Usage Type Logic
-        if 'employee_id' in vals:
-            if vals['employee_id']:
+        if 'employee_id' in vals or 'unit_id' in vals:
+            if vals.get('employee_id') or vals.get('unit_id'):
                 vals['state'] = 'in_use'
                 vals['is_stock_synced'] = True
             else:
                  vals['state'] = 'available'
+                 vals['is_stock_synced'] = False
 
         if any(k in vals for k in ['product_id', 'lot_id', 'state']):
             for record in self:
@@ -112,22 +115,27 @@ class ITAsset(models.Model):
                 if product.type in ['product', 'storable'] and st not in ['retired', 'maintenance']:
                     self._preflight_stock_check(product, l_id)
 
-        old_employees = {r.id: r.employee_id.id for r in self}
+        old_data = {r.id: {'emp': r.employee_id.id, 'unit': r.unit_id.id} for r in self}
         res = super(ITAsset, self).write(vals)
 
         if not self.env.context.get('skip_stock_move'):
-            if 'employee_id' in vals:
+            if 'employee_id' in vals or 'unit_id' in vals:
                 for record in self:
-                    new_emp_id = vals['employee_id']
-                    old_emp_id = old_employees.get(record.id)
+                    new_emp_id = vals.get('employee_id', record.employee_id.id)
+                    new_unit_id = vals.get('unit_id', record.unit_id.id)
+                    old_emp_id = old_data[record.id]['emp']
+                    old_unit_id = old_data[record.id]['unit']
                     
-                    if new_emp_id and not old_emp_id:
-                         record._trigger_stock_assignment(record.employee_id)
-                    elif not new_emp_id and old_emp_id:
-                         record._trigger_stock_return(self.env['hr.employee'].browse(old_emp_id))
-                         # Optimization: Direct SQL to avoid recursive write checking
-                         self.env.cr.execute("UPDATE it_asset_asset SET is_stock_synced = FALSE WHERE id = %s", (record.id,))
-                         record.invalidate_recordset(['is_stock_synced'])
+                    # Trigger assignment if newly assigned
+                    if (new_emp_id and not old_emp_id) or (new_unit_id and not old_unit_id):
+                        target = record.employee_id if new_emp_id else record.unit_id
+                        record._trigger_stock_assignment(target)
+                    # Trigger return if unassigned
+                    elif (not new_emp_id and old_emp_id) or (not new_unit_id and old_unit_id):
+                        old_target = self.env['hr.employee'].browse(old_emp_id) if old_emp_id else self.env['it_asset.unit'].browse(old_unit_id)
+                        record._trigger_stock_return(old_target)
+                        self.env.cr.execute("UPDATE it_asset_asset SET is_stock_synced = FALSE WHERE id = %s", (record.id,))
+                        record.invalidate_recordset(['is_stock_synced'])
         return res
 
     # --- INTERNAL ENGINE ---
@@ -212,11 +220,11 @@ class ITAsset(models.Model):
             picking.unlink()
             raise UserError(_("STOCK RESERVATION FAILED: The item at %s could not be reserved. Perhaps it was just taken by another user.") % src.display_name)
 
-    def _trigger_stock_assignment(self, employee):
-        self._create_it_stock_move(self._get_it_location('it_source'), self._get_it_location('it_user'), _("User: %s") % employee.name)
+    def _trigger_stock_assignment(self, target):
+        self._create_it_stock_move(self._get_it_location('it_source'), self._get_it_location('it_user'), _("Assigned: %s") % target.name)
 
-    def _trigger_stock_return(self, employee):
-        self._create_it_stock_move(self._get_it_location('it_user'), self._get_it_location('it_source'), _("Return: %s") % employee.name)
+    def _trigger_stock_return(self, target):
+        self._create_it_stock_move(self._get_it_location('it_user'), self._get_it_location('it_source'), _("Return: %s") % target.name)
 
     # --- DASHBOARD (Optimized _read_group) ---
 

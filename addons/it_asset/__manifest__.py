@@ -14,6 +14,7 @@
         'views/asset_category_views.xml',
         'views/asset_assignment_views.xml',
         'views/asset_maintenance_views.xml',
+        'views/asset_unit_views.xml',
         'report/asset_report.xml',
         'report/asset_report_templates.xml',
     ],

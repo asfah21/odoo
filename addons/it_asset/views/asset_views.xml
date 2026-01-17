@@ -15,7 +15,7 @@
                 <field name="product_id"/>
                 <field name="lot_id" string="Serial Number" optional="show"/>
                 <field name="employee_id" string="User" invisible="asset_type != 'it'"/>
-                <field name="vehicle_id" string="Unit" invisible="asset_type != 'operation'"/>
+                <field name="unit_id" string="Unit" invisible="asset_type != 'operation'"/>
                 <field name="state" 
                        decoration-info="state == 'available'" 
                        decoration-success="state == 'in_use'" 
@@ -70,10 +70,10 @@
                                    invisible="asset_type != 'it' or is_consumable == True" 
                                    required="asset_type == 'it' and state == 'in_use'"
                                    readonly="state == 'retired'"/>
-                            <field name="vehicle_id" string="Assigned Unit" 
+                            <field name="unit_id" string="Assigned Unit" 
                                    invisible="asset_type != 'operation' or is_consumable == True"
                                    required="asset_type == 'operation' and state == 'in_use'"
-                                   placeholder="e.g. EX-01, DT-05"
+                                   options="{'no_create': True, 'no_open': False}"
                                    readonly="state == 'retired'"/>
                             <field name="specification" string="Specification" invisible="asset_type != 'it'" readonly="state == 'retired'"/>
                             <field name="specification" string="Remark" invisible="asset_type == 'it'" readonly="state == 'retired'"/>
@@ -129,7 +129,7 @@
                 <field name="model"/>
                 <field name="category_id"/>
                 <field name="employee_id"/>
-                <field name="vehicle_id"/>
+                <field name="unit_id"/>
                 <field name="product_id"/>
                 
                 <filter string="IT Assets" name="it_assets" domain="[('asset_type', '=', 'it')]"/>
@@ -150,7 +150,7 @@
                     <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
                     <filter string="Condition" name="group_by_condition" context="{'group_by': 'condition'}"/>
                     <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
-                    <filter string="Unit/Vehicle" name="group_by_vehicle" context="{'group_by': 'vehicle_id'}"/>
+                    <filter string="Unit/Vehicle" name="group_by_unit" context="{'group_by': 'unit_id'}"/>
                 </group>
             </search>
         </field>
