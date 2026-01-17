@@ -240,7 +240,8 @@ class ITAsset(models.Model):
             'unavailable_broken': 0,
             'op_available': 0,
             'op_assigned': 0,
-            'op_unavailable_broken': 0
+            'op_unavailable_broken': 0,
+            'op_maintenance': 0
         }
         
         for a_type, state, condition, count in groups:
@@ -257,6 +258,7 @@ class ITAsset(models.Model):
                 if state == 'available' and condition != 'broken': stats['op_available'] += count
                 if state == 'in_use': stats['op_assigned'] += count
                 if condition == 'broken': stats['op_unavailable_broken'] += count
+                if state == 'maintenance': stats['op_maintenance'] += count
 
         # 2. Category Distribution
         cat_groups = self._read_group(domain + [('asset_type', '=', 'it')], ['category_id'], ['__count'])
@@ -283,10 +285,10 @@ class ITAsset(models.Model):
 
     def _get_laptop_condition_stats(self, date_start, date_end, category_ids=None):
         laptop_cat = self.env['it_asset.category'].search([('name', 'ilike', 'laptop')], limit=1)
-        if not laptop_cat: return []
+        if not laptop_cat: return {'total': 0, 'data': []}
         
         if category_ids and laptop_cat.id not in category_ids:
-            return []
+            return {'total': 0, 'data': []}
             
         domain = [('category_id', '=', laptop_cat.id)]
         if date_start: domain.append(('create_date', '>=', date_start))
@@ -296,7 +298,9 @@ class ITAsset(models.Model):
         data_map = {cond: count for cond, count in groups}
         
         res = []
-        total = sum(data_map.values()) or 1
+        actual_total = sum(data_map.values())
+        total_for_perc = actual_total or 1
+        
         definitions = [
             ('good', 'Good', '#22c55e'),
             ('degraded', 'Degraded', '#f59e0b'),
@@ -308,7 +312,10 @@ class ITAsset(models.Model):
             res.append({
                 'label': label,
                 'count': count,
-                'perc': (count/total)*100,
+                'perc': (count/total_for_perc)*100,
                 'color': color
             })
-        return res
+        return {
+            'total': actual_total,
+            'data': res
+        }

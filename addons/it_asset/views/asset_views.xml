@@ -9,7 +9,11 @@
                 <field name="asset_type" widget="badge" decoration-info="asset_type == 'it'" decoration-warning="asset_type == 'operation'"/>
                 <field name="name"/>
                 <field name="model" optional="show"/>
+                <field name="specification" string="Specification" column_invisible="context.get('default_asset_type') == 'operation'" optional="show"/>
+                <field name="specification" string="Remark" column_invisible="context.get('default_asset_type') == 'it'" optional="show"/>
                 <field name="category_id"/>
+                <field name="product_id"/>
+                <field name="lot_id" string="Serial Number" optional="show"/>
                 <field name="employee_id" string="User" invisible="asset_type != 'it'"/>
                 <field name="vehicle_id" string="Unit" invisible="asset_type != 'operation'"/>
                 <field name="state" 
@@ -71,7 +75,8 @@
                                    required="asset_type == 'operation' and state == 'in_use'"
                                    placeholder="e.g. EX-01, DT-05"
                                    readonly="state == 'retired'"/>
-                            <field name="specification" readonly="state == 'retired'"/>
+                            <field name="specification" string="Specification" invisible="asset_type != 'it'" readonly="state == 'retired'"/>
+                            <field name="specification" string="Remark" invisible="asset_type == 'it'" readonly="state == 'retired'"/>
                         </group>
                     </group>
                     <notebook>
@@ -198,7 +203,7 @@
               name="Operation Assets" 
               parent="it_asset_menu_management" 
               action="action_it_asset_type_operation" 
-              sequence="20"/>
+              sequence="11"/>
 
     <record id="action_it_asset_sync_inventory" model="ir.actions.server">
         <field name="name">Sync with Inventory</field>

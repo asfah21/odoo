@@ -23,6 +23,7 @@ export class ITAssetDashboard extends Component {
             op_available: 0,
             op_assigned: 0,
             op_unavailable_broken: 0,
+            op_maintenance: 0,
             maintenance_count: 0,
             recent_activities: [],
             state_distribution: [],

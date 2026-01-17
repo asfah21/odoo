@@ -342,6 +342,17 @@
             color: #3f3f46;
             margin-bottom: 1.5rem;
         }
+
+        .badge-total {
+            font-size: 0.75rem;
+            background: #fdfdfd !important;
+            border: 1px solid #f1f1f1 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+
+            i {
+                font-size: 0.7rem;
+            }
+        }
     }
 
     /* Conic Donut Chart Styling */

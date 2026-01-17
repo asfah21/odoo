@@ -119,9 +119,16 @@
                     <!-- Laptop Condition Column Chart (25%) -->
                     <div class="col-12 col-lg-3">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4 text-truncate">Laptop Condition</h4>
+                            <div class="d-flex justify-content-between align-items-start mb-4">
+                                <h4 class="mb-0 text-truncate">Laptop Condition</h4>
+                                <div class="badge-total shadow-sm px-2 py-1 rounded-3 bg-light border d-flex align-items-center">
+                                    <i class="fa fa-laptop me-2 text-primary small"></i>
+                                    <span class="fw-bold text-primary" t-esc="stats.laptop_condition_distribution.total"/>
+                                </div>
+                            </div>
+                            
                             <div class="d-flex align-items-end justify-content-around h-75 mt-4">
-                                <t t-foreach="stats.laptop_condition_distribution" t-as="cond" t-key="cond.label">
+                                <t t-foreach="stats.laptop_condition_distribution.data" t-as="cond" t-key="cond.label">
                                     <div class="d-flex flex-column align-items-center flex-grow-1">
                                         <div class="fw-bold mb-2 small" t-esc="cond.count"/>
                                         <div class="column-bar shadow-sm"
@@ -130,7 +137,7 @@
                                     </div>
                                 </t>
                             </div>
-                            <t t-if="!stats.laptop_condition_distribution.length">
+                            <t t-if="!stats.laptop_condition_distribution.data or !stats.laptop_condition_distribution.data.length">
                                 <div class="text-center py-4">
                                     <span class="small text-muted">No Laptop found</span>
                                 </div>
@@ -147,7 +154,7 @@
                                     <div class="d-flex flex-column align-items-center flex-grow-1 px-1">
                                         <div class="fw-bold mb-2 small text-primary" t-esc="cat_data.count"/>
                                         <div class="column-bar shadow-sm"
-                                             t-attf-style="height: {{ (cat_data.count / (stats.total_assets or 1)) * 200 }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 20px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
+                                             t-attf-style="height: {{ (cat_data.count / (stats.total_it or 1)) * 200 }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 20px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
                                         <div class="mt-2 small text-muted text-center text-truncate w-100" style="font-size: 0.6rem;" t-esc="cat_data.name"/>
                                     </div>
                                 </t>
@@ -163,7 +170,8 @@
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}%, 
                                     #0284c7 {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}% {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}%, 
-                                    #ef4444 {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}% 100%
+                                    #f59e0b {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}% {{ ((stats.op_available + stats.op_assigned + stats.op_maintenance) / (stats.total_operation or 1)) * 100 }}%,
+                                    #ef4444 {{ ((stats.op_available + stats.op_assigned + stats.op_maintenance) / (stats.total_operation or 1)) * 100 }}% 100%
                                  );">
                                 <div class="donut-hole shadow-inner">
                                     <span class="hole-value" t-esc="stats.total_operation"/>
@@ -178,6 +186,10 @@
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
                                     <span t-esc="stats.op_assigned"/>
+                                </div>
+                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Maintenance</span>
+                                    <span t-esc="stats.op_maintenance"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
