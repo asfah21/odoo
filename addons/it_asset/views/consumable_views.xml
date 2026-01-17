@@ -6,10 +6,11 @@
         <field name="arch" type="xml">
             <list string="Consumables">
                 <field name="name"/>
-                <field name="quantity" decoration-danger="quantity &lt; min_quantity"/>
+                <field name="product_id"/>
+                <field name="qty_available" decoration-danger="qty_available &lt; min_quantity" decoration-bf="qty_available &lt; min_quantity"/>
+                <field name="uom_id" optional="show"/>
                 <field name="min_quantity" optional="hide"/>
-                <field name="product_id" optional="show"/>
-                <field name="description" optional="hide"/>
+                <field name="standard_price" optional="hide"/>
             </list>
         </field>
     </record>
@@ -20,6 +21,11 @@
         <field name="arch" type="xml">
             <form>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" name="action_view_stock" icon="fa-cubes" type="object" invisible="not product_id">
+                             <field name="qty_available" widget="statinfo" string="On Hand"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
                         <label for="name" class="oe_edit_only"/>
                         <h1>
@@ -28,11 +34,12 @@
                     </div>
                     <group>
                         <group>
-                            <field name="quantity"/>
-                            <field name="min_quantity"/>
+                            <field name="product_id"/>
+                            <field name="standard_price" widget="monetary"/>
                         </group>
                         <group>
-                            <field name="product_id"/>
+                            <field name="min_quantity"/>
+                            <field name="uom_id"/>
                         </group>
                     </group>
                     <notebook>
@@ -56,12 +63,8 @@
             <search string="Search Consumables">
                 <field name="name"/>
                 <field name="product_id"/>
-                <filter string="Low Stock" name="low_stock" domain="[('quantity', '&lt;', 5)]"/> 
-                <!-- Note: domain uses literal 5 instead of field because basic search domains don't support field-to-field comparison directly in XML easily without context/advanced domains, 
-                     but for simplicity we use a static value or we can ignore. 
-                     Better: removed automated field comparison in filters to avoid errors if not handled by widget. 
-                     Refined: Let's just filter quantity < 1 -->
-                 <filter string="Out of Stock" name="out_of_stock" domain="[('quantity', '=', 0)]"/>
+                 <filter string="Low Stock" name="low_stock" domain="[('qty_available', '&lt;', 5)]"/>
+                 <filter string="Out of Stock" name="out_of_stock" domain="[('qty_available', '&lt;=', 0)]"/>
             </search>
         </field>
     </record>
@@ -80,13 +83,9 @@
         </field>
     </record>
 
-    <!-- Menu Item -->
     <menuitem id="it_asset_menu_consumables" 
               name="Consumables" 
               parent="it_asset_menu_management" 
               action="action_it_consumable" 
               sequence="15"/> 
-              <!-- Sequence 15 to put it after Assets (10) but before assignments/maintenances if they are higher? 
-                   Let's check asset_views.xml sequence. Assets is 10. 
-                   I'll make Consumables 15 so it appears right after Assets. -->
 </odoo>
