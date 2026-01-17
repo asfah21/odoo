@@ -63,13 +63,13 @@
                 <!-- Summary Section -->
                 <div class="section-header">INVENTORY STATUS</div>
                 <div class="row g-3 mb-4">
-                    <!-- Total Assets -->
+                    <!-- IT Assets -->
                     <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-purple" t-on-click="() => this.openView('all')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
-                                <div class="stat-label">Total Assets</div>
-                                <div class="stat-value" t-esc="stats.total_assets"/>
+                                <div class="stat-label">IT Assets</div>
+                                <div class="stat-value" t-esc="stats.total_it"/>
                             </div>
                         </div>
                     </div>
@@ -158,30 +158,30 @@
                     <!-- Status Map (30%) -->
                     <div class="col-12 col-lg-4">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4">Status Map</h4>
+                            <h4 class="mb-4">Radio Status Map</h4>
                             <div class="donut-wrapper mb-4 shadow-sm" 
                                  t-attf-style="background: conic-gradient(
-                                    #16a34a 0% {{ (stats.available / (stats.total_assets or 1)) * 100 }}%, 
-                                    #0284c7 {{ (stats.available / (stats.total_assets or 1)) * 100 }}% {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}%, 
-                                    #ef4444 {{ ((stats.available + stats.assigned) / (stats.total_assets or 1)) * 100 }}% 100%
+                                    #16a34a 0% {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}%, 
+                                    #0284c7 {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}% {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}%, 
+                                    #ef4444 {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}% 100%
                                  );">
                                 <div class="donut-hole shadow-inner">
-                                    <span class="hole-value" t-esc="stats.total_assets"/>
-                                    <span class="hole-label">Total</span>
+                                    <span class="hole-value" t-esc="stats.total_operation"/>
+                                    <span class="hole-label">Radios</span>
                                 </div>
                             </div>
                             <!-- Legend -->
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-success"></i>Available</span>
-                                    <span t-esc="stats.available"/>
+                                    <span t-esc="stats.op_available"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
-                                    <span t-esc="stats.assigned"/>
+                                    <span t-esc="stats.op_assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
-                                    <span t-esc="stats.unavailable_broken"/>
+                                    <span t-esc="stats.op_unavailable_broken"/>
                                 </div>
                         </div>
                     </div>

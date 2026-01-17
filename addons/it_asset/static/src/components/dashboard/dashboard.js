@@ -15,9 +15,14 @@ export class ITAssetDashboard extends Component {
 
         this.stats = {
             total_assets: 0,
+            total_it: 0,
+            total_operation: 0,
             available: 0,
             assigned: 0,
             unavailable_broken: 0,
+            op_available: 0,
+            op_assigned: 0,
+            op_unavailable_broken: 0,
             maintenance_count: 0,
             recent_activities: [],
             state_distribution: [],
@@ -82,8 +87,8 @@ export class ITAssetDashboard extends Component {
     }
 
     openView(state) {
-        let domain = [];
-        let name = "All Assets";
+        let domain = [['asset_type', '=', 'it']];
+        let name = "All IT Assets";
 
         if (this.selectedCategories.length > 0) {
             domain.push(['category_id', 'in', this.selectedCategories]);
@@ -91,21 +96,21 @@ export class ITAssetDashboard extends Component {
 
         if (state === 'unavailable') {
             domain.push(['condition', '=', 'broken']);
-            name = "Broken Assets (Unavailable)";
+            name = "Broken IT Assets (Unavailable)";
         } else if (state === 'maintenance_logs') {
             this.action.doAction({
                 type: 'ir.actions.act_window',
-                name: "Maintenance History",
+                name: "IT Management: Maintenance History",
                 res_model: 'it_asset.maintenance',
                 views: [[false, 'list'], [false, 'form']],
-                domain: this.selectedCategories.length > 0 ? [['asset_id.category_id', 'in', this.selectedCategories]] : [],
+                domain: [['asset_id.asset_type', '=', 'it']],
                 target: 'current',
             });
             return;
         } else if (state !== 'all') {
             domain.push(['state', '=', state]);
             const formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            name = formattedState + " Assets";
+            name = formattedState + " IT Assets";
         }
 
         this.action.doAction({

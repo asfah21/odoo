@@ -10,6 +10,11 @@ class ITAsset(models.Model):
     _description = 'IT Asset'
     _order = 'id desc'
 
+    asset_type = fields.Selection([
+        ('it', 'IT Asset'),
+        ('operation', 'Operation Asset'),
+    ], string='Asset Type', default='it', required=True, tracking=True)
+
     name = fields.Char(string='Asset Name', required=True, tracking=True)
     model = fields.Char(string='Model', tracking=True)
     specification = fields.Text(string='Specification')
@@ -18,7 +23,8 @@ class ITAsset(models.Model):
     category_id = fields.Many2one('it_asset.category', string='Category', tracking=True)
     is_consumable = fields.Boolean(related='category_id.is_consumable', store=True)
     lot_id = fields.Many2one('stock.lot', string='Serial Number', tracking=True)
-    employee_id = fields.Many2one('hr.employee', string='Assigned To', tracking=True)
+    employee_id = fields.Many2one('hr.employee', string='Assigned To (User)', tracking=True)
+    vehicle_id = fields.Char(string='Assigned To (Unit)', tracking=True, help="Reference to Excavator, Dump Truck, etc.")
     
     state = fields.Selection([
         ('available', 'Available'),
@@ -34,12 +40,11 @@ class ITAsset(models.Model):
     ], string='Condition', default='good', tracking=True)
 
     usage_type = fields.Selection([
-        ('personal', 'Personal'),
+        ('personal', 'Personal (User)'),
+        ('unit', 'Unit (Operation)'),
         ('shared', 'Shared'),
     ], string='Usage Type', default='personal', required=True, tracking=True)
 
-
-    
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
     maintenance_ids = fields.One2many('it_asset.maintenance', 'asset_id', string='Maintenances')
@@ -223,29 +228,49 @@ class ITAsset(models.Model):
         if date_start: domain.append(('create_date', '>=', date_start))
         if date_end: domain.append(('create_date', '<=', date_end))
 
-        groups = self._read_group(domain, ['state', 'condition'], ['__count'])
-        stats = {'total_assets': 0, 'available': 0, 'assigned': 0, 'unavailable_broken': 0}
+        # Basic Stats
+        groups = self._read_group(domain, ['asset_type', 'state', 'condition'], ['__count'])
         
-        for state, condition, count in groups:
+        stats = {
+            'total_assets': 0,
+            'total_it': 0,
+            'total_operation': 0,
+            'available': 0,  
+            'assigned': 0,   
+            'unavailable_broken': 0,
+            'op_available': 0,
+            'op_assigned': 0,
+            'op_unavailable_broken': 0
+        }
+        
+        for a_type, state, condition, count in groups:
             stats['total_assets'] += count
-            if state == 'available' and condition != 'broken': stats['available'] += count
-            if state == 'in_use': stats['assigned'] += count
-            if condition == 'broken': stats['unavailable_broken'] += count
+            if a_type == 'it':
+                stats['total_it'] += count
+                # Strictly IT metrics for primary cards
+                if state == 'available' and condition != 'broken': stats['available'] += count
+                if state == 'in_use': stats['assigned'] += count
+                if condition == 'broken': stats['unavailable_broken'] += count
+            else:
+                stats['total_operation'] += count
+                # Operation metrics for Status Map
+                if state == 'available' and condition != 'broken': stats['op_available'] += count
+                if state == 'in_use': stats['op_assigned'] += count
+                if condition == 'broken': stats['op_unavailable_broken'] += count
 
         # 2. Category Distribution
-        cat_groups = self._read_group(domain, ['category_id'], ['__count'])
+        cat_groups = self._read_group(domain + [('asset_type', '=', 'it')], ['category_id'], ['__count'])
         category_data = []
-        total_assets = stats['total_assets'] or 1
         
         for cat, count in cat_groups:
             if cat: 
                 category_data.append({
                     'name': cat.display_name,
                     'count': count,
-                    'perc': (count / total_assets) * 100
+                    'perc': (count / (stats['total_it'] or 1)) * 100
                 })
 
-        m_domain = []
+        m_domain = [('asset_id.asset_type', '=', 'it')]
         if category_ids: m_domain.append(('asset_id.category_id', 'in', category_ids))
         if date_start: m_domain.append(('maintenance_date', '>=', date_start))
         

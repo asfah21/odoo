@@ -259,6 +259,17 @@
             }
         }
 
+        &.card-indigo {
+            &::after {
+                background: #4f46e5;
+            }
+
+            .icon-circle {
+                background: #e0e7ff;
+                color: #4f46e5;
+            }
+        }
+
         &.card-blue {
             &::after {
                 background: #0284c7;
