@@ -6,7 +6,8 @@
         <field name="arch" type="xml">
             <list string="Units">
                 <field name="name"/>
-                <field name="code"/>
+                <field name="brand"/>
+                <field name="model"/>
                 <field name="description"/>
                 <field name="active" widget="boolean_toggle"/>
             </list>
@@ -27,7 +28,10 @@
                     </div>
                     <group>
                         <group>
-                            <field name="code"/>
+                            <field name="brand" placeholder="e.g. Toyota, Komatsu"/>
+                            <field name="model" placeholder="e.g. Hilux, PC200"/>
+                        </group>
+                        <group>
                             <field name="active"/>
                         </group>
                     </group>
@@ -36,8 +40,9 @@
                     </group>
                     <notebook>
                         <page string="Installed Assets" name="assets">
-                            <field name="asset_ids">
-                                <list>
+                            <field name="asset_ids"
+                                   context="{'default_asset_type': 'operation', 'default_unit_id': id}">
+                                <list editable="bottom">
                                     <field name="asset_tag"/>
                                     <field name="name"/>
                                     <field name="category_id"/>
