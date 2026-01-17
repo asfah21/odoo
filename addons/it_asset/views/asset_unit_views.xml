@@ -4,7 +4,7 @@
         <field name="name">it.asset.unit.list</field>
         <field name="model">it_asset.unit</field>
         <field name="arch" type="xml">
-            <list string="Units">
+            <list string="Fleet Units">
                 <field name="name"/>
                 <field name="brand"/>
                 <field name="model"/>
@@ -57,7 +57,7 @@
     </record>
 
     <record id="action_it_asset_unit" model="ir.actions.act_window">
-        <field name="name">Units</field>
+        <field name="name">Fleet Units</field>
         <field name="res_model">it_asset.unit</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
@@ -67,7 +67,7 @@
     </record>
 
     <menuitem id="it_asset_menu_units" 
-              name="Units" 
+              name="Fleet Units" 
               parent="it_asset_menu_management" 
               action="action_it_asset_unit" 
               sequence="12"/>
