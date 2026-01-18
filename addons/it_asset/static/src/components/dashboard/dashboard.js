@@ -12,6 +12,10 @@ export class ITAssetDashboard extends Component {
         this.selectedCategories = [];
         this.dateStart = null;
         this.dateEnd = null;
+        this.fleetCategories = [];
+        this.assetCategories = [];
+        this.selectedFleetCategories = [];
+        this.selectedAssetCategories = [];
 
         this.stats = {
             total_assets: 0,
@@ -27,12 +31,16 @@ export class ITAssetDashboard extends Component {
             maintenance_count: 0,
             recent_activities: [],
             state_distribution: [],
-            category_distribution: []
+            category_distribution: [],
+            fleet_comparison: { assets: 0, units: 0, ratio: 0 }
         };
 
         onWillStart(async () => {
+            this.categories = await this.orm.searchRead("it_asset.category", [], ["name", "is_consumable"]);
+            // Only show "Radio" related categories in the Fleet vs Asset comparison
+            this.assetCategories = this.categories.filter(c => !c.is_consumable && c.name.toLowerCase().includes('radio'));
+            this.fleetCategories = await this.orm.searchRead("it_asset.unit.category", [], ["name"]);
             await this.loadDashboardData();
-            this.categories = await this.orm.searchRead("it_asset.category", [], ["name"]);
         });
     }
 
@@ -40,6 +48,12 @@ export class ITAssetDashboard extends Component {
         const params = {};
         if (this.selectedCategories.length > 0) {
             params.category_ids = this.selectedCategories;
+        }
+        if (this.selectedAssetCategories.length > 0) {
+            params.comp_asset_cat_ids = this.selectedAssetCategories;
+        }
+        if (this.selectedFleetCategories.length > 0) {
+            params.fleet_category_ids = this.selectedFleetCategories;
         }
         if (this.dateStart) params.date_start = this.dateStart;
         if (this.dateEnd) params.date_end = this.dateEnd;
@@ -75,6 +89,30 @@ export class ITAssetDashboard extends Component {
             } else {
                 this.selectedCategories.push(categoryId);
             }
+        }
+        await this.loadDashboardData();
+        this.render();
+    }
+
+    async toggleAssetCategory(catId) {
+        if (catId === null) {
+            this.selectedAssetCategories = [];
+        } else {
+            const idx = this.selectedAssetCategories.indexOf(catId);
+            if (idx > -1) this.selectedAssetCategories.splice(idx, 1);
+            else this.selectedAssetCategories.push(catId);
+        }
+        await this.loadDashboardData();
+        this.render();
+    }
+
+    async toggleFleetCategory(catId) {
+        if (catId === null) {
+            this.selectedFleetCategories = [];
+        } else {
+            const idx = this.selectedFleetCategories.indexOf(catId);
+            if (idx > -1) this.selectedFleetCategories.splice(idx, 1);
+            else this.selectedFleetCategories.push(catId);
         }
         await this.loadDashboardData();
         this.render();

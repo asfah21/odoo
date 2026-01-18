@@ -8,6 +8,7 @@
     'depends': ['base', 'product', 'hr', 'stock', 'web', 'mail'],
     'data': [
         'security/ir.model.access.csv',
+        'data/master_data.xml',
         'views/asset_views.xml',
         'views/consumable_views.xml',
         'views/dashboard_views.xml',

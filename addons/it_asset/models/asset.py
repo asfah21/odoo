@@ -229,7 +229,7 @@ class ITAsset(models.Model):
     # --- DASHBOARD (Optimized _read_group) ---
 
     @api.model
-    def get_dashboard_stats(self, category_ids=None, date_start=None, date_end=None):
+    def get_dashboard_stats(self, category_ids=None, date_start=None, date_end=None, fleet_category_ids=None, comp_asset_cat_ids=None):
         domain = []
         if category_ids:
             domain.append(('category_id', 'in', category_ids))
@@ -287,7 +287,8 @@ class ITAsset(models.Model):
         stats.update({
             'maintenance_count': self.env['it_asset.maintenance'].search_count(m_domain),
             'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end, category_ids),
-            'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True)
+            'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True),
+            'fleet_comparison': self._get_fleet_comparison_stats(comp_asset_cat_ids, fleet_category_ids)
         })
         return stats
 
@@ -326,4 +327,26 @@ class ITAsset(models.Model):
         return {
             'total': actual_total,
             'data': res
+        }
+
+    def _get_fleet_comparison_stats(self, asset_cat_ids=None, fleet_cat_ids=None):
+        """Compare Operational Assets vs Fleet Units with specific filtering"""
+        # 1. Get Operational Assets
+        asset_domain = [('asset_type', '=', 'operation')]
+        if asset_cat_ids:
+            asset_domain.append(('category_id', 'in', asset_cat_ids))
+        asset_count = self.search_count(asset_domain)
+
+        # 2. Get Fleet Units
+        unit_domain = []
+        if fleet_cat_ids:
+            unit_domain.append(('category_id', 'in', fleet_cat_ids))
+        unit_count = self.env['it_asset.unit'].search_count(unit_domain)
+
+        return {
+            'assets': asset_count,
+            'units': unit_count,
+            'ratio': (asset_count / (unit_count or 1)) * 100, # Percentage fill
+            'asset_cat_ids': asset_cat_ids or [],
+            'fleet_cat_ids': fleet_cat_ids or []
         }

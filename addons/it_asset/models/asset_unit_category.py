@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 class ITAssetUnitCategory(models.Model):
     _name = 'it_asset.unit.category'
@@ -13,3 +13,10 @@ class ITAssetUnitCategory(models.Model):
     _sql_constraints = [
         ('name_unique', 'unique(name)', 'Category name must be unique!')
     ]
+
+    @api.model
+    def init_master_data(self, categories):
+        """Helper to load data only if it doesn't exist by name"""
+        for vals in categories:
+            if not self.search([('name', '=', vals.get('name'))], limit=1):
+                self.create(vals)

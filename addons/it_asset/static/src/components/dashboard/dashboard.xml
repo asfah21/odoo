@@ -18,7 +18,7 @@
                         <ul class="dropdown-menu shadow-lg border-0 mt-2 py-1">
                             <!-- All Categories Option -->
                             <li class="px-0">
-                                <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.length === 0 ? 'active' : ''}}" 
+                                <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.length === 0 ? 'selected-item' : ''}}" 
                                      t-on-click.stop="() => this.toggleCategory(null)">
                                     <div class="o_checkbox me-3">
                                         <input type="checkbox" class="form-check-input" t-att-checked="selectedCategories.length === 0"/>
@@ -33,7 +33,7 @@
                             <!-- Dynamic Categories -->
                             <t t-foreach="categories" t-as="cat" t-key="cat.id">
                                 <li class="px-0">
-                                    <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.includes(cat.id) ? 'active' : ''}}" 
+                                    <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.includes(cat.id) ? 'selected-item' : ''}}" 
                                          t-on-click.stop="() => this.toggleCategory(cat.id)">
                                         <div class="o_checkbox me-3">
                                             <input type="checkbox" class="form-input-check" t-att-checked="selectedCategories.includes(cat.id)"/>
@@ -195,6 +195,134 @@
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
                                     <span t-esc="stats.op_unavailable_broken"/>
                                 </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fleet vs Device Comparison Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="chart-panel shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                                <h4 class="mb-0">Fleet vs Radio)</h4>
+                                
+                                <div class="d-flex gap-2">
+                                    <!-- Asset Category Filter -->
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            Asset Category
+                                        </button>
+                                        <ul class="dropdown-menu shadow">
+                                            <li class="px-2 py-1">
+                                                <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                     t-attf-class="{{selectedAssetCategories.length === 0 ? 'selected-item' : ''}}"
+                                                     t-on-click.stop="() => this.toggleAssetCategory(null)">
+                                                    <div class="o_checkbox me-2">
+                                                        <input type="checkbox" class="form-check-input" t-att-checked="selectedAssetCategories.length === 0"/>
+                                                        <span/>
+                                                    </div>
+                                                    <span>All Assets</span>
+                                                </div>
+                                            </li>
+                                            <li><hr class="dropdown-divider"/></li>
+                                            <t t-foreach="assetCategories" t-as="ac" t-key="ac.id">
+                                                <li class="px-2 py-1">
+                                                    <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                         t-attf-class="{{selectedAssetCategories.includes(ac.id) ? 'selected-item' : ''}}"
+                                                         t-on-click.stop="() => this.toggleAssetCategory(ac.id)">
+                                                        <div class="o_checkbox me-2">
+                                                            <input type="checkbox" class="form-check-input" t-att-checked="selectedAssetCategories.includes(ac.id)"/>
+                                                            <span/>
+                                                        </div>
+                                                        <span t-esc="ac.name"/>
+                                                    </div>
+                                                </li>
+                                            </t>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Fleet Category Filter -->
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            Fleet Category
+                                        </button>
+                                        <ul class="dropdown-menu shadow">
+                                            <li class="px-2 py-1">
+                                                <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                     t-attf-class="{{selectedFleetCategories.length === 0 ? 'selected-item' : ''}}"
+                                                     t-on-click.stop="() => this.toggleFleetCategory(null)">
+                                                    <div class="o_checkbox me-2">
+                                                        <input type="checkbox" class="form-check-input" t-att-checked="selectedFleetCategories.length === 0"/>
+                                                        <span/>
+                                                    </div>
+                                                    <span>All Fleets</span>
+                                                </div>
+                                            </li>
+                                            <li><hr class="dropdown-divider"/></li>
+                                            <t t-foreach="fleetCategories" t-as="fc" t-key="fc.id">
+                                                <li class="px-2 py-1">
+                                                    <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                         t-attf-class="{{selectedFleetCategories.includes(fc.id) ? 'selected-item' : ''}}"
+                                                         t-on-click.stop="() => this.toggleFleetCategory(fc.id)">
+                                                        <div class="o_checkbox me-2">
+                                                            <input type="checkbox" class="form-check-input" t-att-checked="selectedFleetCategories.includes(fc.id)"/>
+                                                            <span/>
+                                                        </div>
+                                                        <span t-esc="fc.name"/>
+                                                    </div>
+                                                </li>
+                                            </t>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <div class="comparison-bar-container">
+                                        <!-- Top Info Labels -->
+                                        <div class="d-flex justify-content-between mb-2 small fw-bold">
+                                            <span class="text-primary"><i class="fa fa-car me-1"></i> Fleet Units (<t t-esc="stats.fleet_comparison.units"/>)</span>
+                                            <span class="text-purple"><i class="fa fa-rss me-1"></i> Radio Device (<t t-esc="stats.fleet_comparison.assets"/>)</span>
+                                        </div>
+                                        
+                                        <!-- Modern Comparison Progress Bar -->
+                                        <div class="progress shadow-sm mb-2" style="height: 30px; border-radius: 15px; background-color: #f1f5f9; overflow: visible;">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                                 role="progressbar" 
+                                                 t-attf-style="width: {{ Math.min(stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 15px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                            </div>
+                                            <!-- Indicator arrow if exceeds 100% -->
+                                            <div t-if="stats.fleet_comparison.ratio > 100" 
+                                                 class="position-absolute end-0 top-0 mt-n4 me-3 text-danger fw-bold pulse-animation" 
+                                                 style="font-size: 0.7rem;">
+                                                <i class="fa fa-warning"></i> OVER-EQUIPPED
+                                            </div>
+                                        </div>
+
+                                        <!-- Sub-labels -->
+                                        <div class="d-flex justify-content-between micro-text text-muted">
+                                            <span>Baseline (Fleet)</span>
+                                            <span>Radio Coverage: <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="p-3 bg-light rounded shadow-inner-light h-100 d-flex flex-column justify-content-center border-start border-4 border-primary">
+                                        <div class="mb-2">
+                                            <div class="small fw-bold text-muted uppercase">Coverage Status</div>
+                                            <div class="h3 mb-0 fw-black" t-attf-class="{{ stats.fleet_comparison.ratio >= 100 ? 'text-success' : (stats.fleet_comparison.ratio > 70 ? 'text-primary' : 'text-warning') }}">
+                                                <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%
+                                            </div>
+                                        </div>
+                                        <div class="micro-text text-muted">
+                                            <i class="fa fa-info-circle me-1"></i>
+                                            <t t-if="stats.fleet_comparison.ratio >= 100">Every unit has at least one radio.</t>
+                                            <t t-else="">Shortage of <t t-esc="stats.fleet_comparison.units - stats.fleet_comparison.assets"/> devices to 100% coverage.</t>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

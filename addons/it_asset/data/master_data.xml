@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- IT Asset Categories: Smart Loader -->
+        <function model="it_asset.category" name="init_master_data">
+            <value eval="[
+                {'name': 'Laptop'},
+                {'name': 'Desktop'},
+                {'name': 'Printer'},
+                {'name': 'Radio Device'}
+            ]"/>
+        </function>
+
+        <!-- Fleet Categories: Smart Loader -->
+        <function model="it_asset.unit.category" name="init_master_data">
+            <value eval="[
+                {'name': 'Dump Truck'},
+                {'name': 'Water Truck'},
+                {'name': 'Excavator'},
+                {'name': 'Light Vehicle (LV)'}
+            ]"/>
+        </function>
+    </data>
+</odoo>
