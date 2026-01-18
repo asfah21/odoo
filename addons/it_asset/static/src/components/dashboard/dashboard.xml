@@ -332,7 +332,17 @@
                         <div class="chart-panel shadow-sm h-100 mb-0 d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center mb-4">
                                 <h4 class="mb-0">Printer Usage</h4>
-                                <span class="badge rounded-pill bg-purple-light text-purple px-3 py-2 micro-text fw-bold">7D ACTIVITY</span>
+                                <!-- Printer Period Filter -->
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-light border py-1 px-3 fw-bold micro-text shadow-sm dropdown-toggle rounded-pill text-purple" type="button" data-bs-toggle="dropdown">
+                                        <t t-esc="state.printerPeriod"/>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('7D')">7D (Last Week)</a></li>
+                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1M')">1M (Last Month)</a></li>
+                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1Y')">1Y (Last Year)</a></li>
+                                    </ul>
+                                </div>
                             </div>
                             
                             <div class="flex-grow-1 d-flex flex-column justify-content-between">
@@ -342,7 +352,10 @@
                                         <span class="text-muted small pb-1">Total Pages</span>
                                     </div>
                                     <div class="micro-text text-success fw-bold">
-                                        <i class="fa fa-caret-up"></i> <t t-esc="stats.printer_stats.recent_pages.toLocaleString()"/> printed this week
+                                        <i class="fa fa-caret-up"></i> <t t-esc="stats.printer_stats.recent_pages.toLocaleString()"/> printed 
+                                        <t t-if="state.printerPeriod == '7D'">last week</t>
+                                        <t t-elif="state.printerPeriod == '1M'">last month</t>
+                                        <t t-else="">last year</t>
                                     </div>
                                 </div>
 
@@ -371,13 +384,6 @@
                                     </div>
                                 </div>
 
-                                <div class="mt-auto p-2 bg-light rounded-3 d-flex align-items-center border-start border-3 border-purple">
-                                    <div class="me-3 fs-3 text-purple opacity-50"><i class="fa fa-print"></i></div>
-                                    <div>
-                                        <div class="micro-text text-muted uppercase fw-bold">Most Active Printer</div>
-                                        <div class="small fw-bold text-slate-700" t-esc="stats.printer_stats.top_printer"/>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>

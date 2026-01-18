@@ -10,6 +10,7 @@ export class ITAssetDashboard extends Component {
         this.action = useService("action");
         this.state = useState({
             showMobileFilters: false,
+            printerPeriod: '7D', // Default to 7 Days
         });
         this.categories = [];
         this.selectedCategories = [];
@@ -36,7 +37,7 @@ export class ITAssetDashboard extends Component {
             state_distribution: [],
             category_distribution: [],
             fleet_comparison: { assets: 0, units: 0, ratio: 0 },
-            printer_stats: { total_color: 0, total_bw: 0, total_pages: 0, recent_pages: 0, top_printer: 'N/A' }
+            printer_stats: { total_color: 0, total_bw: 0, total_pages: 0, recent_pages: 0 }
         };
 
         onWillStart(async () => {
@@ -61,6 +62,7 @@ export class ITAssetDashboard extends Component {
         }
         if (this.dateStart) params.date_start = this.dateStart;
         if (this.dateEnd) params.date_end = this.dateEnd;
+        params.printer_period = this.state.printerPeriod;
 
         const res = await this.orm.call("it_asset.asset", "get_dashboard_stats", [], params);
 
@@ -125,6 +127,12 @@ export class ITAssetDashboard extends Component {
     async onDateChange(type, ev) {
         if (type === 'start') this.dateStart = ev.target.value || null;
         if (type === 'end') this.dateEnd = ev.target.value || null;
+        await this.loadDashboardData();
+        this.render();
+    }
+
+    async setPrinterPeriod(period) {
+        this.state.printerPeriod = period;
         await this.loadDashboardData();
         this.render();
     }

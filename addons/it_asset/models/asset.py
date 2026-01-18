@@ -236,7 +236,11 @@ class ITAsset(models.Model):
     # --- DASHBOARD (Optimized _read_group) ---
 
     @api.model
-    def get_dashboard_stats(self, category_ids=None, date_start=None, date_end=None, fleet_category_ids=None, comp_asset_cat_ids=None):
+    def get_dashboard_stats(self, date_start=None, date_end=None, category_ids=None, fleet_category_ids=None, comp_asset_cat_ids=None, printer_period='7D'):
+        """Fetch all dashboard statistics in one call"""
+        # Convert JS null/string 'null' to Python None
+        if date_start == 'null' or not date_start: date_start = None
+        if date_end == 'null' or not date_end: date_end = None
         domain = []
         if category_ids:
             domain.append(('category_id', 'in', category_ids))
@@ -296,7 +300,7 @@ class ITAsset(models.Model):
             'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end, category_ids),
             'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True),
             'fleet_comparison': self._get_fleet_comparison_stats(comp_asset_cat_ids, fleet_category_ids),
-            'printer_stats': self._get_printer_dashboard_stats()
+            'printer_stats': self._get_printer_dashboard_stats(printer_period)
         })
         return stats
 
@@ -359,7 +363,7 @@ class ITAsset(models.Model):
             'fleet_cat_ids': fleet_cat_ids or []
         }
 
-    def _get_printer_dashboard_stats(self):
+    def _get_printer_dashboard_stats(self, period='7D'):
         """Fetch printer usage summary for the dashboard"""
         Usage = self.env['it_asset.printer.usage']
         
@@ -368,22 +372,21 @@ class ITAsset(models.Model):
         total_color = sum(all_usage.mapped('color_pages'))
         total_bw = sum(all_usage.mapped('bw_pages'))
         
-        # Usage in last 7 days
-        date_7d = fields.Date.subtract(fields.Date.today(), days=7)
-        recent_usage = Usage.search([('date', '>=', date_7d)])
+        # Adjust date based on period
+        days = 7
+        if period == '1M':
+            days = 30
+        elif period == '1Y':
+            days = 365
+            
+        period_date = fields.Date.subtract(fields.Date.today(), days=days)
+        recent_usage = Usage.search([('date', '>=', period_date)])
         recent_printed = sum(recent_usage.mapped('pages_diff'))
-        
-        # Get top printer (most used)
-        top_printer_data = Usage._read_group([], ['asset_id'], ['pages_diff:sum'], order='pages_diff:sum desc', limit=1)
-        top_printer_name = "N/A"
-        if top_printer_data:
-            printer = top_printer_data[0][0]
-            top_printer_name = printer.name if printer else "N/A"
 
         return {
             'total_color': total_color,
             'total_bw': total_bw,
             'total_pages': total_color + total_bw,
             'recent_pages': recent_printed,
-            'top_printer': top_printer_name
+            'period': period
         }
