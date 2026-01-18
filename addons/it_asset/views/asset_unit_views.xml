@@ -76,7 +76,7 @@
 
     <menuitem id="it_asset_menu_units" 
               name="Fleet Units" 
-              parent="it_asset_menu_operational_group" 
+              parent="it_asset_menu_fleet" 
               action="action_it_asset_unit" 
-              sequence="20"/>
+              sequence="10"/>
 </odoo>

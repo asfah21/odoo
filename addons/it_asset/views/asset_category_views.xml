@@ -20,7 +20,7 @@
 
     <menuitem id="it_asset_menu_categories" 
               name="Categories" 
-              parent="it_asset_menu_it_group" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_category" 
-              sequence="30"/>
+              sequence="20"/>
 </odoo>

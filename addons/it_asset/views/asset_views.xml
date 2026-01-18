@@ -186,22 +186,27 @@
               sequence="10" 
               web_icon="it_asset,static/description/icon.png"/>
 
-    <!-- [2] TOP BAR MENU (Parent Dropdown) -->
+    <!-- [2] TOP BAR MENUS -->
     <menuitem id="it_asset_menu_management" 
               name="Asset Management" 
               parent="it_asset_menu_root" 
               sequence="10"/>
 
-    <!-- [3] GROUP HEADERS (No Action) -->
+    <menuitem id="it_asset_menu_fleet" 
+              name="Fleet" 
+              parent="it_asset_menu_root" 
+              sequence="20"/>
+
+    <!-- [3] GROUP HEADERS (Asset Management) -->
     <menuitem id="it_asset_menu_it_group" 
               name="IT" 
               parent="it_asset_menu_management" 
-              sequence="30"/>
+              sequence="40"/>
 
     <menuitem id="it_asset_menu_operational_group" 
               name="Operational" 
               parent="it_asset_menu_management" 
-              sequence="40"/>
+              sequence="50"/>
 
     <!-- [4] CHILD DROP_DOWN ITEMS -->
     <menuitem id="it_asset_menu_assets_it" 

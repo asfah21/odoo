@@ -59,7 +59,7 @@
 
     <menuitem id="it_asset_menu_unit_categories" 
               name="Fleet Categories" 
-              parent="it_asset_menu_operational_group" 
+              parent="it_asset_menu_fleet" 
               action="action_it_asset_unit_category" 
-              sequence="30"/>
+              sequence="20"/>
 </odoo>
