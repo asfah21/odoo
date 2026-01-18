@@ -35,7 +35,8 @@ export class ITAssetDashboard extends Component {
             recent_activities: [],
             state_distribution: [],
             category_distribution: [],
-            fleet_comparison: { assets: 0, units: 0, ratio: 0 }
+            fleet_comparison: { assets: 0, units: 0, ratio: 0 },
+            printer_stats: { total_color: 0, total_bw: 0, total_pages: 0, recent_pages: 0, top_printer: 'N/A' }
         };
 
         onWillStart(async () => {

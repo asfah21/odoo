@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_asset_printer_usage_list" model="ir.ui.view">
+        <field name="name">it.asset.printer.usage.list</field>
+        <field name="model">it_asset.printer.usage</field>
+        <field name="arch" type="xml">
+            <list string="Printer Usage" editable="bottom">
+                <field name="date"/>
+                <field name="asset_id" options="{'no_create': True, 'no_open': True}"/>
+                <field name="bw_pages" sum="Total B/W"/>
+                <field name="color_pages" sum="Total Color"/>
+                <field name="total_pages" sum="Grand Total"/>
+                <field name="pages_diff" readonly="1"/>
+                <field name="remarks"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_printer_usage_form" model="ir.ui.view">
+        <field name="name">it.asset.printer.usage.form</field>
+        <field name="model">it_asset.printer.usage</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="asset_id" options="{'no_create': True}"/>
+                            <field name="date"/>
+                        </group>
+                        <group>
+                            <field name="bw_pages"/>
+                            <field name="color_pages"/>
+                            <field name="total_pages"/>
+                            <field name="pages_diff" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="remarks"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset_printer_usage" model="ir.actions.act_window">
+        <field name="name">Printer Usage</field>
+        <field name="res_model">it_asset.printer.usage</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Track weekly printer usage!</p>
+            <p>Input the current counter/page count to see usage trends.</p>
+        </field>
+    </record>
+
+    <menuitem id="it_asset_menu_printer_usage"
+              name="Printer Usage"
+              parent="it_asset_menu_it_group"
+              action="action_it_asset_printer_usage"
+              sequence="25"/>
+</odoo>

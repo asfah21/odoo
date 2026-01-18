@@ -5,3 +5,4 @@ from . import asset_maintenance
 from . import consumable
 from . import asset_unit_category
 from . import asset_unit
+from . import printer_usage

@@ -208,10 +208,11 @@
                     </div>
                 </div>
 
-                <!-- Fleet vs Device Comparison Section -->
+                <!-- Comparison & Printer Section -->
                 <div class="row g-4 mb-4">
-                    <div class="col-12">
-                        <div class="chart-panel shadow-sm">
+                    <!-- Fleet vs Radio (70%) -->
+                    <div class="col-12 col-lg-8">
+                        <div class="chart-panel shadow-sm h-100 mb-0">
                             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
                                 <h4 class="mb-0">Fleet vs Radio</h4>
                                 
@@ -230,7 +231,7 @@
                                                         <input type="checkbox" class="form-check-input" t-att-checked="selectedAssetCategories.length === 0"/>
                                                         <span/>
                                                     </div>
-                                                    <span>All Assets</span>
+                                                    <span>All Radio</span>
                                                 </div>
                                             </li>
                                             <li><hr class="dropdown-divider"/></li>
@@ -287,7 +288,7 @@
                             </div>
 
                             <div class="row align-items-center">
-                                <div class="col-md-8">
+                                <div class="col-md-12">
                                     <div class="comparison-bar-container">
                                         <!-- Top Info Labels -->
                                         <div class="d-flex justify-content-between mb-2 small fw-bold">
@@ -296,39 +297,85 @@
                                         </div>
                                         
                                         <!-- Modern Comparison Progress Bar -->
-                                        <div class="progress shadow-sm mb-2" style="height: 30px; border-radius: 15px; background-color: #f1f5f9; overflow: visible;">
+                                        <div class="progress shadow-sm mb-3" style="height: 24px; border-radius: 12px; background-color: #f1f5f9; overflow: visible; position: relative;">
                                             <div class="progress-bar progress-bar-striped progress-bar-animated" 
                                                  role="progressbar" 
-                                                 t-attf-style="width: {{ Math.min(stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 15px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                                 t-attf-style="width: {{ Math.min(stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 12px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
                                             </div>
-                                            <!-- Indicator arrow if exceeds 100% -->
                                             <div t-if="stats.fleet_comparison.ratio > 100" 
-                                                 class="position-absolute end-0 top-0 mt-n4 me-3 text-danger fw-bold pulse-animation" 
-                                                 style="font-size: 0.7rem;">
+                                                 class="position-absolute end-0 top-0 mt-n4 me-2 text-danger fw-bold pulse-animation" 
+                                                 style="font-size: 0.65rem;">
                                                 <i class="fa fa-warning"></i> OVER-EQUIPPED
                                             </div>
                                         </div>
 
-                                        <!-- Sub-labels -->
-                                        <div class="d-flex justify-content-between micro-text text-muted">
-                                            <span>Baseline (Fleet)</span>
-                                            <span>Radio Coverage: <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%</span>
+                                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                                            <div>
+                                                <span class="small text-muted uppercase">Coverage: </span>
+                                                <span class="h5 mb-0 fw-black ms-1" t-attf-class="{{ stats.fleet_comparison.ratio >= 100 ? 'text-success' : (stats.fleet_comparison.ratio > 70 ? 'text-primary' : 'text-warning') }}">
+                                                    <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%
+                                                </span>
+                                            </div>
+                                            <div class="micro-text text-muted">
+                                                <t t-if="stats.fleet_comparison.ratio >= 100">Full Coverage achieved.</t>
+                                                <t t-else="">Shortage: <t t-esc="stats.fleet_comparison.units - stats.fleet_comparison.assets"/> devices.</t>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <div class="p-3 bg-light rounded shadow-inner-light h-100 d-flex flex-column justify-content-center border-start border-4 border-primary">
-                                        <div class="mb-2">
-                                            <div class="small fw-bold text-muted uppercase">Coverage Status</div>
-                                            <div class="h3 mb-0 fw-black" t-attf-class="{{ stats.fleet_comparison.ratio >= 100 ? 'text-success' : (stats.fleet_comparison.ratio > 70 ? 'text-primary' : 'text-warning') }}">
-                                                <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%
-                                            </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Printer Usage (30%) -->
+                    <div class="col-12 col-lg-4">
+                        <div class="chart-panel shadow-sm h-100 mb-0 d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0">Printer Usage</h4>
+                                <span class="badge rounded-pill bg-purple-light text-purple px-3 py-2 micro-text fw-bold">7D ACTIVITY</span>
+                            </div>
+                            
+                            <div class="flex-grow-1 d-flex flex-column justify-content-between">
+                                <div class="printer-stats-main mb-4">
+                                    <div class="d-flex align-items-end gap-2 mb-1">
+                                        <span class="h2 mb-0 fw-black text-slate-800"><t t-esc="stats.printer_stats.total_pages.toLocaleString()"/></span>
+                                        <span class="text-muted small pb-1">Total Pages</span>
+                                    </div>
+                                    <div class="micro-text text-success fw-bold">
+                                        <i class="fa fa-caret-up"></i> <t t-esc="stats.printer_stats.recent_pages.toLocaleString()"/> printed this week
+                                    </div>
+                                </div>
+
+                                <div class="usage-split-box mb-4">
+                                    <div class="d-flex justify-content-between micro-text mb-1 fw-bold">
+                                        <span class="text-muted">B/W vs COLOR</span>
+                                        <span class="text-purple"><t t-esc="((stats.printer_stats.total_color / (stats.printer_stats.total_pages or 1)) * 100).toFixed(0)"/>% Color</span>
+                                    </div>
+                                    <div class="progress" style="height: 8px; border-radius: 4px; background: #e2e8f0;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             t-attf-style="width: {{ (stats.printer_stats.total_bw / (stats.printer_stats.total_pages or 1)) * 100 }}%; background-color: #475569;" 
+                                             t-att-aria-valuenow="stats.printer_stats.total_bw" aria-valuemin="0" t-att-aria-valuemax="stats.printer_stats.total_pages"></div>
+                                        <div class="progress-bar" role="progressbar" 
+                                             t-attf-style="width: {{ (stats.printer_stats.total_color / (stats.printer_stats.total_pages or 1)) * 100 }}%; background: linear-gradient(90deg, #f472b6, #a855f7);" 
+                                             t-att-aria-valuenow="stats.printer_stats.total_color" aria-valuemin="0" t-att-aria-valuemax="stats.printer_stats.total_pages"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-between mt-2">
+                                        <div class="small d-flex align-items-center">
+                                            <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #475569;"></div>
+                                            <span class="text-muted"><t t-esc="stats.printer_stats.total_bw.toLocaleString()"/> B/W</span>
                                         </div>
-                                        <div class="micro-text text-muted">
-                                            <i class="fa fa-info-circle me-1"></i>
-                                            <t t-if="stats.fleet_comparison.ratio >= 100">Every unit has at least one radio.</t>
-                                            <t t-else="">Shortage of <t t-esc="stats.fleet_comparison.units - stats.fleet_comparison.assets"/> devices to 100% coverage.</t>
+                                        <div class="small d-flex align-items-center">
+                                            <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #a855f7;"></div>
+                                            <span class="text-muted"><t t-esc="stats.printer_stats.total_color.toLocaleString()"/> Color</span>
                                         </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-auto p-2 bg-light rounded-3 d-flex align-items-center border-start border-3 border-purple">
+                                    <div class="me-3 fs-3 text-purple opacity-50"><i class="fa fa-print"></i></div>
+                                    <div>
+                                        <div class="micro-text text-muted uppercase fw-bold">Most Active Printer</div>
+                                        <div class="small fw-bold text-slate-700" t-esc="stats.printer_stats.top_printer"/>
                                     </div>
                                 </div>
                             </div>

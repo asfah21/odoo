@@ -48,11 +48,18 @@ class ITAsset(models.Model):
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
     maintenance_ids = fields.One2many('it_asset.maintenance', 'asset_id', string='Maintenances')
+    printer_usage_ids = fields.One2many('it_asset.printer.usage', 'asset_id', string='Printer Usage Records')
+    is_printer = fields.Boolean(compute='_compute_is_printer', store=True)
 
     _sql_constraints = [
         ('unique_lot_id', 'unique(lot_id)', 'Serial number must be unique!'),
         ('unique_asset_tag', 'unique(asset_tag)', 'Asset Tag must be unique!')
     ]
+
+    @api.depends('category_id')
+    def _compute_is_printer(self):
+        for record in self:
+            record.is_printer = record.category_id and 'printer' in record.category_id.name.lower()
 
     @api.depends('name', 'asset_tag')
     def _compute_display_name(self):
@@ -288,7 +295,8 @@ class ITAsset(models.Model):
             'maintenance_count': self.env['it_asset.maintenance'].search_count(m_domain),
             'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end, category_ids),
             'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True),
-            'fleet_comparison': self._get_fleet_comparison_stats(comp_asset_cat_ids, fleet_category_ids)
+            'fleet_comparison': self._get_fleet_comparison_stats(comp_asset_cat_ids, fleet_category_ids),
+            'printer_stats': self._get_printer_dashboard_stats()
         })
         return stats
 
@@ -349,4 +357,33 @@ class ITAsset(models.Model):
             'ratio': (asset_count / (unit_count or 1)) * 100, # Percentage fill
             'asset_cat_ids': asset_cat_ids or [],
             'fleet_cat_ids': fleet_cat_ids or []
+        }
+
+    def _get_printer_dashboard_stats(self):
+        """Fetch printer usage summary for the dashboard"""
+        Usage = self.env['it_asset.printer.usage']
+        
+        # Total accumulation
+        all_usage = Usage.search([])
+        total_color = sum(all_usage.mapped('color_pages'))
+        total_bw = sum(all_usage.mapped('bw_pages'))
+        
+        # Usage in last 7 days
+        date_7d = fields.Date.subtract(fields.Date.today(), days=7)
+        recent_usage = Usage.search([('date', '>=', date_7d)])
+        recent_printed = sum(recent_usage.mapped('pages_diff'))
+        
+        # Get top printer (most used)
+        top_printer_data = Usage._read_group([], ['asset_id'], ['pages_diff:sum'], order='pages_diff:sum desc', limit=1)
+        top_printer_name = "N/A"
+        if top_printer_data:
+            printer = top_printer_data[0][0]
+            top_printer_name = printer.name if printer else "N/A"
+
+        return {
+            'total_color': total_color,
+            'total_bw': total_bw,
+            'total_pages': total_color + total_bw,
+            'recent_pages': recent_printed,
+            'top_printer': top_printer_name
         }

@@ -102,6 +102,18 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Printer Usage" name="printer_usage" invisible="is_printer == False">
+                            <field name="printer_usage_ids">
+                                <list editable="bottom">
+                                    <field name="date"/>
+                                    <field name="bw_pages"/>
+                                    <field name="color_pages"/>
+                                    <field name="total_pages"/>
+                                    <field name="pages_diff"/>
+                                    <field name="remarks"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Asset Details" name="asset_details">
                             <group>
                                 <group>
@@ -109,6 +121,7 @@
                                     <field name="state" widget="radio" options="{'horizontal': True}"/>
                                     <field name="condition" widget="radio" options="{'horizontal': True}"/>
                                     <field name="is_consumable" invisible="1"/>
+                                    <field name="is_printer" invisible="1"/>
                                 </group>
                             </group>
                         </page>
