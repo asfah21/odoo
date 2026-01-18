@@ -223,7 +223,7 @@
                                     </span>
                                 </div>
                                 
-                                <div class="d-flex gap-2">
+                                <div class="d-flex gap-2 filter-buttons-container">
                                     <!-- Asset Category Filter -->
                                     <div class="dropdown">
                                         <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
@@ -304,10 +304,10 @@
                                         </div>
                                         
                                         <!-- Modern Comparison Progress Bar -->
-                                        <div class="progress shadow-sm mb-3" style="height: 24px; border-radius: 12px; background-color: #f1f5f9; overflow: visible; position: relative;">
-                                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                        <div class="progress shadow-sm mb-3" style="height: 24px; border-radius: 12px; background-color: #f1f5f9; overflow: hidden; position: relative;">
+                                            <div class="progress-bar" 
                                                  role="progressbar" 
-                                                 t-attf-style="width: {{ Math.min(state.stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 12px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                                 t-attf-style="width: {{ Math.min(state.stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); transition: width 1.2s ease-out;">
                                             </div>
                                         </div>
 
@@ -336,14 +336,39 @@
                                 <h4 class="mb-0">Printer Usage</h4>
                                 <!-- Printer Period Filter -->
                                 <div class="dropdown">
-                                    <button class="btn btn-sm btn-light border py-1 px-3 fw-bold micro-text shadow-sm dropdown-toggle rounded-pill text-purple" type="button" data-bs-toggle="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                         <t t-esc="state.printerPeriod"/>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end shadow border-0">
-                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('7D')">7D (Last Week)</a></li>
-                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1M')">1M (Last Month)</a></li>
-                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1Y')">1Y (Last Year)</a></li>
-                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('ALL')">ALL (Total)</a></li>
+                                    <ul class="dropdown-menu shadow">
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.printerPeriod === '7D' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setPrinterPeriod('7D')">
+                                                <span>7D (Last Week)</span>
+                                            </div>
+                                        </li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.printerPeriod === '1M' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setPrinterPeriod('1M')">
+                                                <span>1M (Last Month)</span>
+                                            </div>
+                                        </li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.printerPeriod === '1Y' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setPrinterPeriod('1Y')">
+                                                <span>1Y (Last Year)</span>
+                                            </div>
+                                        </li>
+                                        <li><hr class="dropdown-divider"/></li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.printerPeriod === 'ALL' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setPrinterPeriod('ALL')">
+                                                <span>ALL (Total)</span>
+                                            </div>
+                                        </li>
                                     </ul>
                                 </div>
                             </div>

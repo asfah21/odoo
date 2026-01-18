@@ -29,9 +29,9 @@
             flex-shrink: 0;
 
             .cp-title {
-                font-size: 1.25rem;
-                font-weight: 500;
-                color: #212529;
+                font-size: 1.15rem;
+                font-weight: 400;
+                color: #495057;
                 white-space: nowrap;
             }
         }
@@ -140,6 +140,23 @@
                     }
                 }
             }
+        }
+    }
+
+    /* Global Dropdown Item Styles */
+    .dropdown-item {
+        font-size: 0.813rem;
+        transition: all 0.2s;
+        border-radius: 4px;
+
+        &.selected-item {
+            background-color: #f1f5f9;
+            color: #6366f1;
+            font-weight: 700;
+        }
+
+        &:hover {
+            background-color: #f8fafc;
         }
     }
 
@@ -409,19 +426,6 @@
         }
     }
 
-    /* Responsive Adjustments */
-    @media (max-width: 768px) {
-        .dashboard-content {
-            padding: 1rem;
-        }
-
-        .summary-cards {
-            .card-body {
-                padding: 1rem;
-            }
-        }
-    }
-
     /* Comparison Card Styles */
     .comparison-bar-container {
         padding: 10px 0;
@@ -475,6 +479,36 @@
         font-weight: 700;
     }
 
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .dashboard-content {
+            padding: 1rem;
+        }
+
+        .summary-cards {
+            .card-body {
+                padding: 1rem;
+            }
+        }
+
+        /* Smaller buttons on mobile */
+        .btn-outline-secondary,
+        .btn-outline-primary {
+            font-size: 10px !important;
+            padding: 2px 8px !important;
+            letter-spacing: -0.1px;
+
+            @media (max-width: 576px) {
+                font-size: 9px !important;
+                padding: 1px 6px !important;
+            }
+        }
+
+        .filter-buttons-container {
+            gap: 4px !important;
+        }
+    }
+
     /* Scrollbar */
     &::-webkit-scrollbar {
         width: 6px;
@@ -493,6 +527,7 @@
         background: #94a3b8;
     }
 }
+
 .bg-purple-light {
     background-color: #f3e8ff;
 }
