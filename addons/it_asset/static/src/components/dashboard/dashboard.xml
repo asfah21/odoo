@@ -214,7 +214,14 @@
                     <div class="col-12 col-lg-8">
                         <div class="chart-panel shadow-sm h-100 mb-0">
                             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                                <h4 class="mb-0">Fleet vs Radio</h4>
+                                <div class="d-flex align-items-center gap-2">
+                                    <h4 class="mb-0">Radio Allocation</h4>
+                                    <span t-if="state.stats.fleet_comparison.ratio > 100" 
+                                          class="text-danger fw-bold pulse-animation small" 
+                                          style="font-size: 0.7rem; letter-spacing: 0.5px;">
+                                        <i class="fa fa-warning"></i> OVER-EQUIPPED
+                                    </span>
+                                </div>
                                 
                                 <div class="d-flex gap-2">
                                     <!-- Asset Category Filter -->
@@ -302,11 +309,6 @@
                                                  role="progressbar" 
                                                  t-attf-style="width: {{ Math.min(state.stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 12px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
                                             </div>
-                                            <div t-if="state.stats.fleet_comparison.ratio > 100" 
-                                                 class="position-absolute end-0 top-0 mt-n4 me-2 text-danger fw-bold pulse-animation" 
-                                                 style="font-size: 0.65rem;">
-                                                <i class="fa fa-warning"></i> OVER-EQUIPPED
-                                            </div>
                                         </div>
 
                                         <div class="d-flex justify-content-between align-items-center pt-2 border-top">
@@ -357,7 +359,7 @@
                                     </div>
                                 </div>
 
-                                <div class="usage-split-box mb-4">
+                                <div class="usage-split-box mb-0">
                                     <div class="d-flex justify-content-between micro-text mb-1 fw-bold">
                                         <span class="text-muted">B/W vs COLOR</span>
                                         <span class="text-purple"><t t-esc="((state.stats.printer_stats.total_color / (state.stats.printer_stats.total_pages or 1)) * 100).toFixed(0)"/>% Color</span>
