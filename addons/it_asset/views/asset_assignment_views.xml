@@ -25,5 +25,5 @@
               name="Assignments History" 
               parent="it_asset_menu_management" 
               action="action_it_asset_assignment" 
-              sequence="40"/>
+              sequence="10"/>
 </odoo>
