@@ -6,10 +6,16 @@ class ITAssetUnit(models.Model):
     _order = 'name'
 
     name = fields.Char(string='Unit Name', required=True, help="e.g. EX-01, DT-05")
+    category_id = fields.Many2one('it_asset.unit.category', string='Fleet Category', required=True)
     brand = fields.Char(string='Brand')
     model = fields.Char(string='Model')
     description = fields.Text(string='Description')
-    active = fields.Boolean(default=True)
+    state = fields.Selection([
+        ('ready', 'Ready'),
+        ('standby', 'Standby'),
+        ('breakdown', 'Breakdown'),
+    ], string='Status', default='ready', tracking=True)
+    remarks = fields.Char(string='Remarks', help="e.g. No Contract, etc.")
     asset_ids = fields.Many2many('it_asset.asset', 
                                compute='_compute_asset_ids', 
                                inverse='_inverse_asset_ids', 

@@ -6,10 +6,16 @@
         <field name="arch" type="xml">
             <list string="Fleet Units">
                 <field name="name"/>
+                <field name="category_id"/>
                 <field name="brand"/>
                 <field name="model"/>
                 <field name="description"/>
-                <field name="active" widget="boolean_toggle"/>
+                <field name="state" 
+                       widget="badge" 
+                       decoration-success="state == 'ready'" 
+                       decoration-info="state == 'standby'" 
+                       decoration-danger="state == 'breakdown'"/>
+                <field name="remarks"/>
             </list>
         </field>
     </record>
@@ -28,11 +34,13 @@
                     </div>
                     <group>
                         <group>
+                            <field name="category_id" options="{'no_create': False, 'no_open': False}"/>
                             <field name="brand" placeholder="e.g. Toyota, Komatsu"/>
                             <field name="model" placeholder="e.g. Hilux, PC200"/>
                         </group>
                         <group>
-                            <field name="active"/>
+                            <field name="state" widget="radio" options="{'horizontal': True}"/>
+                            <field name="remarks" placeholder="e.g. No Contract, etc"/>
                         </group>
                     </group>
                     <group string="Description">
@@ -68,7 +76,7 @@
 
     <menuitem id="it_asset_menu_units" 
               name="Fleet Units" 
-              parent="it_asset_menu_management" 
+              parent="it_asset_menu_operational_group" 
               action="action_it_asset_unit" 
-              sequence="12"/>
+              sequence="20"/>
 </odoo>

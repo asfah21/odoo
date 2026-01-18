@@ -24,7 +24,7 @@
     <!-- Pindah ke bawah dropdown parent -->
     <menuitem id="it_asset_menu_maintenances" 
               name="Maintenances" 
-              parent="it_asset_menu_management" 
+              parent="it_asset_menu_it_group" 
               action="action_it_asset_maintenance" 
-              sequence="30"/>
+              sequence="20"/>
 </odoo>

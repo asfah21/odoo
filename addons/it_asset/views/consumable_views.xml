@@ -87,5 +87,5 @@
               name="Consumables" 
               parent="it_asset_menu_management" 
               action="action_it_consumable" 
-              sequence="15"/> 
+              sequence="30"/> 
 </odoo>

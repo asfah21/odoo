@@ -192,18 +192,29 @@
               parent="it_asset_menu_root" 
               sequence="10"/>
 
-    <!-- [3] CHILD DROP_DOWN ITEMS -->
+    <!-- [3] GROUP HEADERS (No Action) -->
+    <menuitem id="it_asset_menu_it_group" 
+              name="IT" 
+              parent="it_asset_menu_management" 
+              sequence="10"/>
+
+    <menuitem id="it_asset_menu_operational_group" 
+              name="Operational" 
+              parent="it_asset_menu_management" 
+              sequence="20"/>
+
+    <!-- [4] CHILD DROP_DOWN ITEMS -->
     <menuitem id="it_asset_menu_assets_it" 
               name="IT Assets" 
-              parent="it_asset_menu_management" 
+              parent="it_asset_menu_it_group" 
               action="action_it_asset_type_it" 
               sequence="10"/>
 
     <menuitem id="it_asset_menu_assets_operation" 
               name="Operational Assets" 
-              parent="it_asset_menu_management" 
+              parent="it_asset_menu_operational_group" 
               action="action_it_asset_type_operation" 
-              sequence="11"/>
+              sequence="10"/>
 
     <record id="action_it_asset_sync_inventory" model="ir.actions.server">
         <field name="name">Sync with Inventory</field>

@@ -5,3 +5,4 @@ access_it_asset_assignment,it_asset.assignment,model_it_asset_assignment,base.gr
 access_it_asset_maintenance,it_asset.maintenance,model_it_asset_maintenance,base.group_user,1,1,1,1
 access_it_asset_consumable,it_asset.consumable,model_it_asset_consumable,base.group_user,1,1,1,1
 access_it_asset_unit,it_asset.unit,model_it_asset_unit,base.group_user,1,1,1,1
+access_it_asset_unit_category,it_asset.unit.category,model_it_asset_unit_category,base.group_user,1,1,1,1
