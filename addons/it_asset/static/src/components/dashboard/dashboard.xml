@@ -9,51 +9,60 @@
                     <div class="cp-title" t-esc="'IT Dashboard Overview'"/>
                 </div>
                 <div class="cp-right">
-                    <!-- Category Filter -->
-                    <div class="filter-group dropdown">
-                        <div class="dropdown-toggle d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
-                            <label><i class="fa fa-tag"></i>Category</label>
-                            <span class="ms-2 selected-text" t-esc="selectedCategoriesNames"/>
-                        </div>
-                        <ul class="dropdown-menu shadow-lg border-0 mt-2 py-1">
-                            <!-- All Categories Option -->
-                            <li class="px-0">
-                                <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.length === 0 ? 'selected-item' : ''}}" 
-                                     t-on-click.stop="() => this.toggleCategory(null)">
-                                    <div class="o_checkbox me-3">
-                                        <input type="checkbox" class="form-check-input" t-att-checked="selectedCategories.length === 0"/>
-                                        <span/>
-                                    </div>
-                                    <span class="fw-bold">All Categories</span>
-                                </div>
-                            </li>
-                            
-                            <li><hr class="dropdown-divider mx-3 opacity-50"/></li>
-                            
-                            <!-- Dynamic Categories -->
-                            <t t-foreach="categories" t-as="cat" t-key="cat.id">
+                    <!-- Filter Toggle (Desktop & Mobile) -->
+                    <button class="btn btn-light border shadow-sm rounded-3 filter-toggle-btn"
+                            t-on-click="() => this.state.showMobileFilters = !this.state.showMobileFilters">
+                        <i t-attf-class="fa {{ state.showMobileFilters ? 'fa-times' : 'fa-filter' }} me-2 text-primary"></i>
+                        <span t-esc="state.showMobileFilters ? 'Close' : 'Filters'"/>
+                    </button>
+
+                    <div t-attf-class="filters-container {{ state.showMobileFilters ? 'mobile-show' : '' }}">
+                        <!-- Category Filter -->
+                        <div class="filter-group dropdown">
+                            <div class="dropdown-toggle d-flex align-items-center cursor-pointer" data-bs-toggle="dropdown" aria-expanded="false">
+                                <label><i class="fa fa-tag"></i>Category</label>
+                                <span class="ms-2 selected-text" t-esc="selectedCategoriesNames"/>
+                            </div>
+                            <ul class="dropdown-menu shadow-lg border-0 mt-2 py-1">
+                                <!-- All Categories Option -->
                                 <li class="px-0">
-                                    <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.includes(cat.id) ? 'selected-item' : ''}}" 
-                                         t-on-click.stop="() => this.toggleCategory(cat.id)">
+                                    <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.length === 0 ? 'selected-item' : ''}}" 
+                                         t-on-click.stop="() => this.toggleCategory(null)">
                                         <div class="o_checkbox me-3">
-                                            <input type="checkbox" class="form-input-check" t-att-checked="selectedCategories.includes(cat.id)"/>
+                                            <input type="checkbox" class="form-check-input" t-att-checked="selectedCategories.length === 0"/>
                                             <span/>
                                         </div>
-                                        <span t-esc="cat.name"/>
+                                        <span class="fw-bold">All Categories</span>
                                     </div>
                                 </li>
-                            </t>
-                        </ul>
-                    </div>
-                    
-                    <!-- Date Filters -->
-                    <div class="filter-group">
-                        <label><i class="fa fa-calendar-check-o"></i>From</label>
-                        <input type="date" t-on-change="(ev) => this.onDateChange('start', ev)" t-att-value="dateStart"/>
-                    </div>
-                    <div class="filter-group">
-                        <label><i class="fa fa-calendar-times-o"></i>To</label>
-                        <input type="date" t-on-change="(ev) => this.onDateChange('end', ev)" t-att-value="dateEnd"/>
+                                
+                                <li><hr class="dropdown-divider mx-3 opacity-50"/></li>
+                                
+                                <!-- Dynamic Categories -->
+                                <t t-foreach="categories" t-as="cat" t-key="cat.id">
+                                    <li class="px-0">
+                                        <div t-attf-class="dropdown-item d-flex align-items-center px-3 py-2 cursor-pointer {{selectedCategories.includes(cat.id) ? 'selected-item' : ''}}" 
+                                             t-on-click.stop="() => this.toggleCategory(cat.id)">
+                                            <div class="o_checkbox me-3">
+                                                <input type="checkbox" class="form-input-check" t-att-checked="selectedCategories.includes(cat.id)"/>
+                                                <span/>
+                                            </div>
+                                            <span t-esc="cat.name"/>
+                                        </div>
+                                    </li>
+                                </t>
+                            </ul>
+                        </div>
+                        
+                        <!-- Date Filters -->
+                        <div class="filter-group">
+                            <label><i class="fa fa-calendar-check-o"></i>From</label>
+                            <input type="date" t-on-change="(ev) => this.onDateChange('start', ev)" t-att-value="dateStart"/>
+                        </div>
+                        <div class="filter-group">
+                            <label><i class="fa fa-calendar-times-o"></i>To</label>
+                            <input type="date" t-on-change="(ev) => this.onDateChange('end', ev)" t-att-value="dateEnd"/>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -331,7 +340,7 @@
                 <div class="row g-4">
                     <div class="col-12 col-md-6">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-3">Global Service Stats (Upcoming)</h4>
+                            <h4 class="mb-3">IT Helpdesk (Upcoming)</h4>
                             <div class="row g-2">
                                 <div class="col-6">
                                     <div class="p-3 bg-light rounded-3 border d-flex align-items-center">
@@ -356,7 +365,7 @@
                     </div>
                     <div class="col-12 col-md-6">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-3">Recent Operations</h4>
+                            <h4 class="mb-3">Activity Log</h4>
                             <div class="activity-log">
                                 <t t-foreach="stats.recent_activities" t-as="activity" t-key="activity.id">
                                     <div class="log-entry">

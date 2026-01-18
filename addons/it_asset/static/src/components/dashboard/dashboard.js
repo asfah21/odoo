@@ -2,12 +2,15 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart } from "@odoo/owl";
+import { Component, onWillStart, useState } from "@odoo/owl";
 
 export class ITAssetDashboard extends Component {
     setup() {
         this.orm = useService("orm");
         this.action = useService("action");
+        this.state = useState({
+            showMobileFilters: false,
+        });
         this.categories = [];
         this.selectedCategories = [];
         this.dateStart = null;
