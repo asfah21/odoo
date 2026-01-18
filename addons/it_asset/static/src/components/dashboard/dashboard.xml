@@ -174,7 +174,7 @@
                     <!-- Status Map (30%) -->
                     <div class="col-12 col-lg-4">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4">Radio Status Map</h4>
+                            <h4 class="mb-4">Radio Status</h4>
                             <div class="donut-wrapper mb-4 shadow-sm" 
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}%, 
@@ -213,7 +213,7 @@
                     <div class="col-12">
                         <div class="chart-panel shadow-sm">
                             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                                <h4 class="mb-0">Fleet vs Radio)</h4>
+                                <h4 class="mb-0">Fleet vs Radio</h4>
                                 
                                 <div class="d-flex gap-2">
                                     <!-- Asset Category Filter -->
