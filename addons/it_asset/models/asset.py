@@ -367,26 +367,26 @@ class ITAsset(models.Model):
         """Fetch printer usage summary for the dashboard"""
         Usage = self.env['it_asset.printer.usage']
         
-        # Total accumulation
-        all_usage = Usage.search([])
-        total_color = sum(all_usage.mapped('color_pages'))
-        total_bw = sum(all_usage.mapped('bw_pages'))
-        
-        # Adjust date based on period
-        days = 7
-        if period == '1M':
-            days = 30
-        elif period == '1Y':
-            days = 365
+        domain = []
+        if period != 'ALL':
+            days = 7
+            if period == '1M':
+                days = 30
+            elif period == '1Y':
+                days = 365
+            period_date = fields.Date.subtract(fields.Date.today(), days=days)
+            domain.append(('date', '>=', period_date))
             
-        period_date = fields.Date.subtract(fields.Date.today(), days=days)
-        recent_usage = Usage.search([('date', '>=', period_date)])
-        recent_printed = sum(recent_usage.mapped('pages_diff'))
+        period_usage = Usage.search(domain)
+        
+        # Sum of differences within the period
+        total_printed = sum(period_usage.mapped('pages_diff'))
+        total_bw = sum(period_usage.mapped('bw_diff'))
+        total_color = sum(period_usage.mapped('color_diff'))
 
         return {
             'total_color': total_color,
             'total_bw': total_bw,
-            'total_pages': total_color + total_bw,
-            'recent_pages': recent_printed,
+            'total_pages': total_printed,
             'period': period
         }

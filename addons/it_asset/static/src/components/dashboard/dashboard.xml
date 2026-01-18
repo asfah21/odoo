@@ -78,7 +78,7 @@
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
                                 <div class="stat-label">IT Assets</div>
-                                <div class="stat-value" t-esc="stats.total_it"/>
+                                <div class="stat-value" t-esc="state.stats.total_it"/>
                             </div>
                         </div>
                     </div>
@@ -88,7 +88,7 @@
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-check-circle"></i></div>
                                 <div class="stat-label">Available</div>
-                                <div class="stat-value" t-esc="stats.available"/>
+                                <div class="stat-value" t-esc="state.stats.available"/>
                             </div>
                         </div>
                     </div>
@@ -98,7 +98,7 @@
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
                                 <div class="stat-label">In Use</div>
-                                <div class="stat-value" t-esc="stats.assigned"/>
+                                <div class="stat-value" t-esc="state.stats.assigned"/>
                             </div>
                         </div>
                     </div>
@@ -108,7 +108,7 @@
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-ban text-danger"></i></div>
                                 <div class="stat-label">Unavailable</div>
-                                <div class="stat-value" t-esc="stats.unavailable_broken"/>
+                                <div class="stat-value" t-esc="state.stats.unavailable_broken"/>
                             </div>
                         </div>
                     </div>
@@ -118,7 +118,7 @@
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
                                 <div class="stat-label">Maintenance</div>
-                                <div class="stat-value" t-esc="stats.maintenance_count"/>
+                                <div class="stat-value" t-esc="state.stats.maintenance_count"/>
                             </div>
                         </div>
                     </div>
@@ -132,12 +132,12 @@
                                 <h4 class="mb-0 text-truncate">Laptop Condition</h4>
                                 <div class="badge-total shadow-sm px-2 py-1 rounded-3 bg-light border d-flex align-items-center">
                                     <i class="fa fa-laptop me-2 text-primary small"></i>
-                                    <span class="fw-bold text-primary" t-esc="stats.laptop_condition_distribution.total"/>
+                                    <span class="fw-bold text-primary" t-esc="state.stats.laptop_condition_distribution.total"/>
                                 </div>
                             </div>
                             
                             <div class="d-flex align-items-end justify-content-around h-75 mt-4">
-                                <t t-foreach="stats.laptop_condition_distribution.data" t-as="cond" t-key="cond.label">
+                                <t t-foreach="state.stats.laptop_condition_distribution.data" t-as="cond" t-key="cond.label">
                                     <div class="d-flex flex-column align-items-center flex-grow-1">
                                         <div class="fw-bold mb-2 small" t-esc="cond.count"/>
                                         <div class="column-bar shadow-sm"
@@ -146,7 +146,7 @@
                                     </div>
                                 </t>
                             </div>
-                            <t t-if="!stats.laptop_condition_distribution.data or !stats.laptop_condition_distribution.data.length">
+                            <t t-if="!state.stats.laptop_condition_distribution.data or !state.stats.laptop_condition_distribution.data.length">
                                 <div class="text-center py-4">
                                     <span class="small text-muted">No Laptop found</span>
                                 </div>
@@ -159,11 +159,11 @@
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-4">Asset Category</h4>
                             <div class="d-flex align-items-end justify-content-around h-75 mt-4">
-                                <t t-foreach="stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
+                                <t t-foreach="state.stats.category_distribution" t-as="cat_data" t-key="cat_data.name">
                                     <div class="d-flex flex-column align-items-center flex-grow-1 px-1">
                                         <div class="fw-bold mb-2 small text-primary" t-esc="cat_data.count"/>
                                         <div class="column-bar shadow-sm"
-                                             t-attf-style="height: {{ (cat_data.count / (stats.total_it or 1)) * 200 }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 20px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
+                                             t-attf-style="height: {{ (cat_data.count / (state.stats.total_it or 1)) * 200 }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 20px; border-radius: 4px 4px 0 0; transition: height 1s ease-out;"/>
                                         <div class="mt-2 small text-muted text-center text-truncate w-100" style="font-size: 0.6rem;" t-esc="cat_data.name"/>
                                     </div>
                                 </t>
@@ -177,32 +177,32 @@
                             <h4 class="mb-4">Radio Status</h4>
                             <div class="donut-wrapper mb-4 shadow-sm" 
                                  t-attf-style="background: conic-gradient(
-                                    #16a34a 0% {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}%, 
-                                    #0284c7 {{ (stats.op_available / (stats.total_operation or 1)) * 100 }}% {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}%, 
-                                    #f59e0b {{ ((stats.op_available + stats.op_assigned) / (stats.total_operation or 1)) * 100 }}% {{ ((stats.op_available + stats.op_assigned + stats.op_maintenance) / (stats.total_operation or 1)) * 100 }}%,
-                                    #ef4444 {{ ((stats.op_available + stats.op_assigned + stats.op_maintenance) / (stats.total_operation or 1)) * 100 }}% 100%
+                                    #16a34a 0% {{ (state.stats.op_available / (state.stats.total_operation or 1)) * 100 }}%, 
+                                    #0284c7 {{ (state.stats.op_available / (state.stats.total_operation or 1)) * 100 }}% {{ ((state.stats.op_available + state.stats.op_assigned) / (state.stats.total_operation or 1)) * 100 }}%, 
+                                    #f59e0b {{ ((state.stats.op_available + state.stats.op_assigned) / (state.stats.total_operation or 1)) * 100 }}% {{ ((state.stats.op_available + state.stats.op_assigned + state.stats.op_maintenance) / (state.stats.total_operation or 1)) * 100 }}%,
+                                    #ef4444 {{ ((state.stats.op_available + state.stats.op_assigned + state.stats.op_maintenance) / (state.stats.total_operation or 1)) * 100 }}% 100%
                                  );">
                                 <div class="donut-hole shadow-inner">
-                                    <span class="hole-value" t-esc="stats.total_operation"/>
+                                    <span class="hole-value" t-esc="state.stats.total_operation"/>
                                     <span class="hole-label">Radios</span>
                                 </div>
                             </div>
                             <!-- Legend -->
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-success"></i>Available</span>
-                                    <span t-esc="stats.op_available"/>
+                                    <span t-esc="state.stats.op_available"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
-                                    <span t-esc="stats.op_assigned"/>
+                                    <span t-esc="state.stats.op_assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Maintenance</span>
-                                    <span t-esc="stats.op_maintenance"/>
+                                    <span t-esc="state.stats.op_maintenance"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
-                                    <span t-esc="stats.op_unavailable_broken"/>
+                                    <span t-esc="state.stats.op_unavailable_broken"/>
                                 </div>
                         </div>
                     </div>
@@ -292,17 +292,17 @@
                                     <div class="comparison-bar-container">
                                         <!-- Top Info Labels -->
                                         <div class="d-flex justify-content-between mb-2 small fw-bold">
-                                            <span class="text-primary"><i class="fa fa-car me-1"></i> Fleet Units (<t t-esc="stats.fleet_comparison.units"/>)</span>
-                                            <span class="text-purple"><i class="fa fa-rss me-1"></i> Radio Device (<t t-esc="stats.fleet_comparison.assets"/>)</span>
+                                            <span class="text-primary"><i class="fa fa-car me-1"></i> Fleet Units (<t t-esc="state.stats.fleet_comparison.units"/>)</span>
+                                            <span class="text-purple"><i class="fa fa-rss me-1"></i> Radio Device (<t t-esc="state.stats.fleet_comparison.assets"/>)</span>
                                         </div>
                                         
                                         <!-- Modern Comparison Progress Bar -->
                                         <div class="progress shadow-sm mb-3" style="height: 24px; border-radius: 12px; background-color: #f1f5f9; overflow: visible; position: relative;">
                                             <div class="progress-bar progress-bar-striped progress-bar-animated" 
                                                  role="progressbar" 
-                                                 t-attf-style="width: {{ Math.min(stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 12px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                                                 t-attf-style="width: {{ Math.min(state.stats.fleet_comparison.ratio, 100) }}%; background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%); border-radius: 12px; transition: width 1.5s cubic-bezier(0.34, 1.56, 0.64, 1);">
                                             </div>
-                                            <div t-if="stats.fleet_comparison.ratio > 100" 
+                                            <div t-if="state.stats.fleet_comparison.ratio > 100" 
                                                  class="position-absolute end-0 top-0 mt-n4 me-2 text-danger fw-bold pulse-animation" 
                                                  style="font-size: 0.65rem;">
                                                 <i class="fa fa-warning"></i> OVER-EQUIPPED
@@ -312,13 +312,13 @@
                                         <div class="d-flex justify-content-between align-items-center pt-2 border-top">
                                             <div>
                                                 <span class="small text-muted uppercase">Coverage: </span>
-                                                <span class="h5 mb-0 fw-black ms-1" t-attf-class="{{ stats.fleet_comparison.ratio >= 100 ? 'text-success' : (stats.fleet_comparison.ratio > 70 ? 'text-primary' : 'text-warning') }}">
-                                                    <t t-esc="stats.fleet_comparison.ratio.toFixed(1)"/>%
+                                                <span class="h5 mb-0 fw-black ms-1" t-attf-class="{{ state.stats.fleet_comparison.ratio >= 100 ? 'text-success' : (state.stats.fleet_comparison.ratio > 70 ? 'text-primary' : 'text-warning') }}">
+                                                    <t t-esc="state.stats.fleet_comparison.ratio.toFixed(1)"/>%
                                                 </span>
                                             </div>
                                             <div class="micro-text text-muted">
-                                                <t t-if="stats.fleet_comparison.ratio >= 100">Full Coverage achieved.</t>
-                                                <t t-else="">Shortage: <t t-esc="stats.fleet_comparison.units - stats.fleet_comparison.assets"/> devices.</t>
+                                                <t t-if="state.stats.fleet_comparison.ratio >= 100">Full Coverage achieved.</t>
+                                                <t t-else="">Shortage: <t t-esc="state.stats.fleet_comparison.units - state.stats.fleet_comparison.assets"/> devices.</t>
                                             </div>
                                         </div>
                                     </div>
@@ -341,6 +341,7 @@
                                         <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('7D')">7D (Last Week)</a></li>
                                         <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1M')">1M (Last Month)</a></li>
                                         <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('1Y')">1Y (Last Year)</a></li>
+                                        <li><a class="dropdown-item micro-text fw-bold" href="#" t-on-click.prevent="() => this.setPrinterPeriod('ALL')">ALL (Total)</a></li>
                                     </ul>
                                 </div>
                             </div>
@@ -348,38 +349,35 @@
                             <div class="flex-grow-1 d-flex flex-column justify-content-between">
                                 <div class="printer-stats-main mb-4">
                                     <div class="d-flex align-items-end gap-2 mb-1">
-                                        <span class="h2 mb-0 fw-black text-slate-800"><t t-esc="stats.printer_stats.total_pages.toLocaleString()"/></span>
-                                        <span class="text-muted small pb-1">Total Pages</span>
-                                    </div>
-                                    <div class="micro-text text-success fw-bold">
-                                        <i class="fa fa-caret-up"></i> <t t-esc="stats.printer_stats.recent_pages.toLocaleString()"/> printed 
-                                        <t t-if="state.printerPeriod == '7D'">last week</t>
-                                        <t t-elif="state.printerPeriod == '1M'">last month</t>
-                                        <t t-else="">last year</t>
+                                        <span class="h2 mb-0 fw-black text-slate-800"><t t-esc="state.stats.printer_stats.total_pages.toLocaleString()"/></span>
+                                        <span class="text-muted small pb-1">
+                                            <t t-if="state.printerPeriod == 'ALL'">Total Printed</t>
+                                            <t t-else="">Pages Printed</t>
+                                        </span>
                                     </div>
                                 </div>
 
                                 <div class="usage-split-box mb-4">
                                     <div class="d-flex justify-content-between micro-text mb-1 fw-bold">
                                         <span class="text-muted">B/W vs COLOR</span>
-                                        <span class="text-purple"><t t-esc="((stats.printer_stats.total_color / (stats.printer_stats.total_pages or 1)) * 100).toFixed(0)"/>% Color</span>
+                                        <span class="text-purple"><t t-esc="((state.stats.printer_stats.total_color / (state.stats.printer_stats.total_pages or 1)) * 100).toFixed(0)"/>% Color</span>
                                     </div>
                                     <div class="progress" style="height: 8px; border-radius: 4px; background: #e2e8f0;">
                                         <div class="progress-bar" role="progressbar" 
-                                             t-attf-style="width: {{ (stats.printer_stats.total_bw / (stats.printer_stats.total_pages or 1)) * 100 }}%; background-color: #475569;" 
-                                             t-att-aria-valuenow="stats.printer_stats.total_bw" aria-valuemin="0" t-att-aria-valuemax="stats.printer_stats.total_pages"></div>
+                                             t-attf-style="width: {{ (state.stats.printer_stats.total_bw / (state.stats.printer_stats.total_pages or 1)) * 100 }}%; background-color: #475569;" 
+                                             t-att-aria-valuenow="state.stats.printer_stats.total_bw" aria-valuemin="0" t-att-aria-valuemax="state.stats.printer_stats.total_pages"></div>
                                         <div class="progress-bar" role="progressbar" 
-                                             t-attf-style="width: {{ (stats.printer_stats.total_color / (stats.printer_stats.total_pages or 1)) * 100 }}%; background: linear-gradient(90deg, #f472b6, #a855f7);" 
-                                             t-att-aria-valuenow="stats.printer_stats.total_color" aria-valuemin="0" t-att-aria-valuemax="stats.printer_stats.total_pages"></div>
+                                             t-attf-style="width: {{ (state.stats.printer_stats.total_color / (state.stats.printer_stats.total_pages or 1)) * 100 }}%; background: linear-gradient(90deg, #f472b6, #a855f7);" 
+                                             t-att-aria-valuenow="state.stats.printer_stats.total_color" aria-valuemin="0" t-att-aria-valuemax="state.stats.printer_stats.total_pages"></div>
                                     </div>
                                     <div class="d-flex justify-content-between mt-2">
                                         <div class="small d-flex align-items-center">
                                             <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #475569;"></div>
-                                            <span class="text-muted"><t t-esc="stats.printer_stats.total_bw.toLocaleString()"/> B/W</span>
+                                            <span class="text-muted"><t t-esc="state.stats.printer_stats.total_bw.toLocaleString()"/> B/W</span>
                                         </div>
                                         <div class="small d-flex align-items-center">
                                             <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #a855f7;"></div>
-                                            <span class="text-muted"><t t-esc="stats.printer_stats.total_color.toLocaleString()"/> Color</span>
+                                            <span class="text-muted"><t t-esc="state.stats.printer_stats.total_color.toLocaleString()"/> Color</span>
                                         </div>
                                     </div>
                                 </div>
@@ -400,7 +398,7 @@
                                         <div class="me-2 me-md-3 p-2 bg-white rounded shadow-sm d-none d-sm-block"><i class="fa fa-ticket text-primary"></i></div>
                                         <div>
                                             <div class="text-muted small fw-bold" style="font-size: 0.65rem;">ACTIVE TICKETS</div>
-                                            <div class="h4 mb-0 fw-bold" t-esc="stats.tickets_open"/>
+                                            <div class="h4 mb-0 fw-bold" t-esc="state.stats.tickets_open"/>
                                         </div>
                                     </div>
                                 </div>
@@ -409,7 +407,7 @@
                                         <div class="me-2 me-md-3 p-2 bg-white rounded shadow-sm d-none d-sm-block"><i class="fa fa-user-plus text-success"></i></div>
                                         <div>
                                             <div class="text-muted small fw-bold" style="font-size: 0.65rem;">ACCOUNTS REQ</div>
-                                            <div class="h4 mb-0 fw-bold" t-esc="stats.account_requests_pending"/>
+                                            <div class="h4 mb-0 fw-bold" t-esc="state.stats.account_requests_pending"/>
                                         </div>
                                     </div>
                                 </div>
@@ -420,7 +418,7 @@
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-3">Activity Log</h4>
                             <div class="activity-log">
-                                <t t-foreach="stats.recent_activities" t-as="activity" t-key="activity.id">
+                                <t t-foreach="state.stats.recent_activities" t-as="activity" t-key="activity.id">
                                     <div class="log-entry">
                                         <div class="entry-icon shadow-sm">
                                             <i t-if="activity.type == 'ticket'" class="fa fa-ticket"></i>

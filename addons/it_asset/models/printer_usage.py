@@ -14,6 +14,8 @@ class ITPrinterUsage(models.Model):
     bw_pages = fields.Integer(string='B/W Pages', default=0)
     total_pages = fields.Integer(string='Current Counter (Total)', compute='_compute_total_pages', store=True)
     pages_diff = fields.Integer(string='Pages Printed (Diff)', compute='_compute_pages_diff', store=True)
+    bw_diff = fields.Integer(string='B/W Printed (Diff)', compute='_compute_pages_diff', store=True)
+    color_diff = fields.Integer(string='Color Printed (Diff)', compute='_compute_pages_diff', store=True)
     remarks = fields.Char(string='Remarks')
 
     @api.depends('color_pages', 'bw_pages')
@@ -21,7 +23,7 @@ class ITPrinterUsage(models.Model):
         for record in self:
             record.total_pages = record.color_pages + record.bw_pages
 
-    @api.depends('asset_id', 'date', 'total_pages')
+    @api.depends('asset_id', 'date', 'total_pages', 'color_pages', 'bw_pages')
     def _compute_pages_diff(self):
         for record in self:
             prev_usage = self.search([
@@ -32,8 +34,12 @@ class ITPrinterUsage(models.Model):
             
             if prev_usage:
                 record.pages_diff = record.total_pages - prev_usage.total_pages
+                record.bw_diff = record.bw_pages - prev_usage.bw_pages
+                record.color_diff = record.color_pages - prev_usage.color_pages
             else:
                 record.pages_diff = 0
+                record.bw_diff = 0
+                record.color_diff = 0
 
     @api.constrains('total_pages')
     def _check_counter_logic(self):
