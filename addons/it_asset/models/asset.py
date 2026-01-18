@@ -239,8 +239,10 @@ class ITAsset(models.Model):
     def get_dashboard_stats(self, date_start=None, date_end=None, category_ids=None, fleet_category_ids=None, comp_asset_cat_ids=None, printer_period='7D'):
         """Fetch all dashboard statistics in one call"""
         # Convert JS null/string 'null' to Python None
+        if not printer_period: printer_period = '7D'
         if date_start == 'null' or not date_start: date_start = None
         if date_end == 'null' or not date_end: date_end = None
+        
         domain = []
         if category_ids:
             domain.append(('category_id', 'in', category_ids))
@@ -248,36 +250,25 @@ class ITAsset(models.Model):
         if date_end: domain.append(('create_date', '<=', date_end))
 
         # Basic Stats
-        groups = self._read_group(domain, ['asset_type', 'state', 'condition'], ['__count'])
-        
         stats = {
-            'total_assets': 0,
-            'total_it': 0,
-            'total_operation': 0,
-            'available': 0,  
-            'assigned': 0,   
-            'unavailable_broken': 0,
-            'op_available': 0,
-            'op_assigned': 0,
-            'op_unavailable_broken': 0,
-            'op_maintenance': 0
+            'total_assets': self.search_count(domain),
+            'total_it': self.search_count(domain + [('asset_type', '=', 'it')]),
+            'total_operation': self.search_count(domain + [('asset_type', '=', 'operation')]),
+            'available': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'available')]),
+            'assigned': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'in_use')]),
+            'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), ('condition', '=', 'broken')]),
+            'op_available': 0, 'op_assigned': 0, 'op_unavailable_broken': 0, 'op_maintenance': 0,
+            'tickets_open': 0, 'account_requests_pending': 0 # Placeholders
         }
-        
-        for a_type, state, condition, count in groups:
-            stats['total_assets'] += count
-            if a_type == 'it':
-                stats['total_it'] += count
-                # Strictly IT metrics for primary cards
-                if state == 'available' and condition != 'broken': stats['available'] += count
-                if state == 'in_use': stats['assigned'] += count
-                if condition == 'broken': stats['unavailable_broken'] += count
-            else:
-                stats['total_operation'] += count
-                # Operation metrics for Status Map
-                if state == 'available' and condition != 'broken': stats['op_available'] += count
-                if state == 'in_use': stats['op_assigned'] += count
-                if condition == 'broken': stats['op_unavailable_broken'] += count
-                if state == 'maintenance': stats['op_maintenance'] += count
+
+        # 1. Operational Stats Grouping
+        op_groups = self._read_group(domain + [('asset_type', '=', 'operation')], ['state'], ['__count'])
+        for state, count in op_groups:
+            if state:
+                if state == 'available': stats['op_available'] = count
+                if state == 'in_use': stats['op_assigned'] = count
+                if state == 'broken': stats['op_unavailable_broken'] = count
+                if state == 'maintenance': stats['op_maintenance'] = count
 
         # 2. Category Distribution
         cat_groups = self._read_group(domain + [('asset_type', '=', 'it')], ['category_id'], ['__count'])
@@ -367,22 +358,62 @@ class ITAsset(models.Model):
         """Fetch printer usage summary for the dashboard"""
         Usage = self.env['it_asset.printer.usage']
         
-        domain = []
-        if period != 'ALL':
-            days = 7
-            if period == '1M':
-                days = 30
-            elif period == '1Y':
-                days = 365
-            period_date = fields.Date.subtract(fields.Date.today(), days=days)
-            domain.append(('date', '>=', period_date))
+        # Determine Date Range
+        if period == 'ALL':
+            # For ALL, we show the LATEST absolute readings for each printer
+            latest_usage_ids = Usage._read_group([], ['asset_id'], ['id:max'])
+            ids = [row[1] for row in latest_usage_ids if row[1]]
+            latest_records = Usage.browse(ids)
             
-        period_usage = Usage.search(domain)
-        
-        # Sum of differences within the period
-        total_printed = sum(period_usage.mapped('pages_diff'))
-        total_bw = sum(period_usage.mapped('bw_diff'))
-        total_color = sum(period_usage.mapped('color_diff'))
+            total_bw = sum(latest_records.mapped('bw_pages'))
+            total_color = sum(latest_records.mapped('color_pages'))
+            total_printed = total_bw + total_color
+        else:
+            # For specific periods, we calculate GROWTH (Last - Base)
+            days = 7
+            if period == '1M': days = 30
+            elif period == '1Y': days = 365
+            
+            end_date = fields.Date.today()
+            start_date = fields.Date.subtract(end_date, days=days)
+            
+            # 1. Get all printers that have usage
+            printer_ids = Usage._read_group([], ['asset_id'])
+            
+            total_bw = 0
+            total_color = 0
+            total_printed = 0
+            
+            for [printer] in printer_ids:
+                if not printer: continue
+                
+                # Latest record in period
+                last_in = Usage.search([
+                    ('asset_id', '=', printer.id),
+                    ('date', '<=', end_date),
+                    ('date', '>=', start_date)
+                ], order='date desc, id desc', limit=1)
+                
+                if not last_in: continue
+                
+                # Base record (the one just before or at start of period)
+                base = Usage.search([
+                    ('asset_id', '=', printer.id),
+                    ('date', '<', start_date)
+                ], order='date desc, id desc', limit=1)
+                
+                if not base:
+                    # If no record before period, usage is growth from first record in period
+                    first_in = Usage.search([
+                        ('asset_id', '=', printer.id),
+                        ('date', '>=', start_date)
+                    ], order='date asc, id asc', limit=1)
+                    base = first_in
+                
+                if last_in and base:
+                    total_bw += (last_in.bw_pages - base.bw_pages)
+                    total_color += (last_in.color_pages - base.color_pages)
+                    total_printed += (last_in.total_pages - base.total_pages)
 
         return {
             'total_color': total_color,
