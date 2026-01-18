@@ -196,12 +196,12 @@
     <menuitem id="it_asset_menu_it_group" 
               name="IT" 
               parent="it_asset_menu_management" 
-              sequence="10"/>
+              sequence="30"/>
 
     <menuitem id="it_asset_menu_operational_group" 
               name="Operational" 
               parent="it_asset_menu_management" 
-              sequence="20"/>
+              sequence="40"/>
 
     <!-- [4] CHILD DROP_DOWN ITEMS -->
     <menuitem id="it_asset_menu_assets_it" 
