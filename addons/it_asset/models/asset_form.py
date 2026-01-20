@@ -62,7 +62,27 @@ class ITAssetHandover(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', _('New')) == _('New'):
-                vals['name'] = self.env['ir.sequence'].next_by_code('it_asset.handover') or _('New')
+                seq = self.env['ir.sequence'].next_by_code('it_asset.handover') or _('New')
+                if seq != _('New'):
+                    handover_date = vals.get('handover_date')
+                    if handover_date:
+                        handover_date = fields.Date.from_string(handover_date)
+                    else:
+                        handover_date = fields.Date.today()
+                    
+                    year = handover_date.year
+                    month = handover_date.month
+                    roman_map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 
+                                 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'}
+                    roman_month = roman_map.get(month, 'I')
+
+                    # Prevent double formatting if XML didn't update
+                    if seq.count('/') < 2:
+                        vals['name'] = f"{seq}/{roman_month}/BAST/GSI-IT/{year}"
+                    else:
+                        vals['name'] = seq
+                else:
+                    vals['name'] = seq
         return super().create(vals_list)
 
     def action_sign(self):
