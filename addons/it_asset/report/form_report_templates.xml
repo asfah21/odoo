@@ -164,7 +164,7 @@
             <t t-foreach="docs" t-as="o">
                 <t t-call="web.basic_layout">
                     <!-- CUSTOM HEADER -->
-                    <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 50px; margin-bottom: 0px; padding-bottom: 0px;">
+                    <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
                         <div class="row">
                             <div class="col-3">
                                 <img t-if="o.env.company.logo" t-att-src="image_data_uri(o.env.company.logo)" style="max-height: 65px; max-width: 100%;"/>
