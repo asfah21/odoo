@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Report Action for Asset Request -->
+    <record id="action_report_asset_request" model="ir.actions.report">
+        <field name="name">Asset Request Form</field>
+        <field name="model">it_asset.request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_request_template</field>
+        <field name="report_file">it_asset.report_request_template</field>
+        <field name="print_report_name">'Request - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_it_asset_request"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Report Action for Asset Handover (New Model) -->
+    <record id="action_report_asset_handover_new" model="ir.actions.report">
+        <field name="name">Handover Document (BAST)</field>
+        <field name="model">it_asset.handover</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_handover_new_template</field>
+        <field name="report_file">it_asset.report_handover_new_template</field>
+        <field name="print_report_name">'BAST - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_it_asset_handover"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Report Action for Damage Report -->
+    <record id="action_report_asset_damage" model="ir.actions.report">
+        <field name="name">Damage Report (BA Kerusakan)</field>
+        <field name="model">it_asset.damage_report</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_damage_template</field>
+        <field name="report_file">it_asset.report_damage_template</field>
+        <field name="print_report_name">'Damage - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_it_asset_damage_report"/>
+        <field name="binding_type">report</field>
+    </record>
+</odoo>

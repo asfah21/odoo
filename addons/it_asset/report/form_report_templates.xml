@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- 1. ASSET REQUEST TEMPLATE -->
+    <template id="report_request_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt;">
+                        <div class="text-center mb-4" style="border-bottom: 2px solid black; padding-bottom: 10px;">
+                            <h2 style="font-weight: bold; text-decoration: underline;">FORM PERMINTAAN ASET IT</h2>
+                            <p style="margin: 0;">No: <span t-field="o.name"/></p>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr>
+                                        <td><strong>Nama Pemohon</strong></td>
+                                        <td>: <span t-field="o.employee_id.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Departemen</strong></td>
+                                        <td>: <span t-field="o.department_id.name"/></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Tanggal</strong></td>
+                                        <td>: <span t-field="o.request_date"/></td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div class="col-6 text-end">
+                                <div style="border: 2px solid #000; padding: 10px; display: inline-block; font-weight: bold;">
+                                    STATUS: <span t-field="o.state" style="text-transform: uppercase;"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <strong>Detail Permintaan:</strong>
+                            <table class="table table-bordered mt-2">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Kategori Aset</th>
+                                        <th>Alasan / Kebutuhan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="width: 30%;"><span t-field="o.category_id.name"/></td>
+                                        <td><span t-field="o.reason"/></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row mt-5">
+                            <div class="col-4 text-center">
+                                <p>Diajukan Oleh,</p>
+                                <br/><br/><br/>
+                                <p>( <span t-field="o.employee_id.name"/> )</p>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p>Disetujui Oleh (HOD),</p>
+                                <br/><br/><br/>
+                                <p>( ........................... )</p>
+                            </div>
+                            <div class="col-4 text-center">
+                                <p>Diketahui IT Dept,</p>
+                                <br/><br/><br/>
+                                <p>( IT Manager )</p>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- 2. HANDOVER TEMPLATE (BAST) -->
+    <template id="report_handover_new_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt;">
+                        <div class="text-center mb-5">
+                            <h3 style="font-weight: bold; margin-bottom: 5px;">BERITA ACARA SERAH TERIMA</h3>
+                            <p style="margin: 0;">No. <span t-field="o.name"/></p>
+                        </div>
+
+                        <p>Pada hari ini, <span t-field="o.handover_date" t-options='{"widget": "date", "format": "EEEE, d MMMM y"}'/>, kami yang bertanda tangan di bawah ini:</p>
+
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <strong>PIHAK PERTAMA (Yang Menyerahkan):</strong>
+                                <table class="table table-sm table-borderless">
+                                    <tr><td style="width: 80px;">Nama</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                    <tr><td>Jabatan</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
+                                    <tr><td>Dept</td><td>: <span t-field="o.sender_id.department_id.name"/></td></tr>
+                                </table>
+                            </div>
+                            <div class="col-6">
+                                <strong>PIHAK KEDUA (Yang Menerima):</strong>
+                                <table class="table table-sm table-borderless">
+                                    <tr><td style="width: 80px;">Nama</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
+                                    <tr><td>Jabatan</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
+                                    <tr><td>Dept</td><td>: <span t-field="o.receiver_id.department_id.name"/></td></tr>
+                                </table>
+                            </div>
+                        </div>
+
+                        <p>Telah melakukan serah terima inventaris perusahaan berupa:</p>
+
+                        <table class="table table-bordered text-center">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Tag Aset</th>
+                                    <th>Nama Aset</th>
+                                    <th>Model</th>
+                                    <th>Serial Number</th>
+                                    <th>Kondisi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span t-field="o.asset_id.asset_tag"/></td>
+                                    <td><span t-field="o.asset_id.name"/></td>
+                                    <td><span t-field="o.asset_id.model"/></td>
+                                    <td><span t-field="o.asset_id.lot_id.name"/></td>
+                                    <td><span t-field="o.asset_id.condition" style="text-transform: capitalize;"/></td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div t-if="o.notes" class="mt-3">
+                            <strong>Catatan:</strong> <span t-field="o.notes"/>
+                        </div>
+
+                        <p class="mt-4">Dengan diterimanya aset tersebut, maka <strong>PIHAK KEDUA</strong> bertanggung jawab sepenuhnya atas perawatan dan keamanan barang tersebut sesuai dengan kebijakan perusahaan.</p>
+
+                        <div class="row mt-5">
+                            <div class="col-6 text-center">
+                                <p>PIHAK PERTAMA,</p>
+                                <br/><br/><br/>
+                                <p>( <span t-field="o.sender_id.name"/> )</p>
+                            </div>
+                            <div class="col-6 text-center">
+                                <p>PIHAK KEDUA,</p>
+                                <div t-if="o.signature" style="height: 60px;">
+                                    <img t-att-src="image_data_uri(o.signature)" style="max-height: 60px;"/>
+                                </div>
+                                <div t-else="" style="height: 60px;"></div>
+                                <p>( <span t-field="o.receiver_id.name"/> )</p>
+                            </div>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+    <!-- 3. DAMAGE REPORT TEMPLATE (CUSTOM MATCHING IMAGE) -->
+    <template id="report_damage_template">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="web.external_layout">
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000;">
+                        
+                        <!-- TITLE SECTION -->
+                        <div class="text-center mb-4">
+                            <h3 style="font-weight: bold; margin-bottom: 5px;">BERITA ACARA</h3>
+                            <p style="margin: 0; font-size: 11pt;">No: <span t-field="o.name"/></p>
+                        </div>
+
+                        <!-- META DATA -->
+                        <div class="mb-4" style="margin-left: 0px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="width: 120px;">Hari / Tanggal</td>
+                                    <td>: <span t-field="o.report_date" t-options='{"widget": "date", "format": "d MMMM y"}'/></td>
+                                </tr>
+                                <tr>
+                                    <td>Perihal</td>
+                                    <td>: Kerusakan Perangkat</td>
+                                </tr>
+                                <tr>
+                                    <td>Lampiran</td>
+                                    <td>: -</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- OPENING TEXT -->
+                        <div class="mb-4 text-justify">
+                            <p style="margin-bottom: 10px;">
+                                Pada hari ini, tanggal <span t-field="o.report_date" t-options='{"widget": "date", "format": "d MMMM y"}'/>, telah terjadi kerusakan <span t-field="o.asset_id.name"/> sebanyak 1 (satu) unit dengan rincian sebagai berikut:
+                            </p>
+                        </div>
+
+                        <!-- ASSET DETAILS -->
+                        <div class="mb-4" style="margin-left: 40px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td style="width: 200px;">ID Aset</td>
+                                    <td>: <span t-field="o.asset_id.asset_tag"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Pengguna</td>
+                                    <td>: <span t-field="o.asset_id.employee_id.name"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Merek/Tipe</td>
+                                    <td>: <span t-field="o.asset_id.category_id.name"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Model</td>
+                                    <td>: <span t-field="o.asset_id.model"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Processor (Jika Laptop)</td>
+                                    <td>: <span t-field="o.asset_id.specification"/></td>
+                                </tr>
+                                <tr>
+                                    <td>Nomor Seri</td>
+                                    <td>: <span t-field="o.asset_id.lot_id.name"/></td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- KRONOLOGI -->
+                        <div class="mb-4">
+                            <strong>Kronologi Kejadian:</strong>
+                            <div style="margin-top: 10px; border-bottom: 1px dotted #000; min-height: 25px;">
+                                <span t-field="o.description"/>
+                            </div>
+                            <div style="border-bottom: 1px dotted #000; height: 25px;"></div>
+                            <div style="border-bottom: 1px dotted #000; height: 25px;"></div>
+                            <div style="border-bottom: 1px dotted #000; height: 25px;"></div>
+                        </div>
+
+                        <!-- CLOSING -->
+                        <div class="mb-5">
+                            <p>Demikian berita acara dibuat untuk digunakan sebagaimana mestinya. Terima kasih.</p>
+                        </div>
+
+                        <!-- SIGNATURE BLOCK -->
+                        <div class="text-right" style="text-align: right; margin-bottom: 10px;">
+                            <p>Samaenre, <span t-field="o.report_date" t-options='{"widget": "date", "format": "d MMMM y"}'/></p>
+                        </div>
+
+                        <table class="table table-bordered text-center" style="border: 1px solid black; width: 100%;">
+                            <tr style="background-color: transparent;">
+                                <td style="width: 25%; font-weight: bold;">User</td>
+                                <td style="width: 25%; font-weight: bold;">Diverifikasi Oleh,</td>
+                                <td style="width: 25%; font-weight: bold;">Diketahui Oleh,</td>
+                                <td style="width: 25%; font-weight: bold;">Disetujui Oleh,</td>
+                            </tr>
+                            <tr>
+                                <td style="height: 100px; vertical-align: bottom;">
+                                    <strong><span t-field="o.employee_id.name"/></strong><br/>
+                                    <span t-field="o.employee_id.job_title"/>
+                                </td>
+                                <td style="height: 100px; vertical-align: bottom;">
+                                    <strong>( .................... )</strong><br/>
+                                    IT Staff
+                                </td>
+                                <td style="height: 100px; vertical-align: bottom;">
+                                    <strong>( .................... )</strong><br/>
+                                    IT Manager
+                                </td>
+                                <td style="height: 100px; vertical-align: bottom;">
+                                    <strong>( .................... )</strong><br/>
+                                    Site Manager
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

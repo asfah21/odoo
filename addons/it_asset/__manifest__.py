@@ -22,6 +22,8 @@
         'views/asset_form_views.xml',
         'report/asset_report.xml',
         'report/asset_report_templates.xml',
+        'report/form_reports.xml',
+        'report/form_report_templates.xml',
     ],
     'assets': {
         'web.assets_backend': [

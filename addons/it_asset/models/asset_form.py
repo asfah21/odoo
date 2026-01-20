@@ -97,7 +97,29 @@ class ITAssetDamageReport(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', _('New')) == _('New'):
-                vals['name'] = self.env['ir.sequence'].next_by_code('it_asset.damage_report') or _('New')
+                seq = self.env['ir.sequence'].next_by_code('it_asset.damage_report') or _('New')
+                # Custom Roman Month Logic
+                # Check if seq is a raw number (or at least doesn't contain the full old suffix already)
+                # We assume standard upgrade flow where seq becomes '0001'
+                if seq != _('New'):
+                    # Default todays date if not provided
+                    report_date = vals.get('report_date')
+                    if report_date:
+                        report_date = fields.Date.from_string(report_date)
+                    else:
+                        report_date = fields.Date.today()
+                        
+                    year = report_date.year
+                    month = report_date.month
+                    roman_map = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 
+                                 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'}
+                    roman_month = roman_map.get(month, 'I')
+                    
+                    # Prevent double formatting if XML didn't update (Basic check: count slashes)
+                    if seq.count('/') < 2:
+                        vals['name'] = f"{seq}/{roman_month}/BA/GSI-IT/{year}"
+                    else:
+                        vals['name'] = seq
         return super().create(vals_list)
 
     def action_confirm(self):
