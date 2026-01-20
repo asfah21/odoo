@@ -50,6 +50,33 @@ class ITAsset(models.Model):
     maintenance_ids = fields.One2many('it_asset.maintenance', 'asset_id', string='Maintenances')
     printer_usage_ids = fields.One2many('it_asset.printer.usage', 'asset_id', string='Printer Usage Records')
     is_printer = fields.Boolean(compute='_compute_is_printer', store=True)
+    damage_report_count = fields.Integer(compute='_compute_form_counts')
+    handover_count = fields.Integer(compute='_compute_form_counts')
+
+    def _compute_form_counts(self):
+        for record in self:
+            record.damage_report_count = self.env['it_asset.damage_report'].search_count([('asset_id', '=', record.id)])
+            record.handover_count = self.env['it_asset.handover'].search_count([('asset_id', '=', record.id)])
+
+    def action_view_damage_reports(self):
+        return {
+            'name': _('Damage Reports'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'it_asset.damage_report',
+            'view_mode': 'list,form',
+            'domain': [('asset_id', '=', self.id)],
+            'context': {'default_asset_id': self.id},
+        }
+
+    def action_view_handovers(self):
+        return {
+            'name': _('Handovers'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'it_asset.handover',
+            'view_mode': 'list,form',
+            'domain': [('asset_id', '=', self.id)],
+            'context': {'default_asset_id': self.id},
+        }
 
     _sql_constraints = [
         ('unique_lot_id', 'unique(lot_id)', 'Serial number must be unique!'),

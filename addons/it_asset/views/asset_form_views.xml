@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Asset Request Views -->
+    <record id="view_it_asset_request_list" model="ir.ui.view">
+        <field name="name">it.asset.request.list</field>
+        <field name="model">it_asset.request</field>
+        <field name="arch" type="xml">
+            <list string="Asset Requests">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="category_id"/>
+                <field name="request_date"/>
+                <field name="state" widget="badge" decoration-info="state == 'submitted'" decoration-success="state == 'approved'" decoration-warning="state == 'draft'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_request_form" model="ir.ui.view">
+        <field name="name">it.asset.request.form</field>
+        <field name="model">it_asset.request</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_submit" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'submitted'"/>
+                    <button name="action_fulfill" string="Mark Fulfilled" type="object" class="oe_highlight" invisible="state != 'approved'"/>
+                    <button name="action_reject" string="Reject" type="object" invisible="state not in ['submitted', 'approved']"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,fulfilled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="employee_id"/>
+                            <field name="department_id"/>
+                            <field name="category_id"/>
+                        </group>
+                        <group>
+                            <field name="request_date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Reason">
+                            <field name="reason" placeholder="Why do you need this asset?"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset_request" model="ir.actions.act_window">
+        <field name="name">Asset Requests</field>
+        <field name="res_model">it_asset.request</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create your first asset request!</p>
+        </field>
+    </record>
+
+    <!-- Asset Handover Views -->
+    <record id="view_it_asset_handover_list" model="ir.ui.view">
+        <field name="name">it.asset.handover.list</field>
+        <field name="model">it_asset.handover</field>
+        <field name="arch" type="xml">
+            <list string="Asset Handovers">
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="sender_id"/>
+                <field name="receiver_id"/>
+                <field name="handover_date"/>
+                <field name="state" widget="badge" decoration-success="state == 'signed'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_handover_form" model="ir.ui.view">
+        <field name="name">it.asset.handover.form</field>
+        <field name="model">it_asset.handover</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sign" string="Sign &amp; Confirm" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,signed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="asset_id"/>
+                            <field name="sender_id"/>
+                            <field name="receiver_id"/>
+                        </group>
+                        <group>
+                            <field name="handover_date"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                        <field name="signature" widget="signature"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset_handover" model="ir.actions.act_window">
+        <field name="name">Handovers</field>
+        <field name="res_model">it_asset.handover</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Start a new handover process.</p>
+        </field>
+    </record>
+
+    <!-- Damage Report Views -->
+    <record id="view_it_asset_damage_report_list" model="ir.ui.view">
+        <field name="name">it.asset.damage_report.list</field>
+        <field name="model">it_asset.damage_report</field>
+        <field name="arch" type="xml">
+            <list string="Damage Reports">
+                <field name="name"/>
+                <field name="asset_id"/>
+                <field name="employee_id"/>
+                <field name="damage_type"/>
+                <field name="report_date"/>
+                <field name="state" widget="badge" decoration-warning="state == 'confirmed'" decoration-success="state == 'resolved'"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_asset_damage_report_form" model="ir.ui.view">
+        <field name="name">it.asset.damage_report.form</field>
+        <field name="model">it_asset.damage_report</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirm" string="Confirm Damage" type="object" class="oe_highlight" invisible="state != 'draft'"/>
+                    <button name="action_resolve" string="Mark Resolved" type="object" class="oe_highlight" invisible="state != 'confirmed'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,resolved"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="asset_id"/>
+                            <field name="employee_id"/>
+                        </group>
+                        <group>
+                            <field name="damage_type"/>
+                            <field name="report_date"/>
+                        </group>
+                    </group>
+                    <group string="Damage Details">
+                        <field name="description"/>
+                        <field name="action_taken"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_asset_damage_report" model="ir.actions.act_window">
+        <field name="name">Damage Reports</field>
+        <field name="res_model">it_asset.damage_report</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Report a damaged asset.</p>
+        </field>
+    </record>
+
+    <!-- MENU DEFINITIONS -->
+    <menuitem id="it_asset_menu_forms" 
+              name="Form" 
+              parent="it_asset_menu_root" 
+              sequence="15"/> <!-- 15 puts it between Asset Management (10) and Fleet (20) -->
+
+    <menuitem id="it_asset_menu_form_request" 
+              name="Asset Request" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_request" 
+              sequence="10"/>
+
+    <menuitem id="it_asset_menu_form_handover" 
+              name="Handover" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_handover" 
+              sequence="20"/>
+
+    <menuitem id="it_asset_menu_form_damage" 
+              name="Damage Report" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_damage_report" 
+              sequence="30"/>
+
+</odoo>

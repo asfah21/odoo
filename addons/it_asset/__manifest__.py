@@ -9,6 +9,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/master_data.xml',
+        'data/form_sequences.xml',
         'views/asset_views.xml',
         'views/consumable_views.xml',
         'views/dashboard_views.xml',
@@ -18,6 +19,7 @@
         'views/asset_unit_category_views.xml',
         'views/asset_unit_views.xml',
         'views/printer_usage_views.xml',
+        'views/asset_form_views.xml',
         'report/asset_report.xml',
         'report/asset_report_templates.xml',
     ],

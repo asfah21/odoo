@@ -41,6 +41,14 @@
                     <field name="state" widget="statusbar" statusbar_visible="available,in_use,maintenance,retired"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_handovers" type="object" class="oe_stat_button" icon="fa-handshake-o">
+                            <field name="handover_count" widget="statinfo" string="Handovers"/>
+                        </button>
+                        <button name="action_view_damage_reports" type="object" class="oe_stat_button" icon="fa-wrench">
+                            <field name="damage_report_count" widget="statinfo" string="Damage Reports"/>
+                        </button>
+                    </div>
                     <field name="is_stock_synced" invisible="1"/>
                     <div class="oe_title">
                         <label for="asset_tag" class="oe_edit_only"/>

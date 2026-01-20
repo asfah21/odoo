@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sequence for Asset Request -->
+        <record id="seq_it_asset_request" model="ir.sequence">
+            <field name="name">Asset Request Sequence</field>
+            <field name="code">it_asset.request</field>
+            <field name="prefix">REQ/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence for Handover -->
+        <record id="seq_it_asset_handover" model="ir.sequence">
+            <field name="name">Asset Handover Sequence</field>
+            <field name="code">it_asset.handover</field>
+            <field name="prefix">HDV/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Sequence for Damage Report -->
+        <record id="seq_it_asset_damage_report" model="ir.sequence">
+            <field name="name">Asset Damage Report Sequence</field>
+            <field name="code">it_asset.damage_report</field>
+            <field name="prefix">DMG/%(year)s/</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>
