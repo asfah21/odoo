@@ -10,3 +10,4 @@ access_it_asset_printer_usage,it_asset.printer.usage,model_it_asset_printer_usag
 access_it_asset_request,it_asset.request,model_it_asset_request,base.group_user,1,1,1,1
 access_it_asset_handover,it_asset.handover,model_it_asset_handover,base.group_user,1,1,1,1
 access_it_asset_damage_report,it_asset.damage_report,model_it_asset_damage_report,base.group_user,1,1,1,1
+access_it_asset_account_request,it_asset.account_request,model_it_asset_account_request,base.group_user,1,1,1,1

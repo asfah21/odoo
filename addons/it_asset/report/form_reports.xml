@@ -35,4 +35,16 @@
         <field name="binding_model_id" ref="model_it_asset_damage_report"/>
         <field name="binding_type">report</field>
     </record>
+
+    <!-- Report Action for Account Request -->
+    <record id="action_report_account_request" model="ir.actions.report">
+        <field name="name">Account Request Form</field>
+        <field name="model">it_asset.account_request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_account_request_template</field>
+        <field name="report_file">it_asset.report_account_request_template</field>
+        <field name="print_report_name">'Account Request - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_it_asset_account_request"/>
+        <field name="binding_type">report</field>
+    </record>
 </odoo>
