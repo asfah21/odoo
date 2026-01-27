@@ -88,7 +88,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Assignment History" name="assignments" invisible="is_consumable == True or asset_type != 'it'">
+                        <page string="Assignment History" name="assignments" invisible="is_consumable == True">
                             <field name="assignment_ids">
                                 <list editable="bottom">
                                     <field name="employee_id"/>
