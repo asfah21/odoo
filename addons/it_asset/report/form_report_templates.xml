@@ -136,20 +136,20 @@
                         <table class="table table-bordered text-center" style="border-color: black;">
                             <thead style="background-color: #ed7d31; color: black;">
                                 <tr>
-                                    <th style="border: 1px solid black;"><strong>NO</strong></th>
-                                    <th style="border: 1px solid black;"><strong>Nama Barang</strong></th>
-                                    <th style="border: 1px solid black;"><strong>Qty</strong></th>
-                                    <th style="border: 1px solid black;"><strong>Kondisi</strong></th>
-                                    <th style="border: 1px solid black;"><strong>Keterangan</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>NO</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Qty</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Kondisi</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Keterangan</strong></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td style="border: 1px solid black;">1</td>
-                                    <td style="border: 1px solid black; text-align: left;"><span t-field="o.asset_id.name"/></td>
-                                    <td style="border: 1px solid black;">1</td>
-                                    <td style="border: 1px solid black;"><span t-field="o.asset_id.condition" style="text-transform: capitalize;"/></td>
-                                    <td style="border: 1px solid black;">
+                                    <td style="border: 1px solid black; padding: 1.1pt;">1</td>
+                                    <td style="border: 1px solid black; text-align: left; padding: 1.1pt;"><span t-field="o.asset_id.name"/></td>
+                                    <td style="border: 1px solid black; padding: 1.1pt;">1</td>
+                                    <td style="border: 1px solid black; padding: 1.1pt;"><span t-field="o.asset_id.condition" style="text-transform: capitalize;"/></td>
+                                    <td style="border: 1px solid black; padding: 1.1pt;">
                                         <t t-if="o.asset_id.lot_id">SN: <span t-field="o.asset_id.lot_id.name"/></t>
                                     </td>
                                 </tr>
