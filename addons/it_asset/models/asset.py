@@ -47,6 +47,7 @@ class ITAsset(models.Model):
 
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
+    swap_ids = fields.One2many('it_asset.swap', 'asset_id', string='Swap History')
     maintenance_ids = fields.One2many('it_asset.maintenance', 'asset_id', string='Maintenances')
     printer_usage_ids = fields.One2many('it_asset.printer.usage', 'asset_id', string='Printer Usage Records')
     is_printer = fields.Boolean(compute='_compute_is_printer', store=True)

@@ -23,7 +23,7 @@
     <!-- Pindah ke bawah dropdown parent -->
     <menuitem id="it_asset_menu_assignments" 
               name="Assignments History" 
-              parent="it_asset_menu_management" 
+              parent="it_asset_menu_it_group" 
               action="action_it_asset_assignment" 
-              sequence="10"/>
+              sequence="20"/>
 </odoo>

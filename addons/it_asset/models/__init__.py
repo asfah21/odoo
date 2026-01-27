@@ -7,3 +7,4 @@ from . import asset_unit_category
 from . import asset_unit
 from . import printer_usage
 from . import asset_form
+from . import asset_swap

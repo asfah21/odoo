@@ -88,10 +88,21 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Assignment History" name="assignments" invisible="is_consumable == True">
+                        <page string="Assignment History" name="assignments" invisible="is_consumable == True or asset_type != 'it'">
                             <field name="assignment_ids">
                                 <list editable="bottom">
                                     <field name="employee_id"/>
+                                    <field name="assignment_date"/>
+                                    <field name="return_date"/>
+                                    <field name="state" widget="badge"/>
+                                    <button name="action_return" type="object" string="Return" invisible="state == 'returned'" icon="fa-undo"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Swap History" name="swaps" invisible="is_consumable == True or asset_type != 'operation'">
+                            <field name="swap_ids">
+                                <list editable="bottom">
+                                    <field name="unit_id"/>
                                     <field name="assignment_date"/>
                                     <field name="return_date"/>
                                     <field name="state" widget="badge"/>
