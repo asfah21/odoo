@@ -188,20 +188,20 @@
                                 </div>
                             </div>
                             <!-- Legend -->
-                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('available', 'operation')">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-success"></i>Available</span>
                                     <span t-esc="state.stats.op_available"/>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('assigned', 'operation')">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
                                     <span t-esc="state.stats.op_assigned"/>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between small fw-bold">
+                                <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('maintenance', 'operation')">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Maintenance</span>
                                     <span t-esc="state.stats.op_maintenance"/>
                                 </div>
-                                <div class="d-flex align-items-center justify-content-between small fw-bold">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Unavailable</span>
+                                <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('unavailable', 'operation')">
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Broken / Retired</span>
                                     <span t-esc="state.stats.op_unavailable_broken"/>
                                 </div>
                         </div>

@@ -284,19 +284,22 @@ class ITAsset(models.Model):
             'total_operation': self.search_count(domain + [('asset_type', '=', 'operation')]),
             'available': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'available')]),
             'assigned': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'in_use')]),
-            'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), ('condition', '=', 'broken')]),
+            'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), '|', ('condition', '=', 'broken'), ('state', '=', 'retired')]),
             'op_available': 0, 'op_assigned': 0, 'op_unavailable_broken': 0, 'op_maintenance': 0,
             'tickets_open': 0, 'account_requests_pending': 0 # Placeholders
         }
 
         # 1. Operational Stats Grouping
-        op_groups = self._read_group(domain + [('asset_type', '=', 'operation')], ['state'], ['__count'])
-        for state, count in op_groups:
-            if state:
-                if state == 'available': stats['op_available'] = count
-                if state == 'in_use': stats['op_assigned'] = count
-                if state == 'broken': stats['op_unavailable_broken'] = count
-                if state == 'maintenance': stats['op_maintenance'] = count
+        op_groups = self._read_group(domain + [('asset_type', '=', 'operation')], ['state', 'condition'], ['__count'])
+        for state, condition, count in op_groups:
+            if condition == 'broken' or state == 'retired':
+                stats['op_unavailable_broken'] += count
+            elif state == 'available':
+                stats['op_available'] += count
+            elif state == 'in_use':
+                stats['op_assigned'] += count
+            elif state == 'maintenance':
+                stats['op_maintenance'] += count
 
         # 2. Category Distribution
         cat_groups = self._read_group(domain + [('asset_type', '=', 'it')], ['category_id'], ['__count'])

@@ -127,31 +127,33 @@ export class ITAssetDashboard extends Component {
         await this.loadDashboardData();
     }
 
-    openView(state) {
-        let domain = [['asset_type', '=', 'it']];
-        let name = "All IT Assets";
+    openView(state, assetType = 'it') {
+        let domain = [['asset_type', '=', assetType]];
+        let typeLabel = assetType === 'it' ? 'IT' : 'Operation';
+        let name = `All ${typeLabel} Assets`;
 
-        if (this.selectedCategories.length > 0) {
+        if (this.selectedCategories.length > 0 && assetType === 'it') {
             domain.push(['category_id', 'in', this.selectedCategories]);
         }
 
         if (state === 'unavailable') {
-            domain.push(['condition', '=', 'broken']);
-            name = "Broken IT Assets (Unavailable)";
+            domain.push('|', ['condition', '=', 'broken'], ['state', '=', 'retired']);
+            name = `Unavailable ${typeLabel} Assets (Broken/Retired)`;
         } else if (state === 'maintenance_logs') {
             this.action.doAction({
                 type: 'ir.actions.act_window',
-                name: "IT Management: Maintenance History",
+                name: `${typeLabel} Management: Maintenance History`,
                 res_model: 'it_asset.maintenance',
                 views: [[false, 'list'], [false, 'form']],
-                domain: [['asset_id.asset_type', '=', 'it']],
+                domain: [['asset_id.asset_type', '=', assetType]],
                 target: 'current',
             });
             return;
         } else if (state !== 'all') {
-            domain.push(['state', '=', state]);
+            const domainState = state === 'assigned' ? 'in_use' : state;
+            domain.push(['state', '=', domainState]);
             const formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            name = formattedState + " IT Assets";
+            name = `${formattedState} ${typeLabel} Assets`;
         }
 
         this.action.doAction({
