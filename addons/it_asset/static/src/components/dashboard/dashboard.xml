@@ -300,7 +300,7 @@
                                         <!-- Top Info Labels -->
                                         <div class="d-flex justify-content-between mb-2 small fw-bold">
                                             <span class="text-primary"><i class="fa fa-car me-1"></i> Fleet Units (<t t-esc="state.stats.fleet_comparison.units"/>)</span>
-                                            <span class="text-purple"><i class="fa fa-rss me-1"></i> Radio Device (<t t-esc="state.stats.fleet_comparison.assets"/>)</span>
+                                            <span class="text-purple"><i class="fa fa-rss me-1"></i> Radio Rig (<t t-esc="state.stats.fleet_comparison.assets"/>)</span>
                                         </div>
                                         
                                         <!-- Modern Comparison Progress Bar -->

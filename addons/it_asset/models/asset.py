@@ -45,6 +45,12 @@ class ITAsset(models.Model):
         ('shared', 'Shared'),
     ], string='Usage Type', default='personal', required=True, tracking=True)
 
+    radio_mode = fields.Selection([
+        ('analog', 'Analog'),
+        ('digital', 'Digital'),
+        ('dual', 'Dual Mode'),
+    ], string='Radio Mode', tracking=True)
+
     is_stock_synced = fields.Boolean(string='Stock Synced', default=False, readonly=True, tracking=False)
     assignment_ids = fields.One2many('it_asset.assignment', 'asset_id', string='Assignments')
     swap_ids = fields.One2many('it_asset.swap', 'asset_id', string='Swap History')
