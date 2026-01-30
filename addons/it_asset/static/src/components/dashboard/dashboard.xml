@@ -174,7 +174,38 @@
                     <!-- Status Map (30%) -->
                     <div class="col-12 col-lg-4">
                         <div class="chart-panel shadow-sm">
-                            <h4 class="mb-4">Radio Status</h4>
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h4 class="mb-0">Radio Status</h4>
+                                <!-- Radio Mode Filter -->
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <t t-esc="radioModeLabel"/>
+                                    </button>
+                                    <ul class="dropdown-menu shadow">
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.radioMode === 'all' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setRadioMode('all')">
+                                                <span>All</span>
+                                            </div>
+                                        </li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.radioMode === 'analog' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setRadioMode('analog')">
+                                                <span>Analog</span>
+                                            </div>
+                                        </li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.radioMode === 'digital' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setRadioMode('digital')">
+                                                <span>Digital</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
                             <div class="donut-wrapper mb-4 shadow-sm" 
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (state.stats.op_available / (state.stats.total_operation or 1)) * 100 }}%, 
@@ -193,7 +224,7 @@
                                     <span t-esc="state.stats.op_available"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('assigned', 'operation')">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-primary"></i>In Use</span>
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-info"></i>In Use</span>
                                     <span t-esc="state.stats.op_assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('maintenance', 'operation')">
@@ -415,7 +446,7 @@
                 </div>
 
                 <!-- Footer Stats (Support & Recent) -->
-                <div class="row g-4">
+                <!-- <div class="row g-4">
                     <div class="col-12 col-md-6">
                         <div class="chart-panel shadow-sm">
                             <h4 class="mb-3">IT Helpdesk (Upcoming)</h4>
@@ -464,7 +495,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> -->
                 
                 <!-- Bottom spacing for aesthetic scroll -->
                 <div style="height: 40px;"></div>

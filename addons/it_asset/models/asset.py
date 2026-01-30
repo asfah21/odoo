@@ -270,7 +270,7 @@ class ITAsset(models.Model):
     # --- DASHBOARD (Optimized _read_group) ---
 
     @api.model
-    def get_dashboard_stats(self, date_start=None, date_end=None, category_ids=None, fleet_category_ids=None, comp_asset_cat_ids=None, printer_period='7D'):
+    def get_dashboard_stats(self, date_start=None, date_end=None, category_ids=None, fleet_category_ids=None, comp_asset_cat_ids=None, printer_period='7D', radio_mode='digital'):
         """Fetch all dashboard statistics in one call"""
         # Convert JS null/string 'null' to Python None
         if not printer_period: printer_period = '7D'
@@ -283,11 +283,16 @@ class ITAsset(models.Model):
         if date_start: domain.append(('create_date', '>=', date_start))
         if date_end: domain.append(('create_date', '<=', date_end))
 
+        # Stats domain for Operation (Radios) restricted to Radio Rig
+        op_domain = domain + [('asset_type', '=', 'operation'), ('category_id.name', '=', 'Radio Rig')]
+        if radio_mode and radio_mode != 'all':
+            op_domain.append(('radio_mode', '=', radio_mode))
+
         # Basic Stats
         stats = {
             'total_assets': self.search_count(domain),
             'total_it': self.search_count(domain + [('asset_type', '=', 'it')]),
-            'total_operation': self.search_count(domain + [('asset_type', '=', 'operation')]),
+            'total_operation': self.search_count(op_domain),
             'available': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'available')]),
             'assigned': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'in_use')]),
             'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), '|', ('condition', '=', 'broken'), ('state', '=', 'retired')]),
@@ -296,7 +301,7 @@ class ITAsset(models.Model):
         }
 
         # 1. Operational Stats Grouping
-        op_groups = self._read_group(domain + [('asset_type', '=', 'operation')], ['state', 'condition'], ['__count'])
+        op_groups = self._read_group(op_domain, ['state', 'condition'], ['__count'])
         for state, condition, count in op_groups:
             if condition == 'broken' or state == 'retired':
                 stats['op_unavailable_broken'] += count

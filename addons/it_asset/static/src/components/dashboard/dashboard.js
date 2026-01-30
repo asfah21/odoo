@@ -11,6 +11,7 @@ export class ITAssetDashboard extends Component {
         this.state = useState({
             showMobileFilters: false,
             printerPeriod: '7D',
+            radioMode: 'digital',
             stats: {
                 total_assets: 0,
                 total_it: 0,
@@ -52,6 +53,7 @@ export class ITAssetDashboard extends Component {
     async loadDashboardData() {
         const kwargs = {
             printer_period: this.state.printerPeriod,
+            radio_mode: this.state.radioMode,
         };
 
         if (this.selectedCategories.length > 0) kwargs.category_ids = this.selectedCategories;
@@ -124,6 +126,16 @@ export class ITAssetDashboard extends Component {
 
     async setPrinterPeriod(period) {
         this.state.printerPeriod = period;
+        await this.loadDashboardData();
+    }
+
+    get radioModeLabel() {
+        const mode = this.state.radioMode || 'digital';
+        return mode.charAt(0).toUpperCase() + mode.slice(1);
+    }
+
+    async setRadioMode(mode) {
+        this.state.radioMode = mode;
         await this.loadDashboardData();
     }
 
