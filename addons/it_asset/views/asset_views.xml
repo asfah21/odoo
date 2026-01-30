@@ -81,7 +81,6 @@
                                    readonly="state == 'retired'"/>
                              <field name="unit_id" string="Assigned Unit" 
                                     invisible="asset_type != 'operation' or is_consumable == True"
-                                    required="asset_type == 'operation' and state == 'in_use'"
                                     options="{'no_create': True, 'no_open': False}"
                                     readonly="state == 'retired'"/>
                             <field name="radio_mode" invisible="asset_type != 'operation'" readonly="state == 'retired'"/>

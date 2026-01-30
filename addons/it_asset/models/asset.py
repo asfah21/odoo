@@ -372,7 +372,11 @@ class ITAsset(models.Model):
     def _get_fleet_comparison_stats(self, asset_cat_ids=None, fleet_cat_ids=None):
         """Compare Operational Assets vs Fleet Units with specific filtering"""
         # 1. Get Operational Assets
-        asset_domain = [('asset_type', '=', 'operation')]
+        asset_domain = [
+            ('asset_type', '=', 'operation'), 
+            ('radio_mode', '=', 'digital'),
+            ('category_id.name', '=', 'Radio Rig')
+        ]
         if asset_cat_ids:
             asset_domain.append(('category_id', 'in', asset_cat_ids))
         asset_count = self.search_count(asset_domain)

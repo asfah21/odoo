@@ -70,7 +70,7 @@
             <div class="dashboard-content">
                 
                 <!-- Summary Section -->
-                <div class="section-header">INVENTORY STATUS</div>
+                <!-- <div class="section-header">INVENTORY STATUS</div> -->
                 <div class="row g-3 mb-4">
                     <!-- IT Assets -->
                     <div class="col-6 col-md-4 col-xl">
