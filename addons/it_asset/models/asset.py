@@ -100,6 +100,16 @@ class ITAsset(models.Model):
         for record in self:
             record.display_name = f"[{record.asset_tag}] {record.name}" if record.asset_tag else record.name
 
+    @api.onchange('employee_id', 'unit_id')
+    def _onchange_assignment(self):
+        """Immediate UI feedback for state change"""
+        if self.employee_id or self.unit_id:
+            if self.state == 'available':
+                self.state = 'in_use'
+        elif not self.employee_id and not self.unit_id:
+            if self.state == 'in_use':
+                self.state = 'available'
+
     # --- REFACTORED CORE LOGIC ---
 
     @api.model_create_multi
@@ -123,6 +133,7 @@ class ITAsset(models.Model):
             for record in records:
                 if record.employee_id:
                     record._trigger_stock_assignment(record.employee_id)
+                    record._create_handover_log(record.employee_id.id)
                 elif record.unit_id:
                     record._trigger_stock_assignment(record.unit_id)
         
@@ -159,6 +170,17 @@ class ITAsset(models.Model):
         old_data = {r.id: {'emp': r.employee_id.id, 'unit': r.unit_id.id} for r in self}
         res = super(ITAsset, self).write(vals)
 
+        # Connect with Handover and Assignment History
+        if 'employee_id' in vals:
+            for record in self:
+                new_emp_id = vals.get('employee_id')
+                old_emp_id = old_data[record.id]['emp']
+                
+                if new_emp_id and new_emp_id != old_emp_id:
+                    record._create_handover_log(new_emp_id)
+                elif not new_emp_id and old_emp_id:
+                    record._close_assignment_log(old_emp_id)
+
         if not self.env.context.get('skip_stock_move'):
             if 'employee_id' in vals or 'unit_id' in vals:
                 for record in self:
@@ -178,6 +200,50 @@ class ITAsset(models.Model):
                         self.env.cr.execute("UPDATE it_asset_asset SET is_stock_synced = FALSE WHERE id = %s", (record.id,))
                         record.invalidate_recordset(['is_stock_synced'])
         return res
+
+    def _create_handover_log(self, emp_id):
+        self.ensure_one()
+        employee = self.env['hr.employee'].browse(emp_id)
+        if not employee:
+            return
+
+        # 1. Create Handover (BAST)
+        # Search for current user's employee record
+        sender = self.env.user.employee_id or self.env['hr.employee'].search([('user_id', '=', self.env.uid)], limit=1)
+        if sender:
+            try:
+                self.env['it_asset.handover'].create({
+                    'asset_id': self.id,
+                    'sender_id': sender.id,
+                    'receiver_id': employee.id,
+                    'handover_date': fields.Date.today(),
+                    'state': 'draft',
+                })
+            except Exception as e:
+                _logger.warning("Failed to create handover record: %s", str(e))
+        else:
+            _logger.info("Skipping handover creation: current user has no employee record.")
+
+        # 2. Create Assignment History
+        self.env['it_asset.assignment'].create({
+            'asset_id': self.id,
+            'employee_id': employee.id,
+            'assignment_date': fields.Date.today(),
+            'state': 'active',
+        })
+
+    def _close_assignment_log(self, old_emp_id):
+        self.ensure_one()
+        assignments = self.env['it_asset.assignment'].search([
+            ('asset_id', '=', self.id),
+            ('employee_id', '=', old_emp_id),
+            ('state', '=', 'active')
+        ])
+        if assignments:
+            assignments.write({
+                'return_date': fields.Date.today(),
+                'state': 'returned'
+            })
 
     # --- INTERNAL ENGINE ---
 
