@@ -126,7 +126,7 @@
                     <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-grey" t-on-click="() => this.openView('retired')">
                             <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-ban"></i></div>
+                                <div class="icon-circle shadow-sm"><i class="fa fa-archive"></i></div>
                                 <div class="stat-label">Retired</div>
                                 <div class="stat-value" t-esc="state.stats.retired"/>
                             </div>
