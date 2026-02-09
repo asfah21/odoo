@@ -220,8 +220,7 @@
                                  t-attf-style="background: conic-gradient(
                                     #16a34a 0% {{ (state.stats.op_available / (state.stats.total_operation or 1)) * 100 }}%, 
                                     #0284c7 {{ (state.stats.op_available / (state.stats.total_operation or 1)) * 100 }}% {{ ((state.stats.op_available + state.stats.op_assigned) / (state.stats.total_operation or 1)) * 100 }}%, 
-                                    #f59e0b {{ ((state.stats.op_available + state.stats.op_assigned) / (state.stats.total_operation or 1)) * 100 }}% {{ ((state.stats.op_available + state.stats.op_assigned + state.stats.op_maintenance) / (state.stats.total_operation or 1)) * 100 }}%,
-                                    #ef4444 {{ ((state.stats.op_available + state.stats.op_assigned + state.stats.op_maintenance) / (state.stats.total_operation or 1)) * 100 }}% 100%
+                                    #f59e0b {{ ((state.stats.op_available + state.stats.op_assigned) / (state.stats.total_operation or 1)) * 100 }}% 100%
                                  );">
                                 <div class="donut-hole shadow-inner">
                                     <span class="hole-value" t-esc="state.stats.total_operation"/>
@@ -240,10 +239,6 @@
                                 <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('maintenance', 'operation')">
                                     <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Out of Service</span>
                                     <span t-esc="state.stats.op_maintenance"/>
-                                </div>
-                                <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('unavailable', 'operation')">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-danger"></i>Broken / Retired</span>
-                                    <span t-esc="state.stats.op_unavailable_broken"/>
                                 </div>
                         </div>
                     </div>

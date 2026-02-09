@@ -370,13 +370,11 @@ class ITAsset(models.Model):
         # 1. Operational Stats Grouping
         op_groups = self._read_group(op_domain, ['state', 'condition'], ['__count'])
         for state, condition, count in op_groups:
-            if condition == 'broken' or state == 'retired':
-                stats['op_unavailable_broken'] += count
-            elif state == 'available':
+            if state == 'available':
                 stats['op_available'] += count
             elif state == 'in_use':
                 stats['op_assigned'] += count
-            elif state == 'maintenance':
+            elif state == 'maintenance' or state == 'retired' or condition == 'broken':
                 stats['op_maintenance'] += count
 
         # 2. Category Distribution

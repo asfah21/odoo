@@ -170,6 +170,9 @@ export class ITAssetDashboard extends Component {
                 target: 'current',
             });
             return;
+        } else if (state === 'maintenance' && assetType === 'operation') {
+            domain.push('|', '|', ['state', '=', 'maintenance'], ['state', '=', 'retired'], ['condition', '=', 'broken']);
+            name = `Out of Service Operation Assets`;
         } else if (state !== 'all') {
             const domainState = state === 'assigned' ? 'in_use' : state;
             domain.push(['state', '=', domainState]);
