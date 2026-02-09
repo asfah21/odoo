@@ -483,7 +483,8 @@ class ITAsset(models.Model):
         else:
             # For specific periods, we calculate GROWTH (Last - Base)
             days = 7
-            if period == '1M': days = 30
+            if period == '1D': days = 0
+            elif period == '1M': days = 30
             elif period == '1Y': days = 365
             
             end_date = fields.Date.today()

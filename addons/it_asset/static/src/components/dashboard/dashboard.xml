@@ -373,6 +373,13 @@
                                     <ul class="dropdown-menu shadow">
                                         <li class="px-2 py-1">
                                             <div class="dropdown-item d-flex align-items-center cursor-pointer" 
+                                                 t-attf-class="{{state.printerPeriod === '1D' ? 'selected-item' : ''}}"
+                                                 t-on-click.prevent="() => this.setPrinterPeriod('1D')">
+                                                <span>1D (Today)</span>
+                                            </div>
+                                        </li>
+                                        <li class="px-2 py-1">
+                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
                                                  t-attf-class="{{state.printerPeriod === '7D' ? 'selected-item' : ''}}"
                                                  t-on-click.prevent="() => this.setPrinterPeriod('7D')">
                                                 <span>7D (Last Week)</span>
