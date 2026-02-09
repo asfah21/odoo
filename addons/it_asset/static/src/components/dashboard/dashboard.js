@@ -24,6 +24,7 @@ export class ITAssetDashboard extends Component {
                 op_unavailable_broken: 0,
                 op_maintenance: 0,
                 maintenance_count: 0,
+                retired: 0,
                 recent_activities: [],
                 state_distribution: [],
                 category_distribution: [],
@@ -149,8 +150,16 @@ export class ITAssetDashboard extends Component {
         }
 
         if (state === 'unavailable') {
-            domain.push('|', ['condition', '=', 'broken'], ['state', '=', 'retired']);
-            name = `Unavailable ${typeLabel} Assets (Broken/Retired)`;
+            if (assetType === 'it') {
+                domain.push(['condition', '=', 'broken'], ['state', '!=', 'retired']);
+                name = `Unavailable IT Assets (Broken)`;
+            } else {
+                domain.push('|', ['condition', '=', 'broken'], ['state', '=', 'retired']);
+                name = `Unavailable Operation Assets (Broken/Retired)`;
+            }
+        } else if (state === 'retired') {
+            domain.push(['state', '=', 'retired']);
+            name = `Retired ${typeLabel} Assets`;
         } else if (state === 'maintenance_logs') {
             this.action.doAction({
                 type: 'ir.actions.act_window',

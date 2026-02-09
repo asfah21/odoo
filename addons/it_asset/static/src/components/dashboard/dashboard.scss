@@ -282,6 +282,17 @@
             }
         }
 
+        &.card-grey {
+            &::after {
+                background: #475569; // Slate 600
+            }
+
+            .icon-circle {
+                background: #f1f5f9; // Slate 50
+                color: #475569;
+            }
+        }
+
         &.card-red {
             &::after {
                 background: #ef4444;
