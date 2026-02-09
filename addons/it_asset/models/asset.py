@@ -29,7 +29,7 @@ class ITAsset(models.Model):
     state = fields.Selection([
         ('available', 'Available'),
         ('in_use', 'In Use'),
-        ('maintenance', 'Maintenance'),
+        ('maintenance', 'Out of Service'),
         ('retired', 'Retired'),
     ], string='Status', default='available', tracking=True)
     

@@ -170,7 +170,7 @@
                 <separator/>
                 <filter string="Available" name="available" domain="[('state', '=', 'available')]"/>
                 <filter string="In Use" name="in_use" domain="[('state', '=', 'in_use')]"/>
-                <filter string="Maintenance" name="maintenance" domain="[('state', '=', 'maintenance')]"/>
+                <filter string="Out of Service" name="maintenance" domain="[('state', '=', 'maintenance')]"/>
                 <separator/>
                 <filter string="Consumables" name="consumable" domain="[('is_consumable', '=', True)]"/>
                 <filter string="Permanent Assets" name="permanent" domain="[('is_consumable', '=', False)]"/>

@@ -173,7 +173,8 @@ export class ITAssetDashboard extends Component {
         } else if (state !== 'all') {
             const domainState = state === 'assigned' ? 'in_use' : state;
             domain.push(['state', '=', domainState]);
-            const formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            let formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            if (state === 'maintenance') formattedState = "Out of Service";
             name = `${formattedState} ${typeLabel} Assets`;
         }
 

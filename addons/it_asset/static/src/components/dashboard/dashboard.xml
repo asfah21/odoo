@@ -102,23 +102,13 @@
                             </div>
                         </div>
                     </div>
-                    <!-- Unavailable -->
+                    <!-- Out of Service -->
                     <div class="col-6 col-md-4 col-xl">
                         <div class="modern-card card-red" t-on-click="() => this.openView('unavailable')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-ban text-danger"></i></div>
-                                <div class="stat-label">Unavailable</div>
+                                <div class="stat-label">Out of Service</div>
                                 <div class="stat-value" t-esc="state.stats.unavailable_broken"/>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Maintenance -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-amber" t-on-click="() => this.openView('maintenance_logs')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
-                                <div class="stat-label">Maintenance</div>
-                                <div class="stat-value" t-esc="state.stats.maintenance_count"/>
                             </div>
                         </div>
                     </div>
@@ -129,6 +119,16 @@
                                 <div class="icon-circle shadow-sm"><i class="fa fa-archive"></i></div>
                                 <div class="stat-label">Retired</div>
                                 <div class="stat-value" t-esc="state.stats.retired"/>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Maintenance Logs -->
+                    <div class="col-6 col-md-4 col-xl">
+                        <div class="modern-card card-amber" t-on-click="() => this.openView('maintenance_logs')">
+                            <div class="card-body">
+                                <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
+                                <div class="stat-label">Maintenance Logs</div>
+                                <div class="stat-value" t-esc="state.stats.maintenance_count"/>
                             </div>
                         </div>
                     </div>
@@ -238,7 +238,7 @@
                                     <span t-esc="state.stats.op_assigned"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('maintenance', 'operation')">
-                                    <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Maintenance</span>
+                                    <span class="text-muted"><i class="fa fa-circle me-2 text-warning"></i>Out of Service</span>
                                     <span t-esc="state.stats.op_maintenance"/>
                                 </div>
                                 <div class="d-flex align-items-center justify-content-between small fw-bold cursor-pointer hover-bg-light p-1 rounded" t-on-click="() => this.openView('unavailable', 'operation')">
