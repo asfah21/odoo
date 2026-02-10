@@ -104,7 +104,7 @@
                     </div>
                     <!-- Out of Service -->
                     <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-red" t-on-click="() => this.openView('unavailable')">
+                        <div class="modern-card card-amber" t-on-click="() => this.openView('unavailable')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-ban text-danger"></i></div>
                                 <div class="stat-label">Out of Service</div>
@@ -124,7 +124,7 @@
                     </div>
                     <!-- Maintenance Logs -->
                     <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-amber" t-on-click="() => this.openView('maintenance_logs')">
+                        <div class="modern-card card-red" t-on-click="() => this.openView('maintenance_logs')">
                             <div class="card-body">
                                 <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
                                 <div class="stat-label">Maintenance Logs</div>

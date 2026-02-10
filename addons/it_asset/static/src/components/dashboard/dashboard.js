@@ -151,11 +151,11 @@ export class ITAssetDashboard extends Component {
 
         if (state === 'unavailable') {
             if (assetType === 'it') {
-                domain.push(['condition', '=', 'broken'], ['state', '!=', 'retired']);
-                name = `Unavailable IT Assets (Broken)`;
+                domain.push(['state', '=', 'maintenance']);
+                name = `Out of Service IT Assets`;
             } else {
-                domain.push('|', ['condition', '=', 'broken'], ['state', '=', 'retired']);
-                name = `Unavailable Operation Assets (Broken/Retired)`;
+                domain.push(['state', 'in', ['maintenance', 'retired']]);
+                name = `Out of Service Operation Assets (Maintenance/Retired)`;
             }
         } else if (state === 'retired') {
             domain.push(['state', '=', 'retired']);
@@ -171,7 +171,7 @@ export class ITAssetDashboard extends Component {
             });
             return;
         } else if (state === 'maintenance' && assetType === 'operation') {
-            domain.push('|', '|', ['state', '=', 'maintenance'], ['state', '=', 'retired'], ['condition', '=', 'broken']);
+            domain.push(['state', 'in', ['maintenance', 'retired']]);
             name = `Out of Service Operation Assets`;
         } else if (state !== 'all') {
             const domainState = state === 'assigned' ? 'in_use' : state;

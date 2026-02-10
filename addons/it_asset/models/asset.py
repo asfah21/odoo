@@ -361,7 +361,7 @@ class ITAsset(models.Model):
             'total_operation': self.search_count(op_domain),
             'available': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'available')]),
             'assigned': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'in_use')]),
-            'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), ('condition', '=', 'broken'), ('state', '!=', 'retired')]),
+            'unavailable_broken': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'maintenance')]),
             'retired': self.search_count(domain + [('asset_type', '=', 'it'), ('state', '=', 'retired')]),
             'op_available': 0, 'op_assigned': 0, 'op_unavailable_broken': 0, 'op_maintenance': 0,
             'tickets_open': 0, 'account_requests_pending': 0 # Placeholders
@@ -374,7 +374,7 @@ class ITAsset(models.Model):
                 stats['op_available'] += count
             elif state == 'in_use':
                 stats['op_assigned'] += count
-            elif state == 'maintenance' or state == 'retired' or condition == 'broken':
+            elif state == 'maintenance' or state == 'retired':
                 stats['op_maintenance'] += count
 
         # 2. Category Distribution
