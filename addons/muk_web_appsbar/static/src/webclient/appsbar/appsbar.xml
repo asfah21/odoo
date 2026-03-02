@@ -17,7 +17,6 @@
 		            			class="nav-link" 
 		            			role="menuitem"
 		            		>
-<<<<<<< HEAD
 			                	<img 
 			                		t-if="app.webIconData" 
 			                		class="mk_apps_sidebar_icon" 
@@ -28,22 +27,6 @@
 			                		class="mk_apps_sidebar_icon" 
 			                		src="/base/static/description/icon.png"
 			                	/>
-=======
-			                	<t t-if="app.webIconData">
-			                		<img class="mk_apps_sidebar_icon" t-att-src="app.webIconData"/>
-			                	</t>
-			                	<t t-elif="app.xmlid === 'base.menu_administration'">
-			                		<!-- Fallback Icon for Settings (Gear) -->
-			                		<img class="mk_apps_sidebar_icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2UzZTNlMyI+PHBhdGggZD0iTTE5LjE0IDEyLjk0Yy4wNC0uMy4wNi0uNjEuMDYtLjk0cy0uMDItLjY0LS4wNi0uOTRsMi4wMy0xLjU4Yy4xOC0uMTQuMjMtLjQxLjEyLS42MWwtMi40LTIuNDFjLS4xMi0uMTItLjMtLjE1LS41LS4wOGwtMi45IDEuMTJjLS45NS0uNzItMi4wMi0xLjIyLTMuMTctMS40NUwxMiA0LjE4Yy0uMi0uMDctLjM2LS4yNi0uMzYtLjQ5DiAgICAgICAgdi0zLjRjMC0uMjMuMTUtLjQyLjM2LS40OWwyLjI0IDEuNWMxLjE1LjIzIDIuMjIuNzMgMy4xNyAxLjQ1bDIuOS0xLjEyYy4yLS4wNy4zOC0uMDQuNS4wOGwyLjQgMi40MWMuMTEuMi4wNi40Ny0uMTIuNjFsLTIuMDMgMS41OGMuMDQuMy4wNi42NC4wNi45NHMtLjAyLjYzLS4wNi45NGwyLjAzIDEuNThjLjE4LjE0LjIzLjQxLjEyLjYxbC0yLjQgMi40MWMtLjEyLjEyLS4zLjE1LS41LjA4bC0yLjkgMS4xMmMtLjk1LjcyLTIuMDIgMS4yMi0zLjE3IDEuNDVsLS4yNCAyLjgyYy0uMDIuMjMtLjE3LjQyLS40LmQySDkuNjFjLS4yMyAwLS4zOC0uMTktLjQtLjQybC0uMjQtMi44MmMtMS4xNS0uMjMtMi4yMi0uNzMtMy4xNy0xLjQ1bC0yLjkgMS4xMmMtLjIuMDctLjM4LjA0LS41LS4wOGwtMi40LTIuNDFjLS4xMS0uMi0uMDYtLjQ3LjEyLS42MWwyLjAzLTEuNTh6TTEyIDE1LjZjMS45OSAwIDMuNi0xLjYxIDMuNi0zLjZzLTEuNjEtMy42LTMuNi0zLjYtMy42IDEuNjEtMy42IDMuNiAxLjYxIDMuNiAzLjYgMy42eiIvPjwvc3ZnPg=="/>
-			                	</t>
-			                	<t t-elif="app.xmlid === 'base.menu_management'">
-			                		<!-- Fallback Icon for Apps (Grid/Puzzle) -->
-			                		<img class="mk_apps_sidebar_icon" src="/base/static/description/icon.png"/>
-			                	</t>
-			                	<t t-else="">
-			                		<img class="mk_apps_sidebar_icon" src="/base/static/description/icon.png"/>
-			                	</t>
->>>>>>> 4931041 (Initial commit: Setup Odoo structure)
 						        <span class="mk_apps_sidebar_name">
 						            <t t-out="app.label"/>
 						        </span>
