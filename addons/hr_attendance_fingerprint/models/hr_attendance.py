@@ -18,13 +18,20 @@ class HrAttendance(models.Model):
     def _cron_sync_fingerprint_attendance(self):
         config = self.env['ir.config_parameter'].sudo()
         api_url = config.get_param('hr_attendance_fingerprint.api_url')
+        api_key = config.get_param('hr_attendance_fingerprint.api_key')
+        api_key_header = config.get_param('hr_attendance_fingerprint.api_key_header') or 'x-api-key'
+        
         if not api_url:
             _logger.warning("Fingerprint API URL is not configured.")
             return
 
         try:
             _logger.info("Starting fingerprint attendance sync from %s", api_url)
-            response = requests.get(api_url, timeout=30)
+            headers = {}
+            if api_key:
+                headers[api_key_header] = api_key
+            
+            response = requests.get(api_url, headers=headers, timeout=30)
             response.raise_for_status()
             logs = response.json()
             

@@ -9,7 +9,13 @@
                 <app data-string="Attendances" string="Attendances" name="hr_attendance_fingerprint">
                     <block title="Fingerprint Integration" name="fingerprint_api_setting">
                         <setting help="API Endpoint to fetch attendance logs (JSON format)">
-                            <field name="fingerprint_api_url" placeholder="http://api.example.com/logs"/>
+                            <div class="content-group">
+                                <group>
+                                    <field name="fingerprint_api_url" placeholder="http://api.example.com/logs"/>
+                                    <field name="fingerprint_api_key_header" placeholder="e.g. x-api-key"/>
+                                    <field name="fingerprint_api_key" password="True" placeholder="Enter API Key Value"/>
+                                </group>
+                            </div>
                         </setting>
                     </block>
                 </app>
