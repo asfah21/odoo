@@ -5,12 +5,14 @@
         <field name="model">res.config.settings</field>
         <field name="inherit_id" ref="hr_attendance.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//app[@name='hr_attendance']" position="inside">
-                <block title="Fingerprint Integration" name="fingerprint_api_setting">
-                    <setting help="API Endpoint to fetch attendance logs (JSON format)">
-                        <field name="fingerprint_api_url" placeholder="http://api.example.com/logs"/>
-                    </setting>
-                </block>
+            <xpath expr="//form" position="inside">
+                <app data-string="Attendances" string="Attendances" name="hr_attendance_fingerprint">
+                    <block title="Fingerprint Integration" name="fingerprint_api_setting">
+                        <setting help="API Endpoint to fetch attendance logs (JSON format)">
+                            <field name="fingerprint_api_url" placeholder="http://api.example.com/logs"/>
+                        </setting>
+                    </block>
+                </app>
             </xpath>
         </field>
     </record>
