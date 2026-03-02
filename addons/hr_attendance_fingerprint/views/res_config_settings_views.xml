@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.hr.attendance.fingerprint</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="hr_attendance.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@data-key='hr_attendance']" position="inside">
+                <h2>Fingerprint Integration</h2>
+                <div class="row mt16 o_settings_container">
+                    <div class="col-12 col-lg-6 o_setting_box" id="fingerprint_api_setting">
+                        <div class="o_setting_right_pane">
+                            <label for="fingerprint_api_url"/>
+                            <div class="text-muted">
+                                API Endpoint to fetch attendance logs (JSON format)
+                            </div>
+                            <div class="content-group">
+                                <field name="fingerprint_api_url" placeholder="http://api.example.com/logs"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
