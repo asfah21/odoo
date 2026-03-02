@@ -15,6 +15,10 @@
                                     <field name="fingerprint_api_key_header" placeholder="e.g. x-api-key"/>
                                     <field name="fingerprint_api_key" password="True" placeholder="Enter API Key Value"/>
                                 </group>
+                                <group string="Attendance Type Mapping">
+                                    <field name="fingerprint_type_check_in"/>
+                                    <field name="fingerprint_type_check_out"/>
+                                </group>
                             </div>
                         </setting>
                     </block>

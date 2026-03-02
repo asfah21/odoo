@@ -19,3 +19,15 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='hr_attendance_fingerprint.api_key_header',
         help="The header name for the API Key (e.g., x-api-key, Authorization, etc.)"
     )
+    fingerprint_type_check_in = fields.Integer(
+        string='Check-In Type Value',
+        default=0,
+        config_parameter='hr_attendance_fingerprint.type_check_in',
+        help="The 'type' value from API that represents a Check-In"
+    )
+    fingerprint_type_check_out = fields.Integer(
+        string='Check-Out Type Value',
+        default=1,
+        config_parameter='hr_attendance_fingerprint.type_check_out',
+        help="The 'type' value from API that represents a Check-Out"
+    )
