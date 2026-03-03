@@ -31,3 +31,44 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='hr_attendance_fingerprint.type_check_out',
         help="The 'type' value from API that represents a Check-Out"
     )
+    fingerprint_api_timezone = fields.Selection(
+        [
+            ('UTC', 'UTC'),
+            ('Asia/Jakarta', 'WIB (GMT+7)'),
+            ('Asia/Makassar', 'WITA (GMT+8)'),
+            ('Asia/Jayapura', 'WIT (GMT+9)'),
+        ],
+        string='API Timezone',
+        default='Asia/Makassar',
+        config_parameter='hr_attendance_fingerprint.api_timezone',
+        help="The timezone used by the Fingerprint API. Use Asia/Makassar for WITA."
+    )
+    fingerprint_sync_interval = fields.Integer(
+        string='Sync Interval Value',
+        default=1,
+        config_parameter='hr_attendance_fingerprint.sync_interval',
+        help="Number of units for the sync interval"
+    )
+    fingerprint_sync_interval_type = fields.Selection(
+        [
+            ('minutes', 'Minutes'),
+            ('hours', 'Hours'),
+            ('days', 'Days'),
+        ],
+        string='Sync Interval Type',
+        default='hours',
+        config_parameter='hr_attendance_fingerprint.sync_interval_type',
+        help="Unit of time for the sync interval"
+    )
+
+    def set_values(self):
+
+        super(ResConfigSettings, self).set_values()
+        # Update the cron interval
+        sync_cron = self.env.ref('hr_attendance_fingerprint.ir_cron_sync_fingerprint', raise_if_not_found=False)
+        if sync_cron:
+            sync_cron.sudo().write({
+                'interval_number': self.fingerprint_sync_interval,
+                'interval_type': self.fingerprint_sync_interval_type,
+            })
+

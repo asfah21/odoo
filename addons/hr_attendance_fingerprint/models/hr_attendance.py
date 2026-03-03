@@ -9,7 +9,9 @@ _logger = logging.getLogger(__name__)
 class HrAttendance(models.Model):
     _inherit = 'hr.attendance'
 
-    external_log_id = fields.Char(string='External Log ID', index=True)
+    external_log_id = fields.Char(string='External Log ID', index=True, help="Original Log ID")
+    ext_in_id = fields.Char(string='External In ID', index=True)
+    ext_out_id = fields.Char(string='External Out ID', index=True)
     device_name = fields.Char(string='Device Name')
     device_sn = fields.Char(string='Device SN')
     raw_type = fields.Integer(string='Raw Type', help="0=check_in, 1=check_out")
@@ -22,6 +24,7 @@ class HrAttendance(models.Model):
         api_key_header = config.get_param('hr_attendance_fingerprint.api_key_header') or 'x-api-key'
         type_in = int(config.get_param('hr_attendance_fingerprint.type_check_in') or 0)
         type_out = int(config.get_param('hr_attendance_fingerprint.type_check_out') or 1)
+        api_tz_name = config.get_param('hr_attendance_fingerprint.api_timezone') or 'Asia/Makassar'
         
         if not api_url:
             _logger.warning("Fingerprint API URL is not configured.")
@@ -56,14 +59,19 @@ class HrAttendance(models.Model):
                 return
 
             _logger.info("Processing %d logs from API", len(logs))
-            self._process_attendance_logs(logs, type_in, type_out)
+            self._process_attendance_logs(logs, type_in, type_out, api_tz_name)
         except Exception as e:
             _logger.error("Failed to sync fingerprint attendance: %s", str(e))
 
     @api.model
-    def _process_attendance_logs(self, logs, type_in=0, type_out=1):
+    def _process_attendance_logs(self, logs, type_in=0, type_out=1, api_tz_name='Asia/Makassar'):
         Employee = self.env['hr.employee'].sudo()
         Attendance = self.env['hr.attendance'].sudo()
+        
+        api_tz = pytz.timezone(api_tz_name)
+
+        # Sort logs by timestamp ascending to process 'In' before 'Out'
+        logs.sort(key=lambda x: x.get('timestamp') or x.get('datetime') or '')
 
         for log in logs:
             ext_id = str(log.get('external_log_id') or log.get('id') or '')
@@ -73,79 +81,97 @@ class HrAttendance(models.Model):
             device_name = log.get('device_name')
             device_sn = log.get('device_sn')
 
-            _logger.info("Processing log entry: ext_id=%s, fid=%s, time=%s, type=%s", ext_id, fid, log_time_str, raw_type)
-
             if not ext_id or not fid or not log_time_str:
                 _logger.warning("Skipping invalid log (missing required fields): %s", log)
                 continue
 
-            # Check if already exists to prevent duplication
-            existing = Attendance.search([('external_log_id', '=', ext_id)], limit=1)
+            # Check if this log has already been processed
+            existing = Attendance.search([
+                '|', ('external_log_id', '=', ext_id),
+                '|', ('ext_in_id', '=', ext_id),
+                ('ext_out_id', '=', ext_id)
+            ], limit=1)
+            
             if existing:
-                _logger.info("Log with external_id %s already exists. Skipping.", ext_id)
                 continue
 
             # Find employee by FID
             employee = Employee.search([('fid', '=', fid)], limit=1)
             if not employee:
-                _logger.warning("Employee with FID %s not found in Odoo. Skipping log %s.", fid, ext_id)
                 continue
-            
-            _logger.info("Matching employee found: %s (ID: %s) for FID: %s", employee.name, employee.id, fid)
 
             try:
-                # Handle ISO 8601 format like "2026-03-02T14:21:02.000Z"
-                # Odoo Datetime fields expect a naive UTC datetime object or a string in Odoo format
+                # 1. Parse string to naive datetime
+                # Handle ISO 8601 format and fallback
                 if 'T' in log_time_str:
-                    # Remove milliseconds and Z if present for simpler parsing if needed, 
-                    # but dateutil or ISO format is better
-                    log_time_str = log_time_str.replace('Z', '+00:00').split('.')[0]
-                    check_time = datetime.strptime(log_time_str, '%Y-%m-%dT%H:%M:%S')
+                    log_time_cleaned = log_time_str.replace('T', ' ').replace('Z', '').split('.')[0]
+                    naive_time = datetime.strptime(log_time_cleaned, '%Y-%m-%d %H:%M:%S')
                 else:
-                    check_time = datetime.strptime(log_time_str, '%Y-%m-%d %H:%M:%S')
+                    naive_time = datetime.strptime(log_time_str, '%Y-%m-%d %H:%M:%S')
                 
-                _logger.info("Processing entry for employee %s at %s (Type: %s)", employee.name, check_time, raw_type)
+                # 2. Convert from API Timezone to UTC for Odoo storage
+                # We assume the time in API is LOCAL time (e.g. 14:50 WITA)
+                local_time = api_tz.localize(naive_time)
+                check_time = local_time.astimezone(pytz.UTC).replace(tzinfo=None)
+
+                _logger.info("Syncing %s: API Time %s (%s) -> Odoo UTC %s", 
+                             employee.name, naive_time, api_tz_name, check_time)
 
                 if raw_type == type_in: # Check In
-                    Attendance.create({
-                        'employee_id': employee.id,
-                        'check_in': check_time,
-                        'external_log_id': ext_id,
-                        'device_name': device_name,
-                        'device_sn': device_sn,
-                        'raw_type': raw_type,
-                    })
-                    _logger.info("Created Check-In for %s", employee.name)
-                elif raw_type == type_out: # Check Out
-                    # Look for the last open attendance for this employee
+                    # Avoid creating multiple open attendances
                     open_attendance = Attendance.search([
                         ('employee_id', '=', employee.id),
                         ('check_out', '=', False)
-                    ], order='check_in desc', limit=1)
+                    ], limit=1)
                     
-                    if open_attendance:
-                        open_attendance.write({
-                            'check_out': check_time,
+                    if not open_attendance:
+                        Attendance.create({
+                            'employee_id': employee.id,
+                            'check_in': check_time,
                             'external_log_id': ext_id,
+                            'ext_in_id': ext_id,
                             'device_name': device_name,
                             'device_sn': device_sn,
                             'raw_type': raw_type,
                         })
-                        _logger.info("Updated Check-Out for %s", employee.name)
-                    else:
-                        # If no open check-in, create one with check_in = check_out
+                        _logger.info("Created Check-In for %s at %s UTC", employee.name, check_time)
+
+                elif raw_type == type_out: # Check Out
+                    # Pair with the FIRST open attendance of the day (asc)
+                    open_attendance = Attendance.search([
+                        ('employee_id', '=', employee.id),
+                        ('check_out', '=', False)
+                    ], order='check_in asc', limit=1)
+                    
+                    if open_attendance:
+                        # Ensure check_out is after check_in
+                        if check_time >= open_attendance.check_in:
+                            open_attendance.write({
+                                'check_out': check_time,
+                                'ext_out_id': ext_id,
+                            })
+                            _logger.info("Updated Check-Out for %s at %s UTC", employee.name, check_time)
+                        else:
+                            open_attendance = False
+
+                    if not open_attendance:
+                        # Create direct Check-Out record
                         Attendance.create({
                             'employee_id': employee.id,
                             'check_in': check_time,
                             'check_out': check_time,
                             'external_log_id': ext_id,
+                            'ext_out_id': ext_id,
                             'device_name': device_name,
                             'device_sn': device_sn,
                             'raw_type': raw_type,
                         })
-                        _logger.info("Created direct Check-Out (no open In) for %s", employee.name)
+                        _logger.info("Created direct Check-Out for %s at %s UTC", employee.name, check_time)
+
                 else:
-                    _logger.info("Log raw_type %s does not match Check-In (%s) or Check-Out (%s) mapping. Skipping.", raw_type, type_in, type_out)
+                    _logger.info("Log raw_type %s does not match mapping. Skipping log %s.", raw_type, ext_id)
                 
             except Exception as e:
                 _logger.error("Error processing log %s: %s", ext_id, str(e))
+                self.env.cr.rollback() # Rollback current entry transaction if failed
+

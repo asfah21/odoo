@@ -19,6 +19,19 @@
                                     <field name="fingerprint_type_check_in"/>
                                     <field name="fingerprint_type_check_out"/>
                                 </group>
+                                <group string="Sync &amp; Timezone">
+                                    <field name="fingerprint_api_timezone"/>
+                                    <label for="fingerprint_sync_interval" string="Every"/>
+                                    <div class="o_row">
+                                        <field name="fingerprint_sync_interval" class="oe_inline"/>
+                                        <field name="fingerprint_sync_interval_type" class="oe_inline"/>
+                                    </div>
+                                </group>
+                                <group string="Real-Time Push (Webhook)">
+                                    <div class="text-muted">
+                                        Send your JSON data to this endpoint: <code class="bg-light p-1">/api/hr_attendance/push</code>
+                                    </div>
+                                </group>
                             </div>
                         </setting>
                     </block>
