@@ -1,5 +1,6 @@
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError, ValidationError
+from dateutil.relativedelta import relativedelta
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -480,52 +481,28 @@ class ITAsset(models.Model):
             total_color = sum(latest_records.mapped('color_pages'))
             total_printed = total_bw + total_color
         else:
-            # For specific periods, we calculate GROWTH (Last - Base)
+            # For specific periods, we sum the growth recorded in that period
             days = 7
             if period == '1D': days = 0
             elif period == '1M': days = 30
             elif period == '1Y': days = 365
             
             end_date = fields.Date.today()
-            start_date = fields.Date.subtract(end_date, days=days)
+            start_date = end_date - relativedelta(days=days)
             
-            # 1. Get all printers that have usage
-            printer_ids = Usage._read_group([], ['asset_id'])
+            # Using read_group to sum up the differences (growth) within the period
+            domain = [('date', '>=', start_date), ('date', '<=', end_date)]
+            usage_totals = Usage.read_group(domain, ['bw_diff', 'color_diff', 'pages_diff'], [])
             
-            total_bw = 0
-            total_color = 0
-            total_printed = 0
-            
-            for [printer] in printer_ids:
-                if not printer: continue
-                
-                # Latest record in period
-                last_in = Usage.search([
-                    ('asset_id', '=', printer.id),
-                    ('date', '<=', end_date),
-                    ('date', '>=', start_date)
-                ], order='date desc, id desc', limit=1)
-                
-                if not last_in: continue
-                
-                # Base record (the one just before or at start of period)
-                base = Usage.search([
-                    ('asset_id', '=', printer.id),
-                    ('date', '<', start_date)
-                ], order='date desc, id desc', limit=1)
-                
-                if not base:
-                    # If no record before period, usage is growth from first record in period
-                    first_in = Usage.search([
-                        ('asset_id', '=', printer.id),
-                        ('date', '>=', start_date)
-                    ], order='date asc, id asc', limit=1)
-                    base = first_in
-                
-                if last_in and base:
-                    total_bw += (last_in.bw_pages - base.bw_pages)
-                    total_color += (last_in.color_pages - base.color_pages)
-                    total_printed += (last_in.total_pages - base.total_pages)
+            if usage_totals and usage_totals[0]:
+                data = usage_totals[0]
+                total_bw = data.get('bw_diff') or 0
+                total_color = data.get('color_diff') or 0
+                total_printed = data.get('pages_diff') or 0
+            else:
+                total_bw = 0
+                total_color = 0
+                total_printed = 0
 
         return {
             'total_color': total_color,
