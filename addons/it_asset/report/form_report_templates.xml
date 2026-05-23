@@ -550,10 +550,10 @@
                     </div>
 
                     <!-- PAGE CONTENT -->
-                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px; position: relative; z-index: 1;">
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px; position: relative;">
                         
                         <!-- <div class="row mb-2"> -->
-                        <div style="margin-bottom: 10px;  position: relative; top: -20px;">
+                        <div style="margin-bottom: 10px;  position: relative; top: 0px; z-index: 1;">
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
                                 <!-- <table style="width: 100%; border-collapse: collapse; font-size: 11pt;"> -->
@@ -562,7 +562,7 @@
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
                                     <tr><td style="width: 150px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
-                                    <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr>
+                                    <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd/MM/yy"}'/></td></tr>
                                 </table>
                             </div>                            
                         </div>                       
