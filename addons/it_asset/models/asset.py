@@ -10,7 +10,7 @@ class ITAsset(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'IT Asset'
     _order = 'id desc'
-    _rec_name = 'name'
+    _rec_name = 'asset_display_name'
     _rec_names_search = ['name', 'asset_tag', 'lot_id.name']
 
     asset_type = fields.Selection([
@@ -62,6 +62,7 @@ class ITAsset(models.Model):
     is_printer = fields.Boolean(compute='_compute_is_printer', store=True)
     damage_report_count = fields.Integer(compute='_compute_form_counts')
     handover_count = fields.Integer(compute='_compute_form_counts')
+    asset_display_name = fields.Char(string='Display Name', compute='_compute_asset_display_name', store=True)
 
     def _compute_form_counts(self):
         for record in self:
@@ -97,6 +98,17 @@ class ITAsset(models.Model):
     def _compute_is_printer(self):
         for record in self:
             record.is_printer = record.category_id and 'printer' in record.category_id.name.lower()
+
+    @api.depends('name', 'asset_tag', 'lot_id')
+    def _compute_asset_display_name(self):
+        for record in self:
+            parts = []
+            if record.asset_tag:
+                parts.append(record.asset_tag)
+            parts.append(record.name)
+            if record.lot_id:
+                parts.append(record.lot_id.name)
+            record.asset_display_name = ' - '.join(parts)
 
     def name_get(self):
         result = []
