@@ -438,6 +438,7 @@
             <t t-foreach="docs" t-as="o">
                 <t t-call="web.basic_layout">                   
 
+                    <!-- CUSTOM HEADER -->
                     <div class="header"
                         style="font-family: 'Times New Roman', serif;
                                 padding-left: 40px;
@@ -548,8 +549,8 @@
                         </table>
                     </div>
 
-                    <!-- PAGE CONTENT -->                  
-                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px;">
+                    <!-- PAGE CONTENT -->
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px; position: relative; z-index: 1;">
                         
                         <!-- <div class="row mb-2"> -->
                         <div style="margin-bottom: 10px;  position: relative; top: -20px;">
