@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Item Handover List View -->
+    <record id="view_it_item_handover_list" model="ir.ui.view">
+        <field name="name">it.item.handover.list</field>
+        <field name="model">it_asset.item.handover</field>
+        <field name="arch" type="xml">
+            <list string="Item Handovers">
+                <field name="name"/>
+                <field name="sender_id"/>
+                <field name="receiver_id"/>
+                <field name="handover_date"/>
+                <field name="total_items" string="Items"/>
+                <field name="total_consumable_qty" string="Total Qty" optional="show"/>
+                <field name="state" widget="badge" decoration-success="state == 'signed'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Item Handover Form View -->
+    <record id="view_it_item_handover_form" model="ir.ui.view">
+        <field name="name">it.item.handover.form</field>
+        <field name="model">it_asset.item.handover</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_sign" string="Sign &amp; Confirm" type="object" class="oe_highlight" 
+                            invisible="state != 'draft'" 
+                            confirm="This will process all items (reduce stock for consumables, assign assets). Continue?"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object" 
+                            invisible="state != 'signed'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,signed"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group string="Handover Information">
+                        <group>
+                            <field name="sender_id" options="{'no_create': True}"/>
+                            <field name="receiver_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="handover_date"/>
+                        </group>
+                    </group>
+                    <group string="Items">
+                        <field name="line_ids" invisible="state == 'signed'">
+                            <list editable="bottom" create="1" delete="1">
+                                <field name="item_type" widget="radio" options="{'horizontal': true}"/>
+                                <field name="asset_id" 
+                                       invisible="item_type != 'asset'" 
+                                       required="item_type == 'asset'"
+                                       options="{'no_create': True}"/>
+                                <field name="consumable_id" 
+                                       invisible="item_type != 'consumable'" 
+                                       required="item_type == 'consumable'"
+                                       options="{'no_create': True}"/>
+                                <field name="quantity" 
+                                       invisible="item_type != 'consumable'"
+                                       required="item_type == 'consumable'"/>
+                                <field name="qty_available" 
+                                       invisible="item_type != 'consumable'"
+                                       optional="show"/>
+                                <field name="uom_name" string="UoM"
+                                       invisible="item_type != 'consumable'"
+                                       optional="show"/>
+                            </list>
+                        </field>
+                        <!-- Read-only display after signed -->
+                        <field name="line_ids" invisible="state == 'draft'">
+                            <list>
+                                <field name="item_type" widget="badge" decoration-info="item_type == 'consumable'" decoration-success="item_type == 'asset'"/>
+                                <field name="item_display" string="Item"/>
+                                <field name="quantity"/>
+                            </list>
+                        </field>
+                    </group>
+                    <group>
+                        <field name="notes"/>
+                        <field name="signature" widget="signature"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Item Handover Search View -->
+    <record id="view_it_item_handover_search" model="ir.ui.view">
+        <field name="name">it.item.handover.search</field>
+        <field name="model">it_asset.item.handover</field>
+        <field name="arch" type="xml">
+            <search string="Search Item Handovers">
+                <field name="name"/>
+                <field name="sender_id"/>
+                <field name="receiver_id"/>
+                <filter string="Draft" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Signed" name="filter_signed" domain="[('state', '=', 'signed')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
+                    <filter string="Sender" name="group_by_sender" context="{'group_by': 'sender_id'}"/>
+                    <filter string="Receiver" name="group_by_receiver" context="{'group_by': 'receiver_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Action -->
+    <record id="action_it_item_handover" model="ir.actions.act_window">
+        <field name="name">Item Handover</field>
+        <field name="res_model">it_asset.item.handover</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Item Handover!
+            </p>
+            <p>
+                Hand over multiple Assets and/or Consumables to employees in one go.
+                Consumable stock will be reduced automatically upon signing.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="it_asset_menu_form_item_handover" 
+              name="Item Handover" 
+              parent="it_asset_menu_forms" 
+              action="action_it_item_handover" 
+              sequence="25"/>
+</odoo>

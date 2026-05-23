@@ -20,6 +20,7 @@
         'views/asset_unit_views.xml',
         'views/asset_swap_views.xml',
         'views/printer_usage_views.xml',
+        'views/item_handover_views.xml',
         'views/asset_form_views.xml',
         'report/asset_report.xml',
         'report/asset_report_templates.xml',
