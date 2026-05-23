@@ -609,6 +609,18 @@
                                         </t>
                                     </td>
                                 </tr>
+                                <!-- Fill empty rows to ensure minimum 5 rows -->
+                                <t t-set="min_rows" t-value="5"/>
+                                <t t-set="item_count" t-value="len(o.line_ids)"/>
+                                <t t-foreach="range(max(0, min_rows - item_count))" t-as="i">
+                                    <tr>
+                                        <td style="border: 1px solid black; padding: 1.1pt; height: 20px;">&#160;</td>
+                                        <td style="border: 1px solid black; padding: 1.1pt;">&#160;</td>
+                                        <td style="border: 1px solid black; padding: 1.1pt;">&#160;</td>
+                                        <td style="border: 1px solid black; padding: 1.1pt;">&#160;</td>
+                                        <td style="border: 1px solid black; padding: 1.1pt;">&#160;</td>
+                                    </tr>
+                                </t>
                             </tbody>
                         </table>
 
