@@ -269,6 +269,22 @@
               action="action_it_asset_damage_report" 
               sequence="30"/>
 
+    <!-- Item Handover Action -->
+    <record id="action_it_item_handover" model="ir.actions.act_window">
+        <field name="name">Item Handover</field>
+        <field name="res_model">it_asset.item.handover</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create your first Item Handover!
+            </p>
+            <p>
+                Hand over multiple Assets and/or Consumables to employees in one go.
+                Consumable stock will be reduced automatically upon signing.
+            </p>
+        </field>
+    </record>
+
     <menuitem id="it_asset_menu_form_item_handover" 
               name="Item Handover" 
               parent="it_asset_menu_forms" 
