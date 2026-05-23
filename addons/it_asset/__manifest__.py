@@ -22,6 +22,7 @@
         'views/printer_usage_views.xml',
         'views/item_handover_views.xml',
         'views/asset_form_views.xml',
+        'security/item_handover_access.xml',
         'report/asset_report.xml',
         'report/asset_report_templates.xml',
         'report/form_reports.xml',
