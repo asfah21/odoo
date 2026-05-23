@@ -442,7 +442,7 @@
                         style="font-family: 'Times New Roman', serif;
                                 padding-left: 40px;
                                 padding-right: 40px;
-                                padding-top: 40px;
+                                padding-top: 50px;
                                 margin-bottom: 0px;">
 
                         <table style="width: 100%;
@@ -556,7 +556,7 @@
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
                                 <!-- <table style="width: 100%; border-collapse: collapse; font-size: 11pt;"> -->
-                                <table class="table-borderless" style="width: 100%;">
+                                <table class="table-borderless" style="width: 100%; font-size: 11pt; margin-bottom: 1px; position: relative; top: -5px;">
                                     <tr><td style="width: 160px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
                                     <tr><td style="width: 160px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
@@ -567,7 +567,7 @@
                         </div>                       
 
                         <table class="table table-bordered text-center" style="border-color: black;">
-                            <thead style="background-color: #38b8ebff; color: black; padding: 2px;">
+                            <thead style="background-color: #38b8eb; color: black; padding: 2px;">
                                 <tr>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>No</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
