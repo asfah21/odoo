@@ -489,41 +489,41 @@
 
                                         <tr>
                                             <td style="border-bottom: 1px solid black; padding: 2px; width: 85px;">
-                                                &nbsp;No. Dokumen
+                                                &#160;No. Dokumen
                                             </td>
-                                            <td style="border-bottom: 1px solid black; width: 8px;">&nbsp;:</td>
+                                            <td style="border-bottom: 1px solid black; width: 8px;">&#160;:</td>
                                             <td style="border-bottom: 1px solid black; padding: 2px;">
-                                                &nbsp;GSI4-HRGA-005E
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 2px;">
-                                                &nbsp;Revisi
-                                            </td>
-                                            <td style="border-bottom: 1px solid black;">&nbsp;:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 2px;">
-                                                &nbsp;0
+                                                &#160;GSI4-HRGA-005E
                                             </td>
                                         </tr>
 
                                         <tr>
                                             <td style="border-bottom: 1px solid black; padding: 2px;">
-                                                &nbsp;Tanggal Efektif
+                                                &#160;Revisi
                                             </td>
-                                            <td style="border-bottom: 1px solid black;">&nbsp;:</td>
+                                            <td style="border-bottom: 1px solid black;">&#160;:</td>
                                             <td style="border-bottom: 1px solid black; padding: 2px;">
-                                                &nbsp;24 Juli 2023
+                                                &#160;0
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
+                                                &#160;Tanggal Efektif
+                                            </td>
+                                            <td style="border-bottom: 1px solid black;">&#160;:</td>
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
+                                                &#160;24 Juli 2023
                                             </td>
                                         </tr>
 
                                         <tr>
                                             <td style="padding: 2px;">
-                                                &nbsp;Halaman
+                                                &#160;Halaman
                                             </td>
-                                            <td>&nbsp;:</td>
+                                            <td>&#160;:</td>
                                             <td style="padding: 2px;">
-                                                &nbsp;1
+                                                &#160;1
                                             </td>
                                         </tr>
 
