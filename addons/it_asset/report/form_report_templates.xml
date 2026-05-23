@@ -436,41 +436,26 @@
     <template id="report_item_handover_template">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
-                <t t-call="web.basic_layout">
-                    <!-- CUSTOM HEADER -->
-                    <!-- <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
-                        <div class="row">
-                            <div class="col-3">
-                                <img t-if="o.env.company.logo" t-att-src="image_data_uri(o.env.company.logo)" style="max-height: 65px; max-width: 100%;"/>
-                            </div>
-                            <div class="col-9 text-end" style="font-size: 10pt; line-height: 1.3;">
-                                <div style="font-weight: bold; font-size: 11pt;">PT Gunung Samudera Internasional</div>
-                                <div>Jl. A.P. Pettarani No.80, Masale, Kec. Panakkukang,</div>
-                                <div>Kota Makassar, Sulawesi Selatan 90231</div>   
-                                <div style="margin-top: 10px; white-space: nowrap;">
-                                    <span style="color: #f59e0b; margin-right: 5px;"><i class="fa fa-envelope"/></span> info@gsicorp.co.id &#160;
-                                    <span style="color: #f59e0b; margin-right: 5px;"><i class="fa fa-phone"/></span> +62-8222-3111-851 &#160;
-                                    <span style="color: #f59e0b; margin-right: 5px;"><i class="fa fa-globe"/></span> www.gsicorp.co.id
-                                </div>                             
-                            </div>                            
-                        </div>
-                    </div> -->
+                <t t-call="web.basic_layout">                   
 
                     <div class="header"
                         style="font-family: 'Times New Roman', serif;
                                 padding-left: 40px;
                                 padding-right: 40px;
-                                padding-top: 20px;">
+                                padding-top: 5px;
+                                margin-bottom: 0px;">
 
                         <table style="width: 100%;
                                     border-collapse: collapse;
                                     border: 1px solid black;
-                                    font-size: 11pt;">
+                                    font-size: 11pt;
+                                    table-layout: fixed;">
 
                             <tr>
+
                                 <!-- LOGO -->
                                 <td rowspan="2"
-                                    style="width: 100px;
+                                    style="width: 85px;
                                         border: 1px solid black;
                                         text-align: center;
                                         vertical-align: middle;
@@ -478,33 +463,35 @@
 
                                     <img t-if="o.env.company.logo"
                                         t-att-src="image_data_uri(o.env.company.logo)"
-                                        style="max-height: 50px; max-width: 100px;"/>
+                                        style="max-height: 45px; max-width: 75px;"/>
                                 </td>
 
-                                <!-- TITLE -->
+                                <!-- TOP TITLE -->
                                 <td style="border: 1px solid black;
                                         text-align: center;
-                                        font-weight: semi-bold;
-                                        font-size: 12pt;">
+                                        font-size: 11pt;
+                                        padding: 2px;
+                                        vertical-align: middle;">
 
                                     FORM / FORMULIR
                                 </td>
 
-                                <!-- INFO -->
+                                <!-- RIGHT INFO -->
                                 <td rowspan="2"
-                                    style="width: 240px;
+                                    style="width: 210px;
                                         border: 1px solid black;
-                                        padding: 0;">
+                                        padding: 0;
+                                        vertical-align: top;">
 
                                     <table style="width: 100%;
                                                 border-collapse: collapse;
-                                                font-size: 9pt;">
+                                                font-size: 8.5pt;">
 
                                         <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 2px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px; width: 85px;">
                                                 No. Dokumen
                                             </td>
-                                            <td style="border-bottom: 1px solid black; width: 10px;">:</td>
+                                            <td style="border-bottom: 1px solid black; width: 8px;">:</td>
                                             <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 GSI4-HRGA-005E
                                             </td>
@@ -545,12 +532,14 @@
                             </tr>
 
                             <tr>
-                                <!-- SUB TITLE -->
+                                <!-- MAIN TITLE -->
                                 <td style="border: 1px solid black;
                                         text-align: center;
                                         font-weight: bold;
-                                        font-size: 14pt;
-                                        padding: 8px;">
+                                        font-size: 13pt;
+                                        padding: 4px;
+                                        height: 28px;
+                                        vertical-align: middle;">
 
                                     SERAH TERIMA BARANG / DOKUMEN
                                 </td>
@@ -560,12 +549,23 @@
                     </div>
 
                     <!-- PAGE CONTENT -->
-                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px;">
+                    <div class="page"
+                        style="font-family: 'Times New Roman', serif;
+                                font-size: 12pt;
+                                color: #000;
+                                margin-top: 5px;
+                                padding-top: 0px;
+                                padding-left: 50px;
+                                padding-right: 50px;">
+
+                    <!-- <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px;"> -->
                         
-                        <div class="row mb-2">
+                        <!-- <div class="row mb-2"> -->
+                        <div style="margin-top: 5px; margin-bottom: 8px;">
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
-                                <table class="table-borderless" style="width: 100%;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 11pt;">
+                                <!-- <table class="table-borderless" style="width: 100%;"> -->
                                     <tr><td style="width: 160px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
                                     <tr><td style="width: 160px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
