@@ -10,6 +10,7 @@ class ITAsset(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'IT Asset'
     _order = 'id desc'
+    _rec_names_search = ['name', 'asset_tag', 'lot_id.name']
 
     asset_type = fields.Selection([
         ('it', 'IT Asset'),
@@ -112,8 +113,11 @@ class ITAsset(models.Model):
         args = args or []
         domain = list(args)
         if name:
-            domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + domain
-        return super(ITAsset, self).name_search(name=name, args=domain, operator=operator, limit=limit)
+            # Search by name, asset_tag, or serial number (lot_id.name)
+            domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)]
+        # Pass empty name to super() so it doesn't add duplicate name search,
+        # since we already included name in our domain above
+        return super(ITAsset, self).name_search(name='', args=domain, operator=operator, limit=limit)
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):

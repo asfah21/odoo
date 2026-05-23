@@ -583,7 +583,7 @@
                                     <td style="border: 1px solid black; text-align: left; padding: 1.1pt;">
                                         <t t-if="line.item_type == 'asset'">
                                             <span t-field="line.asset_id.name"/>
-                                            <t t-if="line.asset_id.lot_id"> (SN: <span t-field="line.asset_id.lot_id.name"/>)</t>
+                                            <t t-if="line.asset_id.asset_tag"> (<span t-field="line.asset_id.asset_tag"/>)</t>
                                         </t>
                                         <t t-if="line.item_type == 'consumable'">
                                             <span t-field="line.consumable_id.name"/>
