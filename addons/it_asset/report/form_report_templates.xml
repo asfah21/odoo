@@ -470,15 +470,15 @@
                             <tr>
                                 <!-- LOGO -->
                                 <td rowspan="2"
-                                    style="width: 120px;
+                                    style="width: 100px;
                                         border: 1px solid black;
                                         text-align: center;
                                         vertical-align: middle;
-                                        padding: 5px;">
+                                        padding: 2px;">
 
                                     <img t-if="o.env.company.logo"
                                         t-att-src="image_data_uri(o.env.company.logo)"
-                                        style="max-height: 70px; max-width: 100px;"/>
+                                        style="max-height: 50px; max-width: 100px;"/>
                                 </td>
 
                                 <!-- TITLE -->
@@ -492,7 +492,7 @@
 
                                 <!-- INFO -->
                                 <td rowspan="2"
-                                    style="width: 260px;
+                                    style="width: 240px;
                                         border: 1px solid black;
                                         padding: 0;">
 
@@ -560,43 +560,23 @@
                     </div>
 
                     <!-- PAGE CONTENT -->
-                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 10px; padding-left: 50px; padding-right: 50px;">
-                        <!-- <div class="text-center mb-5">
-                            <h4 style="font-weight: bold; text-decoration: underline; margin-bottom: 3px;">BERITA ACARA SERAH TERIMA PERANGKAT</h4>
-                            <p style="margin: 0;">No: <span t-field="o.name"/></p>
-                        </div>
-
-                        <p style="margin-bottom: 20px;">Kami yang bertanda tangan di bawah ini:</p> -->
-
-                        <div class="row mb-4">
+                    <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px;">
+                        
+                        <div class="row mb-2">
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
                                 <table class="table-borderless" style="width: 100%;">
-                                    <tr><td style="width: 190px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                    <tr><td style="width: 160px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
-                                    <tr><td style="width: 190px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
+                                    <tr><td style="width: 160px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
                                     <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr>
-                                   
                                 </table>
-                            </div>
-                            <!-- <div class="col-6">
-                                <strong>II. Pihak Kedua</strong>
-                                <table class="table-borderless" style="width: 100%;">
-                                    <tr><td style="width: 100px;">Nama</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
-                                    <tr><td>Jabatan</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
-                                    <tr><td>Perusahaan</td><td>: PT GSI</td></tr>
-                                </table>
-                            </div> -->
-                        </div>
-
-                        <!-- <p class="mb-3">
-                            Pada hari ini, tanggal <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/> 
-                            telah dilakukan serah terima perangkat dengan rincian:
-                        </p> -->
+                            </div>                            
+                        </div>                       
 
                         <table class="table table-bordered text-center" style="border-color: black;">
-                            <thead style="background-color: #a2e5ffff; color: black;">
+                            <thead style="background-color: #38b8ebff; color: black; padding: 1px;">
                                 <tr>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>No</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
@@ -640,21 +620,8 @@
                             </tbody>
                         </table>
 
-                        <!-- <p class="mt-4 text-justify">
-                            Dengan diterimanya barang tersebut, <strong>Pihak Kedua</strong> bertanggung jawab sepenuhnya atas perawatan dan keamanan barang sesuai kebijakan perusahaan, termasuk atas kehilangan atau kerusakan yang terjadi selama masa penggunaan.
-                        </p> -->
-
-                        <!-- CLOSING -->
-                        <!-- <div class="mb-5">
-                            <p>Demikian berita acara dibuat untuk digunakan sebagaimana mestinya. Terima kasih.</p>
-                        </div> -->
-
-                        <!-- SIGNATURE BLOCK -->
-                        <!-- <div class="text-right" style="text-align: right; margin-bottom: 10px;">
-                            <p>Samaenre, <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/></p>
-                        </div> -->
-
-                        <table style="width: 100%; border: 1px solid black; border-collapse: collapse; text-align: center; margin-top: 20px;">
+                       
+                        <table style="width: 100%; border: 1px solid black; border-collapse: collapse; text-align: center; margin-top: 30px;">
                             <tr style="font-weight: bold;">
                                 <td style="border: 1px solid black; width: 33%; padding: 2px;">Diserahkan Oleh,</td>
                                 <td style="border: 1px solid black; width: 33%; padding: 2px;">Diterima Oleh,</td>
