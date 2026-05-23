@@ -493,8 +493,8 @@
                                 <!-- TITLE -->
                                 <td style="border: 1px solid black;
                                         text-align: center;
-                                        font-weight: bold;
-                                        font-size: 16pt;">
+                                        font-weight: semi-bold;
+                                        font-size: 12pt;">
 
                                     FORM / FORMULIR
                                 </td>
@@ -507,44 +507,44 @@
 
                                     <table style="width: 100%;
                                                 border-collapse: collapse;
-                                                font-size: 10pt;">
+                                                font-size: 9pt;">
 
                                         <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 No. Dokumen
                                             </td>
                                             <td style="border-bottom: 1px solid black; width: 10px;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 GSI4-HRGA-005E
                                             </td>
                                         </tr>
 
                                         <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 Revisi
                                             </td>
                                             <td style="border-bottom: 1px solid black;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 0
                                             </td>
                                         </tr>
 
                                         <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 Tanggal Efektif
                                             </td>
                                             <td style="border-bottom: 1px solid black;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                            <td style="border-bottom: 1px solid black; padding: 2px;">
                                                 24 Juli 2023
                                             </td>
                                         </tr>
 
                                         <tr>
-                                            <td style="padding: 3px;">
+                                            <td style="padding: 2px;">
                                                 Halaman
                                             </td>
                                             <td>:</td>
-                                            <td style="padding: 3px;">
+                                            <td style="padding: 2px;">
                                                 1
                                             </td>
                                         </tr>
@@ -558,8 +558,8 @@
                                 <td style="border: 1px solid black;
                                         text-align: center;
                                         font-weight: bold;
-                                        font-size: 18pt;
-                                        padding: 10px;">
+                                        font-size: 14pt;
+                                        padding: 8px;">
 
                                     SERAH TERIMA BARANG / DOKUMEN
                                 </td>
@@ -581,9 +581,9 @@
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
                                 <table class="table-borderless" style="width: 100%;">
-                                    <tr><td style="width: 100px;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                    <tr><td style="width: 190px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
-                                    <tr><td style="width: 100px;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
+                                    <tr><td style="width: 190px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
                                     <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr>
                                    
@@ -605,9 +605,9 @@
                         </p> -->
 
                         <table class="table table-bordered text-center" style="border-color: black;">
-                            <thead style="background-color: #ed7d31; color: black;">
+                            <thead style="background-color: #a2e5ffff; color: black;">
                                 <tr>
-                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>NO</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>No</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Tipe</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Qty</strong></th>
