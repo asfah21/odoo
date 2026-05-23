@@ -1,6 +1,6 @@
 {
     'name': 'IT Department',
-    'version': '1.0.0',
+    'version': '1.0.1',
     'summary': 'Centralized IT management for PT GSI – Site Wolo',
     'sequence': 1,
     'category': 'IT',
