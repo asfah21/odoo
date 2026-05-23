@@ -108,12 +108,12 @@ class ITAsset(models.Model):
         return result
 
     @api.model
-    def _name_search(self, name='', args=None, operator='ilike', limit=100, name_get_uid=None):
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
         args = args or []
         domain = list(args)
         if name:
             domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + domain
-        return super(ITAsset, self)._name_search(name=name, args=domain, operator=operator, limit=limit, name_get_uid=name_get_uid)
+        return super(ITAsset, self).name_search(name=name, args=domain, operator=operator, limit=limit)
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):
