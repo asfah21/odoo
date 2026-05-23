@@ -552,14 +552,14 @@
                     <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 4px; padding-left: 50px; padding-right: 50px;">
                         
                         <!-- <div class="row mb-2"> -->
-                        <div style="margin-top: 5px; margin-bottom: 8px;">
+                        <div style="margin-bottom: 10px;  position: relative; top: -20px;">
                             <div class="col-6">
                                 <!-- <strong>I. Pihak Pertama</strong> -->
                                 <!-- <table style="width: 100%; border-collapse: collapse; font-size: 11pt;"> -->
-                                <table class="table-borderless" style="width: 100%; font-size: 11pt; margin-bottom: 1px; position: relative; top: -5px;">
-                                    <tr><td style="width: 160px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                <table class="table-borderless" style="width: 100%; font-size: 11pt;">
+                                    <tr><td style="width: 150px; white-space: nowrap;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
-                                    <tr><td style="width: 160px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
+                                    <tr><td style="width: 150px; white-space: nowrap;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Posisi</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
                                     <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr>
                                 </table>
@@ -567,12 +567,12 @@
                         </div>                       
 
                         <table class="table table-bordered text-center" style="border-color: black;">
-                            <thead style="background-color: #38b8eb; color: black; padding: 2px;">
+                            <thead style="background-color: #7fd1f1; color: black; padding: 2px;">
                                 <tr>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>No</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
-                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Kondisi</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Qty</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Kondisi</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Keterangan</strong></th>
                                 </tr>
                             </thead>
@@ -588,6 +588,9 @@
                                             <span t-field="line.consumable_id.name"/>
                                         </t>
                                     </td>
+                                    <td style="border: 1px solid black; padding: 1.1pt;">
+                                        <t t-esc="'%g' % line.quantity"/>
+                                    </td>
                                     <td style="border: 1px solid black; padding: 1.1pt; text-transform: capitalize;">
                                         <t t-if="line.item_type == 'asset'">
                                             <span t-field="line.asset_id.condition"/>
@@ -595,9 +598,6 @@
                                         <t t-if="line.item_type == 'consumable'">
                                             Baik
                                         </t>
-                                    </td>
-                                    <td style="border: 1px solid black; padding: 1.1pt;">
-                                        <t t-esc="line.quantity"/>
                                     </td>
                                     <td style="border: 1px solid black; padding: 1.1pt; text-align: left;">
                                         <t t-if="line.item_type == 'asset' and line.asset_id.lot_id">
