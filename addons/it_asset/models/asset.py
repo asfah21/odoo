@@ -110,8 +110,7 @@ class ITAsset(models.Model):
         domain = list(args)
         if name:
             domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + domain
-        records = self.search(domain, limit=limit)
-        return records.name_get()
+        return super(ITAsset, self).name_search(name=name, args=domain, operator=operator, limit=limit)
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):
