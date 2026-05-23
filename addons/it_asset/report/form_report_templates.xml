@@ -568,7 +568,7 @@
                         </div>                       
 
                         <table class="table table-bordered text-center" style="border-color: black;">
-                            <thead style="background-color: #7fd1f1; color: black; padding: 2px;">
+                            <thead style="background-color: #96d7f1; color: black; padding: 2px;">
                                 <tr>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>No</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
