@@ -107,10 +107,11 @@ class ITAsset(models.Model):
 
     def name_search(self, name='', args=None, operator='ilike', limit=100):
         args = args or []
-        domain = args
+        domain = list(args)
         if name:
-            domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + args
-        return self._search(domain, limit=limit)
+            domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + domain
+        records = self.search(domain, limit=limit)
+        return records.name_get()
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):
