@@ -100,7 +100,7 @@ class ITItemHandover(models.Model):
                                  7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X', 11: 'XI', 12: 'XII'}
                     roman_month = roman_map.get(month, 'I')
                     if seq.count('/') < 2:
-                        vals['name'] = f"{seq}/{roman_month}/BAST/GSI-IT/{year}"
+                        vals['name'] = f"{seq}/{roman_month}/FSTB/GSI-IT/{year}"
                     else:
                         vals['name'] = seq
                 else:

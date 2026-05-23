@@ -51,7 +51,8 @@
                                 <field name="asset_id" 
                                        invisible="item_type != 'asset'" 
                                        required="item_type == 'asset'"
-                                       options="{'no_create': True}"/>
+                                       options="{'no_create': True, 'no_create_edit': True}"
+                                       placeholder="Type asset name, tag, or serial number..."/>
                                 <field name="consumable_id" 
                                        invisible="item_type != 'consumable'" 
                                        required="item_type == 'consumable'"
@@ -65,7 +66,7 @@
                                 <field name="uom_name" string="UoM"
                                        invisible="item_type != 'consumable'"
                                        optional="show"/>
-                                <field name="notes" optional="show"/>
+                                <field name="notes" optional="show" placeholder="Optional notes for this item..."/>
                             </list>
                         </field>
                         <!-- Read-only display after signed -->

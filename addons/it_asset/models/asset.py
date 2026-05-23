@@ -96,10 +96,21 @@ class ITAsset(models.Model):
         for record in self:
             record.is_printer = record.category_id and 'printer' in record.category_id.name.lower()
 
-    @api.depends('name', 'asset_tag')
+    @api.depends('name', 'asset_tag', 'lot_id')
     def _compute_display_name(self):
         for record in self:
-            record.display_name = f"[{record.asset_tag}] {record.name}" if record.asset_tag else record.name
+            base = f"[{record.asset_tag}] {record.name}" if record.asset_tag else record.name
+            if record.lot_id:
+                record.display_name = f"{base} - SN: {record.lot_id.name}"
+            else:
+                record.display_name = base
+
+    def name_search(self, name='', args=None, operator='ilike', limit=100):
+        args = args or []
+        domain = args
+        if name:
+            domain = ['|', '|', ('name', operator, name), ('asset_tag', operator, name), ('lot_id.name', operator, name)] + args
+        return self._search(domain, limit=limit)
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):
