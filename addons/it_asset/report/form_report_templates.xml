@@ -82,7 +82,7 @@
             <t t-foreach="docs" t-as="o">
                 <t t-call="web.basic_layout">
                     <!-- CUSTOM HEADER -->
-                    <!-- <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
+                    <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
                         <div class="row">
                             <div class="col-3">
                                 <img t-if="o.env.company.logo" t-att-src="image_data_uri(o.env.company.logo)" style="max-height: 65px; max-width: 100%;"/>
@@ -98,109 +98,6 @@
                                 </div>                             
                             </div>                            
                         </div>
-                    </div> -->
-
-                    <div class="header"
-                        style="font-family: 'Times New Roman', serif;
-                                padding-left: 40px;
-                                padding-right: 40px;
-                                padding-top: 20px;">
-
-                        <table style="width: 100%;
-                                    border-collapse: collapse;
-                                    border: 1px solid black;
-                                    font-size: 11pt;">
-
-                            <tr>
-                                <!-- LOGO -->
-                                <td rowspan="2"
-                                    style="width: 120px;
-                                        border: 1px solid black;
-                                        text-align: center;
-                                        vertical-align: middle;
-                                        padding: 5px;">
-
-                                    <img t-if="o.env.company.logo"
-                                        t-att-src="image_data_uri(o.env.company.logo)"
-                                        style="max-height: 70px; max-width: 100px;"/>
-                                </td>
-
-                                <!-- TITLE -->
-                                <td style="border: 1px solid black;
-                                        text-align: center;
-                                        font-weight: bold;
-                                        font-size: 16pt;">
-
-                                    FORM / FORMULIR
-                                </td>
-
-                                <!-- INFO -->
-                                <td rowspan="2"
-                                    style="width: 260px;
-                                        border: 1px solid black;
-                                        padding: 0;">
-
-                                    <table style="width: 100%;
-                                                border-collapse: collapse;
-                                                font-size: 10pt;">
-
-                                        <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                No. Dokumen
-                                            </td>
-                                            <td style="border-bottom: 1px solid black; width: 10px;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                GSI4-HRGA-005E
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                Revisi
-                                            </td>
-                                            <td style="border-bottom: 1px solid black;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                0
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                Tanggal Efektif
-                                            </td>
-                                            <td style="border-bottom: 1px solid black;">:</td>
-                                            <td style="border-bottom: 1px solid black; padding: 3px;">
-                                                24 Juli 2023
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td style="padding: 3px;">
-                                                Halaman
-                                            </td>
-                                            <td>:</td>
-                                            <td style="padding: 3px;">
-                                                1
-                                            </td>
-                                        </tr>
-
-                                    </table>
-                                </td>
-                            </tr>
-
-                            <tr>
-                                <!-- SUB TITLE -->
-                                <td style="border: 1px solid black;
-                                        text-align: center;
-                                        font-weight: bold;
-                                        font-size: 18pt;
-                                        padding: 10px;">
-
-                                    SERAH TERIMA BARANG / DOKUMEN
-                                </td>
-                            </tr>
-
-                        </table>
                     </div>
 
                     <!-- PAGE CONTENT -->
@@ -214,30 +111,28 @@
 
                         <div class="row mb-4">
                             <div class="col-6">
-                                <!-- <strong>I. Pihak Pertama</strong> -->
+                                <strong>I. Pihak Pertama</strong>
                                 <table class="table-borderless" style="width: 100%;">
-                                    <tr><td style="width: 100px;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
-                                    <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
-                                    <tr><td style="width: 100px;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
-                                    <tr><td>Jabatan</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
-                                    <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d m y"}'/></td></tr>
-                                    <!-- <tr><td>Perusahaan</td><td>: PT GSI</td></tr> -->
+                                    <tr><td style="width: 100px;">Nama</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                    <tr><td>Jabatan</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
+                                    <!-- <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr> -->
+                                    <tr><td>Perusahaan</td><td>: PT GSI</td></tr>
                                 </table>
                             </div>
-                            <!-- <div class="col-6">
+                            <div class="col-6">
                                 <strong>II. Pihak Kedua</strong>
                                 <table class="table-borderless" style="width: 100%;">
                                     <tr><td style="width: 100px;">Nama</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Jabatan</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
                                     <tr><td>Perusahaan</td><td>: PT GSI</td></tr>
                                 </table>
-                            </div> -->
+                            </div>
                         </div>
 
-                        <!-- <p class="mb-3">
+                        <p class="mb-3">
                             Pada hari ini, tanggal <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/> 
                             telah dilakukan serah terima perangkat dengan rincian:
-                        </p> -->
+                        </p>
 
                         <table class="table table-bordered text-center" style="border-color: black;">
                             <thead style="background-color: #ed7d31; color: black;">
@@ -262,19 +157,19 @@
                             </tbody>
                         </table>
 
-                        <!-- <p class="mt-4 text-justify">
+                        <p class="mt-4 text-justify">
                             Dengan diterimanya asset tersebut, <strong>Pihak Kedua</strong> bertanggung jawab sepenuhnya atas perawatan dan keamanan barang sesuai kebijakan perusahaan, termasuk atas kehilangan atau kerusakan yang terjadi selama masa penggunaan.
-                        </p> -->
+                        </p>
 
                         <!-- CLOSING -->
-                        <!-- <div class="mb-5">
+                        <div class="mb-5">
                             <p>Demikian berita acara dibuat untuk digunakan sebagaimana mestinya. Terima kasih.</p>
-                        </div> -->
+                        </div>
 
                         <!-- SIGNATURE BLOCK -->
-                        <!-- <div class="text-right" style="text-align: right; margin-bottom: 10px;">
+                        <div class="text-right" style="text-align: right; margin-bottom: 10px;">
                             <p>Samaenre, <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/></p>
-                        </div> -->
+                        </div>
 
                         <table style="width: 100%; border: 1px solid black; border-collapse: collapse; text-align: center; margin-top: 20px;">
                             <tr style="font-weight: bold;">
@@ -552,7 +447,7 @@
             <t t-foreach="docs" t-as="o">
                 <t t-call="web.basic_layout">
                     <!-- CUSTOM HEADER -->
-                    <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
+                    <!-- <div class="header" style="font-family: 'Times New Roman', serif; padding-left: 50px; padding-right: 50px; padding-top: 60px; margin-bottom: 0px; padding-bottom: 0px;">
                         <div class="row">
                             <div class="col-3">
                                 <img t-if="o.env.company.logo" t-att-src="image_data_uri(o.env.company.logo)" style="max-height: 65px; max-width: 100%;"/>
@@ -568,46 +463,152 @@
                                 </div>                             
                             </div>                            
                         </div>
+                    </div> -->
+
+                    <div class="header"
+                        style="font-family: 'Times New Roman', serif;
+                                padding-left: 40px;
+                                padding-right: 40px;
+                                padding-top: 20px;">
+
+                        <table style="width: 100%;
+                                    border-collapse: collapse;
+                                    border: 1px solid black;
+                                    font-size: 11pt;">
+
+                            <tr>
+                                <!-- LOGO -->
+                                <td rowspan="2"
+                                    style="width: 120px;
+                                        border: 1px solid black;
+                                        text-align: center;
+                                        vertical-align: middle;
+                                        padding: 5px;">
+
+                                    <img t-if="o.env.company.logo"
+                                        t-att-src="image_data_uri(o.env.company.logo)"
+                                        style="max-height: 70px; max-width: 100px;"/>
+                                </td>
+
+                                <!-- TITLE -->
+                                <td style="border: 1px solid black;
+                                        text-align: center;
+                                        font-weight: bold;
+                                        font-size: 16pt;">
+
+                                    FORM / FORMULIR
+                                </td>
+
+                                <!-- INFO -->
+                                <td rowspan="2"
+                                    style="width: 260px;
+                                        border: 1px solid black;
+                                        padding: 0;">
+
+                                    <table style="width: 100%;
+                                                border-collapse: collapse;
+                                                font-size: 10pt;">
+
+                                        <tr>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                No. Dokumen
+                                            </td>
+                                            <td style="border-bottom: 1px solid black; width: 10px;">:</td>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                GSI4-HRGA-005E
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                Revisi
+                                            </td>
+                                            <td style="border-bottom: 1px solid black;">:</td>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                0
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                Tanggal Efektif
+                                            </td>
+                                            <td style="border-bottom: 1px solid black;">:</td>
+                                            <td style="border-bottom: 1px solid black; padding: 3px;">
+                                                24 Juli 2023
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td style="padding: 3px;">
+                                                Halaman
+                                            </td>
+                                            <td>:</td>
+                                            <td style="padding: 3px;">
+                                                1
+                                            </td>
+                                        </tr>
+
+                                    </table>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <!-- SUB TITLE -->
+                                <td style="border: 1px solid black;
+                                        text-align: center;
+                                        font-weight: bold;
+                                        font-size: 18pt;
+                                        padding: 10px;">
+
+                                    SERAH TERIMA BARANG / DOKUMEN
+                                </td>
+                            </tr>
+
+                        </table>
                     </div>
 
                     <!-- PAGE CONTENT -->
                     <div class="page" style="font-family: 'Times New Roman', serif; font-size: 12pt; color: #000; padding-top: 0px; margin-top: 10px; padding-left: 50px; padding-right: 50px;">
-                        <div class="text-center mb-5">
+                        <!-- <div class="text-center mb-5">
                             <h4 style="font-weight: bold; text-decoration: underline; margin-bottom: 3px;">BERITA ACARA SERAH TERIMA PERANGKAT</h4>
                             <p style="margin: 0;">No: <span t-field="o.name"/></p>
                         </div>
 
-                        <p style="margin-bottom: 20px;">Kami yang bertanda tangan di bawah ini:</p>
+                        <p style="margin-bottom: 20px;">Kami yang bertanda tangan di bawah ini:</p> -->
 
                         <div class="row mb-4">
                             <div class="col-6">
-                                <strong>I. Pihak Pertama</strong>
+                                <!-- <strong>I. Pihak Pertama</strong> -->
                                 <table class="table-borderless" style="width: 100%;">
-                                    <tr><td style="width: 100px;">Nama</td><td>: <span t-field="o.sender_id.name"/></td></tr>
-                                    <tr><td>Jabatan</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
-                                    <tr><td>Perusahaan</td><td>: PT GSI</td></tr>
+                                    <tr><td style="width: 100px;">Yang menyerahkan</td><td>: <span t-field="o.sender_id.name"/></td></tr>
+                                    <tr><td>Posisi</td><td>: <span t-field="o.sender_id.job_id.name"/></td></tr>
+                                    <tr><td style="width: 100px;">Nama Penerima</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
+                                    <tr><td>Posisi</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
+                                    <tr><td>Tanggal</td><td>: <span t-field="o.handover_date" t-options='{"widget": "date", "format": "dd MM yy"}'/></td></tr>
+                                   
                                 </table>
                             </div>
-                            <div class="col-6">
+                            <!-- <div class="col-6">
                                 <strong>II. Pihak Kedua</strong>
                                 <table class="table-borderless" style="width: 100%;">
                                     <tr><td style="width: 100px;">Nama</td><td>: <span t-field="o.receiver_id.name"/></td></tr>
                                     <tr><td>Jabatan</td><td>: <span t-field="o.receiver_id.job_id.name"/></td></tr>
                                     <tr><td>Perusahaan</td><td>: PT GSI</td></tr>
                                 </table>
-                            </div>
+                            </div> -->
                         </div>
 
-                        <p class="mb-3">
+                        <!-- <p class="mb-3">
                             Pada hari ini, tanggal <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/> 
                             telah dilakukan serah terima perangkat dengan rincian:
-                        </p>
+                        </p> -->
 
                         <table class="table table-bordered text-center" style="border-color: black;">
                             <thead style="background-color: #ed7d31; color: black;">
                                 <tr>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>NO</strong></th>
-                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang</strong></th>
+                                    <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Nama Barang / Dokumen</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Tipe</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Qty</strong></th>
                                     <th style="border: 1px solid black; padding: 1.1pt; text-align: center;"><strong>Keterangan</strong></th>
@@ -640,25 +641,25 @@
                             </tbody>
                         </table>
 
-                        <p class="mt-4 text-justify">
+                        <!-- <p class="mt-4 text-justify">
                             Dengan diterimanya barang tersebut, <strong>Pihak Kedua</strong> bertanggung jawab sepenuhnya atas perawatan dan keamanan barang sesuai kebijakan perusahaan, termasuk atas kehilangan atau kerusakan yang terjadi selama masa penggunaan.
-                        </p>
+                        </p> -->
 
                         <!-- CLOSING -->
-                        <div class="mb-5">
+                        <!-- <div class="mb-5">
                             <p>Demikian berita acara dibuat untuk digunakan sebagaimana mestinya. Terima kasih.</p>
-                        </div>
+                        </div> -->
 
                         <!-- SIGNATURE BLOCK -->
-                        <div class="text-right" style="text-align: right; margin-bottom: 10px;">
+                        <!-- <div class="text-right" style="text-align: right; margin-bottom: 10px;">
                             <p>Samaenre, <span t-field="o.handover_date" t-options='{"widget": "date", "format": "d MMMM y"}'/></p>
-                        </div>
+                        </div> -->
 
                         <table style="width: 100%; border: 1px solid black; border-collapse: collapse; text-align: center; margin-top: 20px;">
                             <tr style="font-weight: bold;">
-                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Yang Menyerahkan,</td>
-                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Yang Menerima,</td>
-                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Disetujui Oleh,</td>
+                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Diserahkan Oleh,</td>
+                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Diterima Oleh,</td>
+                                <td style="border: 1px solid black; width: 33%; padding: 2px;">Mengetahui,</td>
                             </tr>
                             <!-- Name & Signature Space -->
                             <tr>
