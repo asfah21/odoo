@@ -65,6 +65,7 @@
                                 <field name="uom_name" string="UoM"
                                        invisible="item_type != 'consumable'"
                                        optional="show"/>
+                                <field name="notes" optional="show"/>
                             </list>
                         </field>
                         <!-- Read-only display after signed -->
@@ -73,6 +74,7 @@
                                 <field name="item_type" widget="badge" decoration-info="item_type == 'consumable'" decoration-success="item_type == 'asset'"/>
                                 <field name="item_display" string="Item"/>
                                 <field name="quantity"/>
+                                <field name="notes"/>
                             </list>
                         </field>
                     </group>

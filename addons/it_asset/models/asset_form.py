@@ -138,6 +138,7 @@ class ITItemHandoverLine(models.Model):
     consumable_id = fields.Many2one('it_asset.consumable', string='Consumable')
     quantity = fields.Float(string='Quantity', default=1.0, required=True)
 
+    notes = fields.Text(string='Notes')
     item_display = fields.Char(string='Item', compute='_compute_item_display', store=False)
     qty_available = fields.Float(string='Available', related='consumable_id.qty_available', readonly=True)
     uom_name = fields.Char(string='UoM', related='consumable_id.uom_id.name', readonly=True)
