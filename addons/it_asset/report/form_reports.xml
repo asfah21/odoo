@@ -47,4 +47,16 @@
         <field name="binding_model_id" ref="model_it_asset_account_request"/>
         <field name="binding_type">report</field>
     </record>
+
+    <!-- Report Action for Item Handover (BAST Multi-Item) -->
+    <record id="action_report_item_handover" model="ir.actions.report">
+        <field name="name">Item Handover Document (BAST)</field>
+        <field name="model">it_asset.item.handover</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">it_asset.report_item_handover_template</field>
+        <field name="report_file">it_asset.report_item_handover_template</field>
+        <field name="print_report_name">'BAST - %s' % (object.name)</field>
+        <field name="binding_model_id" ref="model_it_asset_item_handover"/>
+        <field name="binding_type">report</field>
+    </record>
 </odoo>
