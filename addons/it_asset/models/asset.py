@@ -10,6 +10,7 @@ class ITAsset(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _description = 'IT Asset'
     _order = 'id desc'
+    _rec_name = 'name'
     _rec_names_search = ['name', 'asset_tag', 'lot_id.name']
 
     asset_type = fields.Selection([
@@ -100,11 +101,13 @@ class ITAsset(models.Model):
     def name_get(self):
         result = []
         for record in self:
-            base = f"[{record.asset_tag}] {record.name}" if record.asset_tag else record.name
+            parts = []
+            if record.asset_tag:
+                parts.append(record.asset_tag)
+            parts.append(record.name)
             if record.lot_id:
-                display_name = f"{base} - SN: {record.lot_id.name}"
-            else:
-                display_name = base
+                parts.append(record.lot_id.name)
+            display_name = ' - '.join(parts)
             result.append((record.id, display_name))
         return result
 
