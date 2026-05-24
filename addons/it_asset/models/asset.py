@@ -104,10 +104,10 @@ class ITAsset(models.Model):
         for record in self:
             parts = []
             if record.asset_tag:
-                parts.append(record.asset_tag)
-            parts.append(record.name)
+                parts.append(str(record.asset_tag))
+            parts.append(str(record.name) if record.name else '/')
             if record.lot_id:
-                parts.append(record.lot_id.name)
+                parts.append(str(record.lot_id.name))
             record.asset_display_name = ' - '.join(parts)
 
     def name_get(self):
@@ -115,10 +115,10 @@ class ITAsset(models.Model):
         for record in self:
             parts = []
             if record.asset_tag:
-                parts.append(record.asset_tag)
-            parts.append(record.name)
+                parts.append(str(record.asset_tag))
+            parts.append(str(record.name) if record.name else '/')
             if record.lot_id:
-                parts.append(record.lot_id.name)
+                parts.append(str(record.lot_id.name))
             display_name = ' - '.join(parts)
             result.append((record.id, display_name))
         return result
