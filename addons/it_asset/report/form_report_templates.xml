@@ -352,19 +352,19 @@
                             <tr>
                                 <td style="border: 1px solid black; padding: 2px;">
                                     <span t-if="o.user_id" t-field="o.user_id.job_id.name"/>
-                                    <span t-if="not o.user_id">-</span>
+                                    <span t-if="not o.user_id">......</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
                                     <span t-if="o.verified_by_id" t-field="o.verified_by_id.job_id.name"/>
-                                    <span t-if="not o.verified_by_id">-</span>
+                                    <span t-if="not o.verified_by_id">IT Supervisor</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
                                     <span t-if="o.known_by_id" t-field="o.known_by_id.job_id.name"/>
-                                    <span t-if="not o.known_by_id">-</span>
+                                    <span t-if="not o.known_by_id">IT Manager</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
                                     <span t-if="o.approved_by_id" t-field="o.approved_by_id.job_id.name"/>
-                                    <span t-if="not o.approved_by_id">-</span>
+                                    <span t-if="not o.approved_by_id">Site Manager</span>
                                 </td>
                             </tr>
                         </table>
