@@ -163,7 +163,18 @@
                         <field name="description"/>
                         <field name="action_taken"/>
                     </group>
+                    <group string="Signatures">
+                        <group>
+                            <field name="user_id" placeholder="Select User"/>
+                            <field name="verified_by_id" placeholder="Select Verifier"/>
+                        </group>
+                        <group>
+                            <field name="known_by_id" placeholder="Select Known By"/>
+                            <field name="approved_by_id" placeholder="Select Approver"/>
+                        </group>
+                    </group>
                 </sheet>
+
                 <chatter/>
             </form>
         </field>

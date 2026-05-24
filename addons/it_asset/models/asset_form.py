@@ -375,6 +375,12 @@ class ITAssetDamageReport(models.Model):
         ('resolved', 'Resolved')
     ], string='Status', default='draft', tracking=True)
 
+    # Signature / Approval fields
+    user_id = fields.Many2one('hr.employee', string='User')
+    verified_by_id = fields.Many2one('hr.employee', string='Diverifikasi Oleh')
+    known_by_id = fields.Many2one('hr.employee', string='Diketahui Oleh')
+    approved_by_id = fields.Many2one('hr.employee', string='Disetujui Oleh')
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:

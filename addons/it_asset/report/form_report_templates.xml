@@ -293,14 +293,24 @@
                         <!-- KRONOLOGI -->
                         <div class="mb-4">
                             <strong>Kronologi Kejadian:</strong>
-                            <div style="margin-top: 10px; border-bottom: 1px dotted #000; min-height: 28px;">
-                                <!-- <span t-field="o.description"/> -->
-                            </div>
-                            <div style="border-bottom: 1px dotted #000; height: 28px;"></div>
-                            <div style="border-bottom: 1px dotted #000; height: 28px;"></div>
-                            <div style="border-bottom: 1px dotted #000; height: 28px;"></div>
-                            <div style="border-bottom: 1px dotted #000; height: 28px;"></div>
+                            <table class="table table-bordered mt-2" style="border-color: black;">
+                                <thead style="background-color: #f2f2f2;">
+                                    <tr>
+                                        <th style="border: 1px solid black; padding: 4px; text-align: center; width: 5%;">No</th>
+                                        <th style="border: 1px solid black; padding: 4px; text-align: center;">Description of Damage</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td style="border: 1px solid black; padding: 4px; text-align: center;">1</td>
+                                        <td style="border: 1px solid black; padding: 4px; text-align: left;">
+                                            <span t-field="o.description"/>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
+
 
                         <!-- CLOSING -->
                         <div class="mb-5">
@@ -322,34 +332,43 @@
                             <!-- Name & Signature Space -->
                             <tr>
                                 <td style="border: 1px solid black; height: 100px; vertical-align: bottom; font-weight: bold; padding-bottom: 1px;">
-                                    <span t-field="o.asset_id.employee_id.name"/>
+                                    <span t-if="o.user_id" t-field="o.user_id.name"/>
+                                    <span t-if="not o.user_id">...........................</span>
                                 </td>
                                 <td style="border: 1px solid black; height: 100px; vertical-align: bottom; font-weight: bold; padding-bottom: 1px;">
-                                    Muhammad Al Asfahani
+                                    <span t-if="o.verified_by_id" t-field="o.verified_by_id.name"/>
+                                    <span t-if="not o.verified_by_id">...........................</span>
                                 </td>
                                 <td style="border: 1px solid black; height: 100px; vertical-align: bottom; font-weight: bold; padding-bottom: 1px;">
-                                    Francesco Kolly Mally
+                                    <span t-if="o.known_by_id" t-field="o.known_by_id.name"/>
+                                    <span t-if="not o.known_by_id">...........................</span>
                                 </td>
                                 <td style="border: 1px solid black; height: 100px; vertical-align: bottom; font-weight: bold; padding-bottom: 1px;">
-                                    Raden Abimanyu
+                                    <span t-if="o.approved_by_id" t-field="o.approved_by_id.name"/>
+                                    <span t-if="not o.approved_by_id">...........................</span>
                                 </td>
                             </tr>
                             <!-- Job Title Row -->
                             <tr>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    <span t-field="o.employee_id.job_title"/>
+                                    <span t-if="o.user_id" t-field="o.user_id.job_id.name"/>
+                                    <span t-if="not o.user_id">-</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    IT Officer
+                                    <span t-if="o.verified_by_id" t-field="o.verified_by_id.job_id.name"/>
+                                    <span t-if="not o.verified_by_id">-</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    IT Manager
+                                    <span t-if="o.known_by_id" t-field="o.known_by_id.job_id.name"/>
+                                    <span t-if="not o.known_by_id">-</span>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    Site Manager
+                                    <span t-if="o.approved_by_id" t-field="o.approved_by_id.job_id.name"/>
+                                    <span t-if="not o.approved_by_id">-</span>
                                 </td>
                             </tr>
                         </table>
+
                     </div>
                 </t>
             </t>

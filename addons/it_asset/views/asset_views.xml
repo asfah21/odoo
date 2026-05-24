@@ -138,8 +138,8 @@
                             <group>
                                 <group>
                                     <field name="category_id" options="{'no_create': True}"/>
-                                    <field name="state" widget="radio" options="{'horizontal': True}"/>
-                                    <field name="condition" widget="radio" options="{'horizontal': True}"/>
+                                    <field name="state" widget="radio" options="{'horizontal': True}" readonly="0"/>
+                                    <field name="condition" widget="radio" options="{'horizontal': True}" readonly="0"/>
                                     <field name="is_consumable" invisible="1"/>
                                     <field name="is_printer" invisible="1"/>
                                 </group>
