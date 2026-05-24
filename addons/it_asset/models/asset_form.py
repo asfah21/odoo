@@ -415,7 +415,7 @@ class ITAssetDamageReport(models.Model):
     def action_confirm(self):
         self.write({'state': 'confirmed'})
         if self.asset_id:
-            self.asset_id.write({'condition': 'broken'})
+            self.asset_id.with_context(from_damage_report=True).write({'condition': 'broken'})
 
     def action_resolve(self):
         self.write({'state': 'resolved'})

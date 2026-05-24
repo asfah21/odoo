@@ -294,15 +294,15 @@
                         <div class="mb-4">
                             <strong>Kronologi Kejadian:</strong>
                             <table class="table table-bordered mt-2" style="border-color: black;">
-                                <thead style="background-color: #f2f2f2;">
+                                <!-- <thead style="background-color: #f2f2f2;">
                                     <tr>
                                         <th style="border: 1px solid black; padding: 4px; text-align: center; width: 5%;">No</th>
                                         <th style="border: 1px solid black; padding: 4px; text-align: center;">Description of Damage</th>
                                     </tr>
-                                </thead>
+                                </thead> -->
                                 <tbody>
                                     <tr>
-                                        <td style="border: 1px solid black; padding: 4px; text-align: center;">1</td>
+                                        <!-- <td style="border: 1px solid black; padding: 4px; text-align: center;">1</td> -->
                                         <td style="border: 1px solid black; padding: 4px; text-align: left;">
                                             <span t-field="o.description"/>
                                         </td>

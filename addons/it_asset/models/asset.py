@@ -178,11 +178,20 @@ class ITAsset(models.Model):
         if any(r.state == 'retired' for r in self) and 'state' not in vals:
              raise UserError(_("Retired assets are read-only. Reactivate the asset to make changes."))
 
-        # 2. Logic: Broken -> Maintenance
+        # 2. Prevent manual selection of 'maintenance' (Out of Service) and 'broken'
+        #    These can only be set automatically via Damage Report confirmation.
+        #    Damage Report sets a context key 'from_damage_report' to bypass this restriction.
+        if not self.env.context.get('from_damage_report'):
+            if vals.get('state') == 'maintenance':
+                raise UserError(_("Status 'Out of Service' cannot be selected manually. It is automatically set via Damage Report."))
+            if vals.get('condition') == 'broken':
+                raise UserError(_("Condition 'Broken' cannot be selected manually. It is automatically set via Damage Report."))
+
+        # 3. Logic: Broken -> Maintenance
         if vals.get('condition') == 'broken':
             vals['state'] = 'maintenance'
 
-        # 3. Usage Type Logic
+        # 4. Usage Type Logic
         if 'employee_id' in vals or 'unit_id' in vals:
             if vals.get('employee_id') or vals.get('unit_id'):
                 vals['state'] = 'in_use'

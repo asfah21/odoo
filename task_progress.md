@@ -1,0 +1,4 @@
+- [x] Analyze requirements and understand the codebase
+- [ ] Add `@api.onchange` in asset.py to prevent manual selection of `state = maintenance` and `condition = broken`
+- [ ] Update the Asset Details tab view to make `state` and `condition` readonly when they shouldn't be manually selectable
+- [ ] Verify the logic works with existing programmatic flows (damage report, etc.)
