@@ -376,7 +376,7 @@ class ITAssetDamageReport(models.Model):
     ], string='Status', default='draft', tracking=True)
 
     # Signature / Approval fields
-    user_id = fields.Many2one('hr.employee', string='User')
+    user_id = fields.Many2one('hr.employee', string='User', default=lambda self: self.env.user.employee_id)
     verified_by_id = fields.Many2one('hr.employee', string='Diverifikasi Oleh')
     known_by_id = fields.Many2one('hr.employee', string='Diketahui Oleh')
     approved_by_id = fields.Many2one('hr.employee', string='Disetujui Oleh')
