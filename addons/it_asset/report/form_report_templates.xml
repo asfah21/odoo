@@ -351,20 +351,36 @@
                             <!-- Job Title Row -->
                             <tr>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    <span t-if="o.user_id" t-field="o.user_id.job_id.name"/>
-                                    <span t-if="not o.user_id">......</span>
+                                    <t t-if="o.user_id and o.user_id.job_id">
+                                        <span t-field="o.user_id.job_id.name"/>
+                                    </t>
+                                    <t t-else>
+                                        <span>......</span>
+                                    </t>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    <span t-if="o.verified_by_id" t-field="o.verified_by_id.job_id.name"/>
-                                    <span t-if="not o.verified_by_id">IT Supervisor</span>
+                                    <t t-if="o.verified_by_id and o.verified_by_id.job_id">
+                                        <span t-field="o.verified_by_id.job_id.name"/>
+                                    </t>
+                                    <t t-else>
+                                        <span>IT Supervisor</span>
+                                    </t>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    <span t-if="o.known_by_id" t-field="o.known_by_id.job_id.name"/>
-                                    <span t-if="not o.known_by_id">IT Manager</span>
+                                    <t t-if="o.known_by_id and o.known_by_id.job_id">
+                                        <span t-field="o.known_by_id.job_id.name"/>
+                                    </t>
+                                    <t t-else>
+                                        <span>IT Manager</span>
+                                    </t>
                                 </td>
                                 <td style="border: 1px solid black; padding: 2px;">
-                                    <span t-if="o.approved_by_id" t-field="o.approved_by_id.job_id.name"/>
-                                    <span t-if="not o.approved_by_id">Site Manager</span>
+                                    <t t-if="o.approved_by_id and o.approved_by_id.job_id">
+                                        <span t-field="o.approved_by_id.job_id.name"/>
+                                    </t>
+                                    <t t-else>
+                                        <span>Site Manager</span>
+                                    </t>
                                 </td>
                             </tr>
                         </table>
