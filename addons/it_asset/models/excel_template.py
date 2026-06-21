@@ -157,7 +157,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         
         for idx, line in enumerate(handover.line_ids, start=1):
             # No
-            self._set_cell_value(ws, f'A{current_row}', idx)
+            self._set_cell_value(ws, f'B{current_row}', idx)
             
             # Nama Barang
             if line.item_type == 'asset' and line.asset_id:

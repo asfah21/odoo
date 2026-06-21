@@ -12,7 +12,7 @@
                 <button name="export_item_handover_excel" 
                         type="object"
                         string="Export Excel"
-                        class="btn-primary"
+                        class="btn-success"
                         icon="fa-file-excel-o"/>
             </header>
         </field>
@@ -30,7 +30,7 @@
                 <button name="export_asset_request_excel" 
                         type="object"
                         string="Export Excel"
-                        class="btn-primary"
+                        class="btn-success"
                         icon="fa-file-excel-o"/>
             </header>
         </field>
@@ -48,7 +48,7 @@
                 <button name="export_damage_report_excel" 
                         type="object"
                         string="Export Excel"
-                        class="btn-primary"
+                        class="btn-success"
                         icon="fa-file-excel-o"/>
             </header>
         </field>
@@ -66,7 +66,7 @@
                 <button name="export_account_request_excel" 
                         type="object"
                         string="Export Excel"
-                        class="btn-primary"
+                        class="btn-success"
                         icon="fa-file-excel-o"/>
             </header>
         </field>
@@ -84,7 +84,7 @@
                 <button name="export_handover_excel" 
                         type="object"
                         string="Export Excel"
-                        class="btn-primary"
+                        class="btn-success"
                         icon="fa-file-excel-o"/>
             </header>
         </field>
