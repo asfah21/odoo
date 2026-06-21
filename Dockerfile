@@ -2,9 +2,9 @@ FROM odoo:18
 
 USER root
 
-RUN pip install --no-cache-dir openpyxl
-
-# (Opsional) Library lain yang mungkin dibutuhkan
-# RUN pip install --no-cache-dir xlrd xlwt
+# Install python3-openpyxl via package manager resmi OS
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3-openpyxl && \
+    rm -rf /var/lib/apt/lists/*
 
 USER odoo
