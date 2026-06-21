@@ -77,7 +77,11 @@ class ITAssetExcelTemplate(models.AbstractModel):
         return wb
 
     def _save_to_buffer(self, wb):
-        """Menyimpan workbook ke buffer dan return base64"""
+        """
+        Menyimpan workbook ke buffer menggunakan openpyxl native save.
+        Gambar bawaan template akan dipertahankan secara otomatis
+        selama library pillow terinstall di server.
+        """
         buffer = io.BytesIO()
         wb.save(buffer)
         buffer.seek(0)
@@ -92,17 +96,13 @@ class ITAssetExcelTemplate(models.AbstractModel):
         return base64.b64encode(buffer.read())
 
     def _get_cell(self, ws, cell_ref):
-        """
-        Mendapatkan cell berdasarkan reference (contoh: 'B5').
-        Bisa juga pakai row/column number.
-        """
+        """Mendapatkan cell berdasarkan reference (contoh: 'B5')."""
         return ws[cell_ref]
 
     def _get_merged_cell_top_left(self, ws, cell_ref):
         """
         Jika cell_ref adalah bagian dari merged range, kembalikan referensi
         cell utama (top-left) dari merged range tersebut.
-        Jika tidak, kembalikan cell_ref asli.
         """
         for merged_range in ws.merged_cells.ranges:
             if cell_ref in merged_range:
@@ -113,9 +113,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
     def _set_cell_value(self, ws, cell_ref, value):
         """
         Mengisi nilai ke cell tertentu tanpa mengubah format.
-        Jika cell adalah bagian dari merged range, secara otomatis
-        menggunakan cell utama (top-left) dari merged range tersebut
-        untuk menghindari error 'MergedCell' object attribute 'value' is read-only.
+        Handle merged cells untuk menghindari 'MergedCell' read-only error.
         """
         actual_ref = self._get_merged_cell_top_left(ws, cell_ref)
         cell = self._get_cell(ws, actual_ref)
@@ -127,21 +125,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
     # ============================================
 
     def export_item_handover_excel(self, handover_id):
-        """
-        Export data Item Handover ke template Excel.
-        Template: 'bast_template.xlsx'
-        
-        Mapping cell:
-        - K11: Tanggal
-        - K7: Yang Menyerahkan
-        - K8: Posisi Penyerah
-        - K9: Yang Menerima
-        - K10: Posisi Penerima
-        - D14: Nama Barang
-        - S14: Jumlah
-        - X14: Kondisi
-        - AF14: Keterangan
-        """
         handover = self.env['it_asset.item.handover'].browse(handover_id)
         if not handover.exists():
             raise UserError(_("Item Handover tidak ditemukan!"))
@@ -149,39 +132,58 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('bast_template.xlsx')
         ws = wb.active
 
+        # Tanggal
         tgl = handover.handover_date
         tgl_str = tgl.strftime('%d/%m/%Y') if tgl else ''
         self._set_cell_value(ws, 'K11', tgl_str)
         
-        self._set_cell_value(ws, 'K7', handover.sender_id.name or '')
-        self._set_cell_value(ws, 'K8', handover.sender_id.job_id.name or '')
-        self._set_cell_value(ws, 'K9', handover.receiver_id.name or '')
-        self._set_cell_value(ws, 'K10', handover.receiver_id.job_id.name or '')
+        # Pihak: Yang Menyerahkan
+        sender_name = handover.sender_id.name if handover.sender_id else ''
+        self._set_cell_value(ws, 'K7', sender_name)
+        
+        sender_job = handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else ''
+        self._set_cell_value(ws, 'K8', sender_job)
+        
+        # Pihak: Yang Menerima
+        receiver_name = handover.receiver_id.name if handover.receiver_id else ''
+        self._set_cell_value(ws, 'K9', receiver_name)
+        
+        receiver_job = handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else ''
+        self._set_cell_value(ws, 'K10', receiver_job)
 
+        # Tabel Items
         start_row = 14
         current_row = start_row
         
         for idx, line in enumerate(handover.line_ids, start=1):
+            # No
             self._set_cell_value(ws, f'A{current_row}', idx)
             
-            if line.item_type == 'asset':
-                item_name = line.asset_id.name or ''
+            # Nama Barang
+            if line.item_type == 'asset' and line.asset_id:
+                item_name = line.asset_id.name if line.asset_id.name else ''
                 if line.asset_id.asset_tag:
                     item_name += f" ({line.asset_id.asset_tag})"
+            elif line.item_type == 'consumable' and line.consumable_id:
+                item_name = line.consumable_id.name if line.consumable_id.name else ''
             else:
-                item_name = line.consumable_id.name or ''
+                item_name = ''
             self._set_cell_value(ws, f'D{current_row}', item_name)
             
-            self._set_cell_value(ws, f'S{current_row}', line.quantity)
+            # Jumlah
+            qty = line.quantity if line.quantity else 0
+            self._set_cell_value(ws, f'S{current_row}', qty)
             
-            if line.item_type == 'asset':
-                kondisi = line.asset_id.condition or 'Baik'
+            # Kondisi
+            if line.item_type == 'asset' and line.asset_id:
+                kondisi = line.asset_id.condition if line.asset_id.condition else 'Baik'
             else:
                 kondisi = 'Baik'
             self._set_cell_value(ws, f'X{current_row}', kondisi.capitalize())
             
+            # Keterangan (SN / Notes)
             keterangan = ''
-            if line.item_type == 'asset' and line.asset_id.lot_id:
+            if line.item_type == 'asset' and line.asset_id and line.asset_id.lot_id:
                 keterangan += f"SN: {line.asset_id.lot_id.name}"
             if line.notes:
                 if keterangan:
@@ -223,16 +225,18 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('asset_request_template.xlsx')
         ws = wb.active
 
-        self._set_cell_value(ws, 'C5', request.name or '')
-        self._set_cell_value(ws, 'C6', request.employee_id.name or '')
-        self._set_cell_value(ws, 'C7', request.department_id.name or '')
+        self._set_cell_value(ws, 'C5', request.name if request.name else '')
+        self._set_cell_value(ws, 'C6', request.employee_id.name if request.employee_id else '')
+        self._set_cell_value(ws, 'C7', request.department_id.name if request.department_id else '')
         
         tgl = request.request_date
         self._set_cell_value(ws, 'C8', tgl.strftime('%d/%m/%Y') if tgl else '')
         
-        self._set_cell_value(ws, 'C9', request.category_id.name or '')
-        self._set_cell_value(ws, 'C10', request.reason or '')
-        self._set_cell_value(ws, 'C11', dict(request._fields['state'].selection).get(request.state, ''))
+        self._set_cell_value(ws, 'C9', request.category_id.name if request.category_id else '')
+        self._set_cell_value(ws, 'C10', request.reason if request.reason else '')
+        
+        state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
+        self._set_cell_value(ws, 'C11', state_label)
 
         file_data = self._save_to_buffer(wb)
         filename = f"Asset_Request_{request.name}.xlsx"
@@ -264,16 +268,16 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('damage_report_template.xlsx')
         ws = wb.active
 
-        self._set_cell_value(ws, 'C5', report.name or '')
+        self._set_cell_value(ws, 'C5', report.name if report.name else '')
         
         tgl = report.report_date
         self._set_cell_value(ws, 'C6', tgl.strftime('%d %B %Y') if tgl else '')
         
-        self._set_cell_value(ws, 'C7', report.asset_id.name or '')
-        self._set_cell_value(ws, 'C8', report.asset_id.asset_tag or '')
-        self._set_cell_value(ws, 'C9', report.employee_id.name or '')
-        self._set_cell_value(ws, 'C10', report.damage_type or '')
-        self._set_cell_value(ws, 'C11', report.description or '')
+        self._set_cell_value(ws, 'C7', report.asset_id.name if report.asset_id else '')
+        self._set_cell_value(ws, 'C8', report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '')
+        self._set_cell_value(ws, 'C9', report.employee_id.name if report.employee_id else '')
+        self._set_cell_value(ws, 'C10', report.damage_type if report.damage_type else '')
+        self._set_cell_value(ws, 'C11', report.description if report.description else '')
 
         file_data = self._save_to_buffer(wb)
         filename = f"Damage_Report_{report.name}.xlsx"
@@ -305,16 +309,18 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('account_request_template.xlsx')
         ws = wb.active
 
-        self._set_cell_value(ws, 'C5', request.name or '')
-        self._set_cell_value(ws, 'C6', request.employee_id.name or '')
-        self._set_cell_value(ws, 'C7', request.department_id.name or '')
+        self._set_cell_value(ws, 'C5', request.name if request.name else '')
+        self._set_cell_value(ws, 'C6', request.employee_id.name if request.employee_id else '')
+        self._set_cell_value(ws, 'C7', request.department_id.name if request.department_id else '')
         
         tgl = request.request_date
         self._set_cell_value(ws, 'C8', tgl.strftime('%d/%m/%Y') if tgl else '')
         
-        self._set_cell_value(ws, 'C9', request.account_type or '')
-        self._set_cell_value(ws, 'C10', request.reason or '')
-        self._set_cell_value(ws, 'C11', dict(request._fields['state'].selection).get(request.state, ''))
+        self._set_cell_value(ws, 'C9', request.account_type if request.account_type else '')
+        self._set_cell_value(ws, 'C10', request.reason if request.reason else '')
+        
+        state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
+        self._set_cell_value(ws, 'C11', state_label)
 
         file_data = self._save_to_buffer(wb)
         filename = f"Account_Request_{request.name}.xlsx"
@@ -339,10 +345,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
     # ============================================
 
     def export_handover_excel(self, handover_id):
-        """
-        Export Asset Handover (single asset) ke template Excel.
-        Template: 'handover_template.xlsx'
-        """
         handover = self.env['it_asset.handover'].browse(handover_id)
         if not handover.exists():
             raise UserError(_("Handover tidak ditemukan!"))
@@ -350,17 +352,25 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('handover_template.xlsx')
         ws = wb.active
 
-        self._set_cell_value(ws, 'A9', handover.name or '')
+        self._set_cell_value(ws, 'A9', handover.name if handover.name else '')
         
         tgl = handover.handover_date
         self._set_cell_value(ws, 'A11', tgl.strftime('%d %B %Y') if tgl else '')
         
-        self._set_cell_value(ws, 'I14', handover.sender_id.name or '')
-        self._set_cell_value(ws, 'I15', handover.sender_id.job_id.name or '')
-        self._set_cell_value(ws, 'Z14', handover.receiver_id.name or '')
-        self._set_cell_value(ws, 'Z15', handover.receiver_id.job_id.name or '')
-        self._set_cell_value(ws, 'D21', handover.asset_id.name or '')
-        self._set_cell_value(ws, 'X21', handover.notes or '')
+        sender_name = handover.sender_id.name if handover.sender_id else ''
+        self._set_cell_value(ws, 'I14', sender_name)
+        
+        sender_job = handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else ''
+        self._set_cell_value(ws, 'I15', sender_job)
+        
+        receiver_name = handover.receiver_id.name if handover.receiver_id else ''
+        self._set_cell_value(ws, 'Z14', receiver_name)
+        
+        receiver_job = handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else ''
+        self._set_cell_value(ws, 'Z15', receiver_job)
+        
+        self._set_cell_value(ws, 'D21', handover.asset_id.name if handover.asset_id else '')
+        self._set_cell_value(ws, 'X21', handover.notes if handover.notes else '')
 
         file_data = self._save_to_buffer(wb)
         filename = f"Handover_{handover.name}.xlsx"
