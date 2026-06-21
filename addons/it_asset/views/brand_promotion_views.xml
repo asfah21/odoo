@@ -11,12 +11,12 @@
         </field>
     </record>
 
-    <!-- Hapus brand promotion di halaman login -->
-    <record id="login_layout_brand_removal" model="ir.ui.view">
-        <field name="name">Remove Odoo Brand Promotion Login</field>
+    <!-- Hapus "Powered by Odoo" di halaman login -->
+    <record id="login_layout_poweredby_removal" model="ir.ui.view">
+        <field name="name">Remove Powered by Odoo on Login</field>
         <field name="inherit_id" ref="web.login_layout"/>
         <field name="arch" type="xml">
-            <xpath expr="//div[hasclass('o_footer_poweredby')]" position="replace"/>
+            <xpath expr="//a[contains(@href, 'odoo.com') and contains(text(), 'Powered by')]" position="replace"/>
         </field>
     </record>
 </odoo>
