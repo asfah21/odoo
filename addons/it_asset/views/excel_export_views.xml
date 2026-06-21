@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ============================================
+         TOMBOL EXPORT EXCEL UNTUK ITEM HANDOVER
+         ============================================ -->
+    <record id="it_asset_item_handover_form_view_excel" model="ir.ui.view">
+        <field name="name">it_asset.item.handover.form.excel</field>
+        <field name="model">it_asset.item.handover</field>
+        <field name="inherit_id" ref="view_it_item_handover_form"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button name="export_item_handover_excel" 
+                        type="object"
+                        string="Export Excel"
+                        class="btn-primary"
+                        icon="fa-file-excel-o"/>
+            </header>
+        </field>
+    </record>
+
+    <!-- ============================================
+         TOMBOL EXPORT EXCEL UNTUK ASSET REQUEST
+         ============================================ -->
+    <record id="it_asset_request_form_view_excel" model="ir.ui.view">
+        <field name="name">it_asset.request.form.excel</field>
+        <field name="model">it_asset.request</field>
+        <field name="inherit_id" ref="it_asset_request_form_view"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button name="export_asset_request_excel" 
+                        type="object"
+                        string="Export Excel"
+                        class="btn-primary"
+                        icon="fa-file-excel-o"/>
+            </header>
+        </field>
+    </record>
+
+    <!-- ============================================
+         TOMBOL EXPORT EXCEL UNTUK DAMAGE REPORT
+         ============================================ -->
+    <record id="it_asset_damage_report_form_view_excel" model="ir.ui.view">
+        <field name="name">it_asset.damage_report.form.excel</field>
+        <field name="model">it_asset.damage_report</field>
+        <field name="inherit_id" ref="it_asset_damage_report_form_view"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button name="export_damage_report_excel" 
+                        type="object"
+                        string="Export Excel"
+                        class="btn-primary"
+                        icon="fa-file-excel-o"/>
+            </header>
+        </field>
+    </record>
+
+    <!-- ============================================
+         TOMBOL EXPORT EXCEL UNTUK ACCOUNT REQUEST
+         ============================================ -->
+    <record id="it_asset_account_request_form_view_excel" model="ir.ui.view">
+        <field name="name">it_asset.account_request.form.excel</field>
+        <field name="model">it_asset.account_request</field>
+        <field name="inherit_id" ref="it_asset_account_request_form_view"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button name="export_account_request_excel" 
+                        type="object"
+                        string="Export Excel"
+                        class="btn-primary"
+                        icon="fa-file-excel-o"/>
+            </header>
+        </field>
+    </record>
+
+    <!-- ============================================
+         TOMBOL EXPORT EXCEL UNTUK HANDOVER (OLD)
+         ============================================ -->
+    <record id="it_asset_handover_form_view_excel" model="ir.ui.view">
+        <field name="name">it_asset.handover.form.excel</field>
+        <field name="model">it_asset.handover</field>
+        <field name="inherit_id" ref="it_asset_handover_form_view"/>
+        <field name="arch" type="xml">
+            <header position="inside">
+                <button name="export_handover_excel" 
+                        type="object"
+                        string="Export Excel"
+                        class="btn-primary"
+                        icon="fa-file-excel-o"/>
+            </header>
+        </field>
+    </record>
+</odoo>
