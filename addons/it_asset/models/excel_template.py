@@ -60,6 +60,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 "Pastikan file template sudah ada di folder static/excel_templates/"
             ) % template_name)
         
+        # Buka workbook dengan mempertahankan drawing objects (shapes, icons, dll)
         wb = openpyxl.load_workbook(template_path)
         return wb
 
@@ -375,7 +376,10 @@ class ITAssetExcelTemplate(models.AbstractModel):
         self._set_cell_value(ws, 'D21', handover.asset_id.name or '')
         self._set_cell_value(ws, 'X21', handover.notes or '')
 
+        # Simpan ke buffer
         file_data = self._save_to_buffer(wb)
+        
+        # Buat attachment
         filename = f"Handover_{handover.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
