@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Hapus brand promotion di backend (footer) -->
     <record id="brand_promotion_removal" model="ir.ui.view">
-        <field name="name">Remove Odoo Brand Promotion</field>
+        <field name="name">Remove Odoo Brand Promotion Backend</field>
         <field name="inherit_id" ref="web.brand_promotion"/>
         <field name="arch" type="xml">
             <xpath expr="//div[contains(@class, 'o_brand_promotion')]" position="replace">
                 <div class="o_brand_promotion_removed"/>
             </xpath>
+        </field>
+    </record>
+
+    <!-- Hapus brand promotion di halaman login -->
+    <record id="login_layout_brand_removal" model="ir.ui.view">
+        <field name="name">Remove Odoo Brand Promotion Login</field>
+        <field name="inherit_id" ref="web.login_layout"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('o_footer_poweredby')]" position="replace"/>
         </field>
     </record>
 </odoo>
