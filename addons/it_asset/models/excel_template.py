@@ -115,13 +115,15 @@ class ITAssetExcelTemplate(models.AbstractModel):
         Template: 'bast_template.xlsx'
         
         Mapping cell (sesuaikan dengan layout template Excel kamu):
-        - C5: Nomor Dokumen (handover name)
         - K11: Tanggal
         - K7: Yang Menyerahkan
         - K8: Posisi Penyerah
         - K9: Yang Menerima
         - K10: Posisi Penerima
-        - B14 dst: Tabel items (No, Nama Barang, Qty, Kondisi, Keterangan)
+        - D14: Nama Barang
+        - S14: Jumlah
+        - X14: Kondisi
+        - AF14: Keterangan
         """
         handover = self.env['it_asset.item.handover'].browse(handover_id)
         if not handover.exists():
@@ -133,48 +135,49 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         # --- ISI DATA KE CELL ---
         # Header / Meta
-        self._set_cell_value(ws, 'C5', handover.name or '')
+        # self._set_cell_value(ws, 'C5', handover.name or '')
         
         # Format tanggal
         tgl = handover.handover_date
         tgl_str = tgl.strftime('%d/%m/%Y') if tgl else ''
-        self._set_cell_value(ws, 'C6', tgl_str)
+        self._set_cell_value(ws, 'K11', tgl_str)
         
         # Pihak
-        self._set_cell_value(ws, 'C7', handover.sender_id.name or '')
-        self._set_cell_value(ws, 'C8', handover.sender_id.job_id.name or '')
-        self._set_cell_value(ws, 'C9', handover.receiver_id.name or '')
-        self._set_cell_value(ws, 'C10', handover.receiver_id.job_id.name or '')
+        self._set_cell_value(ws, 'K7', handover.sender_id.name or '')
+        self._set_cell_value(ws, 'K8', handover.sender_id.job_id.name or '')
+        self._set_cell_value(ws, 'K9', handover.receiver_id.name or '')
+        self._set_cell_value(ws, 'K10', handover.receiver_id.job_id.name or '')
 
         # --- TABEL ITEMS ---
-        # Cari baris pertama tabel (misal baris 13)
-        start_row = 13
+        # Mapping kolom sesuai template bast_template.xlsx:
+        # D14: Nama Barang, S14: Jumlah, X14: Kondisi, AF14: Keterangan
+        start_row = 14
         current_row = start_row
         
         for idx, line in enumerate(handover.line_ids, start=1):
-            # No
+            # No (kolom A)
             self._set_cell_value(ws, f'A{current_row}', idx)
             
-            # Nama Barang
+            # Nama Barang (kolom D)
             if line.item_type == 'asset':
                 item_name = line.asset_id.name or ''
                 if line.asset_id.asset_tag:
                     item_name += f" ({line.asset_id.asset_tag})"
             else:
                 item_name = line.consumable_id.name or ''
-            self._set_cell_value(ws, f'B{current_row}', item_name)
+            self._set_cell_value(ws, f'D{current_row}', item_name)
             
-            # Qty
-            self._set_cell_value(ws, f'C{current_row}', line.quantity)
+            # Jumlah (kolom S)
+            self._set_cell_value(ws, f'S{current_row}', line.quantity)
             
-            # Kondisi
+            # Kondisi (kolom X)
             if line.item_type == 'asset':
                 kondisi = line.asset_id.condition or 'Baik'
             else:
                 kondisi = 'Baik'
-            self._set_cell_value(ws, f'D{current_row}', kondisi.capitalize())
+            self._set_cell_value(ws, f'X{current_row}', kondisi.capitalize())
             
-            # Keterangan (SN / Notes)
+            # Keterangan (kolom AF) - SN / Notes
             keterangan = ''
             if line.item_type == 'asset' and line.asset_id.lot_id:
                 keterangan += f"SN: {line.asset_id.lot_id.name}"
@@ -182,7 +185,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 if keterangan:
                     keterangan += '\n'
                 keterangan += line.notes
-            self._set_cell_value(ws, f'E{current_row}', keterangan)
+            self._set_cell_value(ws, f'AF{current_row}', keterangan)
             
             current_row += 1
 
