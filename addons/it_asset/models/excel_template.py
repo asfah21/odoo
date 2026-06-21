@@ -94,12 +94,12 @@ class ITAssetExcelTemplate(models.AbstractModel):
         
         Mapping cell (sesuaikan dengan layout template Excel kamu):
         - C5: Nomor Dokumen (handover name)
-        - C6: Tanggal
-        - C7: Yang Menyerahkan
-        - C8: Posisi Penyerah
-        - C9: Yang Menerima
-        - C10: Posisi Penerima
-        - A13 dst: Tabel items (No, Nama Barang, Qty, Kondisi, Keterangan)
+        - K11: Tanggal
+        - K7: Yang Menyerahkan
+        - K8: Posisi Penyerah
+        - K9: Yang Menerima
+        - K10: Posisi Penerima
+        - B14 dst: Tabel items (No, Nama Barang, Qty, Kondisi, Keterangan)
         """
         handover = self.env['it_asset.item.handover'].browse(handover_id)
         if not handover.exists():
@@ -343,12 +343,12 @@ class ITAssetExcelTemplate(models.AbstractModel):
         tgl = handover.handover_date
         self._set_cell_value(ws, 'C6', tgl.strftime('%d %B %Y') if tgl else '')
         
-        self._set_cell_value(ws, 'C7', handover.sender_id.name or '')
-        self._set_cell_value(ws, 'C8', handover.sender_id.job_id.name or '')
-        self._set_cell_value(ws, 'C9', handover.receiver_id.name or '')
-        self._set_cell_value(ws, 'C10', handover.receiver_id.job_id.name or '')
-        self._set_cell_value(ws, 'C11', handover.asset_id.name or '')
-        self._set_cell_value(ws, 'C12', handover.notes or '')
+        self._set_cell_value(ws, 'I4', handover.sender_id.name or '')
+        self._set_cell_value(ws, 'I5', handover.sender_id.job_id.name or '')
+        self._set_cell_value(ws, 'Z4', handover.receiver_id.name or '')
+        self._set_cell_value(ws, 'Z5', handover.receiver_id.job_id.name or '')
+        self._set_cell_value(ws, 'D11', handover.asset_id.name or '')
+        self._set_cell_value(ws, 'X11', handover.notes or '')
 
         file_data = self._save_to_buffer(wb)
         filename = f"Handover_{handover.name}.xlsx"
