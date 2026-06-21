@@ -9,6 +9,8 @@ import base64
 import io
 import logging
 import os
+import shutil
+import tempfile
 from datetime import datetime
 
 from odoo import api, fields, models, _
@@ -19,6 +21,7 @@ _logger = logging.getLogger(__name__)
 try:
     import openpyxl
     from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+    from openpyxl.utils import get_column_letter
 except ImportError:
     _logger.warning("openpyxl tidak terinstall. Install dengan: pip install openpyxl")
     openpyxl = None
@@ -60,8 +63,17 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 "Pastikan file template sudah ada di folder static/excel_templates/"
             ) % template_name)
         
-        # Buka workbook dengan mempertahankan drawing objects (shapes, icons, dll)
-        wb = openpyxl.load_workbook(template_path)
+        # Copy template ke temporary file untuk menghindari file locking
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
+            tmp_path = tmp_file.name
+            shutil.copy2(template_path, tmp_path)
+        
+        # Buka workbook
+        wb = openpyxl.load_workbook(tmp_path)
+        
+        # Simpan path untuk cleanup
+        wb._it_asset_temp_path = tmp_path
+        
         return wb
 
     def _save_to_buffer(self, wb):
@@ -69,6 +81,14 @@ class ITAssetExcelTemplate(models.AbstractModel):
         buffer = io.BytesIO()
         wb.save(buffer)
         buffer.seek(0)
+        
+        # Bersihkan temporary file
+        if hasattr(wb, '_it_asset_temp_path'):
+            try:
+                os.unlink(wb._it_asset_temp_path)
+            except (OSError, AttributeError):
+                pass
+        
         return base64.b64encode(buffer.read())
 
     def _get_cell(self, ws, cell_ref):
@@ -86,10 +106,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         """
         for merged_range in ws.merged_cells.ranges:
             if cell_ref in merged_range:
-                # Dapatkan koordinat top-left cell dari merged range
                 top_left = merged_range.min_row, merged_range.min_col
-                # Konversi ke format cell reference (contoh: 'A1')
-                from openpyxl.utils import get_column_letter
                 return f"{get_column_letter(top_left[1])}{top_left[0]}"
         return cell_ref
 
@@ -100,7 +117,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
         menggunakan cell utama (top-left) dari merged range tersebut
         untuk menghindari error 'MergedCell' object attribute 'value' is read-only.
         """
-        # Cek apakah cell_ref berada di dalam merged range
         actual_ref = self._get_merged_cell_top_left(ws, cell_ref)
         cell = self._get_cell(ws, actual_ref)
         cell.value = value
@@ -115,7 +131,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         Export data Item Handover ke template Excel.
         Template: 'bast_template.xlsx'
         
-        Mapping cell (sesuaikan dengan layout template Excel kamu):
+        Mapping cell:
         - K11: Tanggal
         - K7: Yang Menyerahkan
         - K8: Posisi Penyerah
@@ -130,36 +146,24 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not handover.exists():
             raise UserError(_("Item Handover tidak ditemukan!"))
 
-        # Load template
         wb = self._load_template('bast_template.xlsx')
         ws = wb.active
 
-        # --- ISI DATA KE CELL ---
-        # Header / Meta
-        # self._set_cell_value(ws, 'C5', handover.name or '')
-        
-        # Format tanggal
         tgl = handover.handover_date
         tgl_str = tgl.strftime('%d/%m/%Y') if tgl else ''
         self._set_cell_value(ws, 'K11', tgl_str)
         
-        # Pihak
         self._set_cell_value(ws, 'K7', handover.sender_id.name or '')
         self._set_cell_value(ws, 'K8', handover.sender_id.job_id.name or '')
         self._set_cell_value(ws, 'K9', handover.receiver_id.name or '')
         self._set_cell_value(ws, 'K10', handover.receiver_id.job_id.name or '')
 
-        # --- TABEL ITEMS ---
-        # Mapping kolom sesuai template bast_template.xlsx:
-        # D14: Nama Barang, S14: Jumlah, X14: Kondisi, AF14: Keterangan
         start_row = 14
         current_row = start_row
         
         for idx, line in enumerate(handover.line_ids, start=1):
-            # No (kolom A)
             self._set_cell_value(ws, f'A{current_row}', idx)
             
-            # Nama Barang (kolom D)
             if line.item_type == 'asset':
                 item_name = line.asset_id.name or ''
                 if line.asset_id.asset_tag:
@@ -168,17 +172,14 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 item_name = line.consumable_id.name or ''
             self._set_cell_value(ws, f'D{current_row}', item_name)
             
-            # Jumlah (kolom S)
             self._set_cell_value(ws, f'S{current_row}', line.quantity)
             
-            # Kondisi (kolom X)
             if line.item_type == 'asset':
                 kondisi = line.asset_id.condition or 'Baik'
             else:
                 kondisi = 'Baik'
             self._set_cell_value(ws, f'X{current_row}', kondisi.capitalize())
             
-            # Keterangan (kolom AF) - SN / Notes
             keterangan = ''
             if line.item_type == 'asset' and line.asset_id.lot_id:
                 keterangan += f"SN: {line.asset_id.lot_id.name}"
@@ -190,10 +191,8 @@ class ITAssetExcelTemplate(models.AbstractModel):
             
             current_row += 1
 
-        # Simpan ke buffer
         file_data = self._save_to_buffer(wb)
         
-        # Buat attachment
         filename = f"BAST_{handover.name}_{tgl_str}.xlsx"
         filename = filename.replace('/', '_').replace('\\', '_')
         
@@ -217,10 +216,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
     # ============================================
 
     def export_asset_request_excel(self, request_id):
-        """
-        Export Asset Request ke template Excel.
-        Template: 'asset_request_template.xlsx'
-        """
         request = self.env['it_asset.request'].browse(request_id)
         if not request.exists():
             raise UserError(_("Asset Request tidak ditemukan!"))
@@ -228,7 +223,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('asset_request_template.xlsx')
         ws = wb.active
 
-        # Mapping cell (sesuaikan dengan template kamu)
         self._set_cell_value(ws, 'C5', request.name or '')
         self._set_cell_value(ws, 'C6', request.employee_id.name or '')
         self._set_cell_value(ws, 'C7', request.department_id.name or '')
@@ -263,10 +257,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
     # ============================================
 
     def export_damage_report_excel(self, report_id):
-        """
-        Export Damage Report ke template Excel.
-        Template: 'damage_report_template.xlsx'
-        """
         report = self.env['it_asset.damage_report'].browse(report_id)
         if not report.exists():
             raise UserError(_("Damage Report tidak ditemukan!"))
@@ -308,10 +298,6 @@ class ITAssetExcelTemplate(models.AbstractModel):
     # ============================================
 
     def export_account_request_excel(self, request_id):
-        """
-        Export Account Request ke template Excel.
-        Template: 'account_request_template.xlsx'
-        """
         request = self.env['it_asset.account_request'].browse(request_id)
         if not request.exists():
             raise UserError(_("Account Request tidak ditemukan!"))
@@ -376,10 +362,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         self._set_cell_value(ws, 'D21', handover.asset_id.name or '')
         self._set_cell_value(ws, 'X21', handover.notes or '')
 
-        # Simpan ke buffer
         file_data = self._save_to_buffer(wb)
-        
-        # Buat attachment
         filename = f"Handover_{handover.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
