@@ -77,9 +77,31 @@ class ITAssetExcelTemplate(models.AbstractModel):
         """
         return ws[cell_ref]
 
+    def _get_merged_cell_top_left(self, ws, cell_ref):
+        """
+        Jika cell_ref adalah bagian dari merged range, kembalikan referensi
+        cell utama (top-left) dari merged range tersebut.
+        Jika tidak, kembalikan cell_ref asli.
+        """
+        for merged_range in ws.merged_cells.ranges:
+            if cell_ref in merged_range:
+                # Dapatkan koordinat top-left cell dari merged range
+                top_left = merged_range.min_row, merged_range.min_col
+                # Konversi ke format cell reference (contoh: 'A1')
+                from openpyxl.utils import get_column_letter
+                return f"{get_column_letter(top_left[1])}{top_left[0]}"
+        return cell_ref
+
     def _set_cell_value(self, ws, cell_ref, value):
-        """Mengisi nilai ke cell tertentu tanpa mengubah format"""
-        cell = self._get_cell(ws, cell_ref)
+        """
+        Mengisi nilai ke cell tertentu tanpa mengubah format.
+        Jika cell adalah bagian dari merged range, secara otomatis
+        menggunakan cell utama (top-left) dari merged range tersebut
+        untuk menghindari error 'MergedCell' object attribute 'value' is read-only.
+        """
+        # Cek apakah cell_ref berada di dalam merged range
+        actual_ref = self._get_merged_cell_top_left(ws, cell_ref)
+        cell = self._get_cell(ws, actual_ref)
         cell.value = value
         return cell
 
@@ -343,12 +365,12 @@ class ITAssetExcelTemplate(models.AbstractModel):
         tgl = handover.handover_date
         self._set_cell_value(ws, 'C6', tgl.strftime('%d %B %Y') if tgl else '')
         
-        self._set_cell_value(ws, 'I4', handover.sender_id.name or '')
-        self._set_cell_value(ws, 'I5', handover.sender_id.job_id.name or '')
-        self._set_cell_value(ws, 'Z4', handover.receiver_id.name or '')
-        self._set_cell_value(ws, 'Z5', handover.receiver_id.job_id.name or '')
-        self._set_cell_value(ws, 'D11', handover.asset_id.name or '')
-        self._set_cell_value(ws, 'X11', handover.notes or '')
+        self._set_cell_value(ws, 'I14', handover.sender_id.name or '')
+        self._set_cell_value(ws, 'I15', handover.sender_id.job_id.name or '')
+        self._set_cell_value(ws, 'Z14', handover.receiver_id.name or '')
+        self._set_cell_value(ws, 'Z15', handover.receiver_id.job_id.name or '')
+        self._set_cell_value(ws, 'D21', handover.asset_id.name or '')
+        self._set_cell_value(ws, 'X21', handover.notes or '')
 
         file_data = self._save_to_buffer(wb)
         filename = f"Handover_{handover.name}.xlsx"
