@@ -360,10 +360,10 @@ class ITAssetExcelTemplate(models.AbstractModel):
         wb = self._load_template('handover_template.xlsx')
         ws = wb.active
 
-        self._set_cell_value(ws, 'C5', handover.name or '')
+        self._set_cell_value(ws, 'A9', handover.name or '')
         
         tgl = handover.handover_date
-        self._set_cell_value(ws, 'C6', tgl.strftime('%d %B %Y') if tgl else '')
+        self._set_cell_value(ws, 'A11', tgl.strftime('%d %B %Y') if tgl else '')
         
         self._set_cell_value(ws, 'I14', handover.sender_id.name or '')
         self._set_cell_value(ws, 'I15', handover.sender_id.job_id.name or '')
