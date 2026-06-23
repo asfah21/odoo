@@ -359,8 +359,26 @@ class ITAssetExcelTemplate(models.AbstractModel):
         receiver_job = handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else ''
         self._set_cell_value(ws, 'Z15', receiver_job)
         
-        self._set_cell_value(ws, 'D21', handover.asset_id.name if handover.asset_id else '')
-        self._set_cell_value(ws, 'X21', handover.notes if handover.notes else '')
+        # Baris tabel item (single asset)
+        self._set_cell_value(ws, 'B21', 1)  # No
+        self._set_cell_value(ws, 'D21', handover.asset_id.name if handover.asset_id else '')  # Nama Barang
+        self._set_cell_value(ws, 'Q21', 1)  # Quantity
+        
+        # Kondisi
+        kondisi = ''
+        if handover.asset_id and handover.asset_id.condition:
+            kondisi = handover.asset_id.condition.capitalize()
+        self._set_cell_value(ws, 'S21', kondisi)  # Kondisi
+        
+        # Keterangan (SN + Notes)
+        keterangan = ''
+        if handover.asset_id and handover.asset_id.lot_id:
+            keterangan += f"SN: {handover.asset_id.lot_id.name}"
+        if handover.notes:
+            if keterangan:
+                keterangan += '\n'
+            keterangan += handover.notes
+        self._set_cell_value(ws, 'X21', keterangan)  # Keterangan
 
         file_data = self._save_workbook(wb)
         filename = f"Handover_{handover.name}.xlsx"
