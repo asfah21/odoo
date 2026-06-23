@@ -81,7 +81,7 @@
                     </group>
                     <group>
                         <field name="notes"/>
-                        <field name="signature" widget="signature"/>
+                        <field name="signature" widget="signature" readonly="state == 'signed'"/>
                     </group>
                 </sheet>
                 <chatter/>

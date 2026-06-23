@@ -15,6 +15,7 @@ import tempfile
 import zipfile
 
 from odoo import api, fields, models, _
+from odoo.tools import format_date
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
@@ -344,6 +345,12 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'K8': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
             'K9': handover.receiver_id.name if handover.receiver_id else '',
             'K10': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
+            'D38': handover.sender_id.name if handover.sender_id else '',
+            'T38': handover.receiver_id.name if handover.receiver_id else '',
+
+            'C39': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
+            'S39': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
+            'G40': tgl_str,
         }
 
         # Tabel Items
@@ -514,11 +521,13 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         cell_data = {
             'A9': handover.name if handover.name else '',
-            'A11': tgl.strftime('%d %B %Y') if tgl else '',
+            'A11': f" Pada hari {format_date(tgl, format='EEEE, dd MMMM yyyy')} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
             'I14': handover.sender_id.name if handover.sender_id else '',
             'I15': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
             'Z14': handover.receiver_id.name if handover.receiver_id else '',
             'Z15': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
+            'C45': handover.sender_id.name if handover.sender_id else '',
+            'N45': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
             'B21': 1,
             'D21': handover.asset_id.name if handover.asset_id else '',
             'Q21': 1,
