@@ -6,12 +6,9 @@ Excel Template Export untuk IT Asset Module
 """
 
 import base64
-import io
 import logging
 import os
-import shutil
 import tempfile
-from datetime import datetime
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -20,7 +17,6 @@ _logger = logging.getLogger(__name__)
 
 try:
     import openpyxl
-    from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
     from openpyxl.utils import get_column_letter
 except ImportError:
     _logger.warning("openpyxl tidak terinstall. Install dengan: pip install openpyxl")
@@ -63,37 +59,31 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 "Pastikan file template sudah ada di folder static/excel_templates/"
             ) % template_name)
         
-        # Copy template ke temporary file untuk menghindari file locking
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            shutil.copy2(template_path, tmp_path)
-        
-        # Buka workbook
-        wb = openpyxl.load_workbook(tmp_path)
-        
-        # Simpan path untuk cleanup
-        wb._it_asset_temp_path = tmp_path
-        
+        # Buka workbook langsung dari template (read-only copy via tempfile)
+        wb = openpyxl.load_workbook(template_path)
         return wb
 
-    def _save_to_buffer(self, wb):
+    def _save_workbook(self, wb):
         """
-        Menyimpan workbook ke buffer menggunakan openpyxl native save.
-        Gambar bawaan template akan dipertahankan secara otomatis
-        selama library pillow terinstall di server.
+        Simpan workbook ke temporary file, baca sebagai base64.
+        Tidak menggunakan BytesIO untuk menghindari potensi korupsi
+        file yang mengandung gambar/objek bawaan template.
         """
-        buffer = io.BytesIO()
-        wb.save(buffer)
-        buffer.seek(0)
+        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+            tmp_path = tmp.name
+            wb.save(tmp_path)
         
-        # Bersihkan temporary file
-        if hasattr(wb, '_it_asset_temp_path'):
-            try:
-                os.unlink(wb._it_asset_temp_path)
-            except (OSError, AttributeError):
-                pass
+        with open(tmp_path, 'rb') as f:
+            file_data = base64.b64encode(f.read())
         
-        return base64.b64encode(buffer.read())
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        
+        wb.close()
+        
+        return file_data
 
     def _get_cell(self, ws, cell_ref):
         """Mendapatkan cell berdasarkan reference (contoh: 'B5')."""
@@ -193,7 +183,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
             
             current_row += 1
 
-        file_data = self._save_to_buffer(wb)
+        file_data = self._save_workbook(wb)
         
         filename = f"BAST_{handover.name}_{tgl_str}.xlsx"
         filename = filename.replace('/', '_').replace('\\', '_')
@@ -238,7 +228,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
         self._set_cell_value(ws, 'C11', state_label)
 
-        file_data = self._save_to_buffer(wb)
+        file_data = self._save_workbook(wb)
         filename = f"Asset_Request_{request.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
@@ -279,7 +269,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         self._set_cell_value(ws, 'C10', report.damage_type if report.damage_type else '')
         self._set_cell_value(ws, 'C11', report.description if report.description else '')
 
-        file_data = self._save_to_buffer(wb)
+        file_data = self._save_workbook(wb)
         filename = f"Damage_Report_{report.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
@@ -322,7 +312,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
         self._set_cell_value(ws, 'C11', state_label)
 
-        file_data = self._save_to_buffer(wb)
+        file_data = self._save_workbook(wb)
         filename = f"Account_Request_{request.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
@@ -372,7 +362,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         self._set_cell_value(ws, 'D21', handover.asset_id.name if handover.asset_id else '')
         self._set_cell_value(ws, 'X21', handover.notes if handover.notes else '')
 
-        file_data = self._save_to_buffer(wb)
+        file_data = self._save_workbook(wb)
         filename = f"Handover_{handover.name}.xlsx"
 
         attachment = self.env['ir.attachment'].create({
