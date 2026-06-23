@@ -3,12 +3,16 @@
 Excel Template Export untuk IT Asset Module
 - Mengisi data Odoo ke template Excel yang sudah ada (tanpa mengubah layout)
 - Support: Item Handover (BAST), Asset Request, Damage Report, dll
+- Menggunakan ZIP Surgery (lxml) untuk menghindari korupsi gambar/logo oleh openpyxl
 """
 
 import base64
 import logging
 import os
+import re
+import shutil
 import tempfile
+import zipfile
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -16,11 +20,21 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 try:
-    import openpyxl
-    from openpyxl.utils import get_column_letter
+    from lxml import etree
 except ImportError:
-    _logger.warning("openpyxl tidak terinstall. Install dengan: pip install openpyxl")
-    openpyxl = None
+    _logger.warning("lxml tidak terinstall. Install dengan: pip install lxml")
+    etree = None
+
+# Namespace Excel yang dipakai
+NS_SPREADSHEET = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+NS_RELATIONSHIPS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+NS_RELATIONSHIPS_PKG = 'http://schemas.openxmlformats.org/package/2006/relationships'
+NS_XML = 'http://www.w3.org/XML/1998/namespace'
+
+NSMAP = {
+    'x': NS_SPREADSHEET,
+    'r': NS_RELATIONSHIPS,
+}
 
 
 class ITAssetExcelTemplate(models.AbstractModel):
@@ -41,74 +55,274 @@ class ITAssetExcelTemplate(models.AbstractModel):
         return os.path.join(template_dir, template_name)
 
     # ============================================
-    # GENERIC: BUKA TEMPLATE & ISI DATA
+    # ZIP SURGERY ENGINE
     # ============================================
 
-    def _load_template(self, template_name):
-        """Membuka file template Excel"""
-        if openpyxl is None:
+    def _fill_template(self, template_name, cell_data, sheet_index=0):
+        """
+        Engine utama ZIP Surgery:
+        - Copy template ke tempfile
+        - Baca semua file dalam ZIP ke dict {filename: bytes}
+        - Temukan sheet XML yang benar
+        - Edit hanya XML sheet tersebut
+        - Tulis ulang ZIP dengan semua file (yang tidak diedit tetap byte-for-byte sama)
+        - Return base64 encoded result
+        - Cleanup semua tempfile di finally block
+        """
+        if etree is None:
             raise UserError(_(
-                "Library 'openpyxl' tidak terinstall. "
-                "Hubungi administrator untuk menginstallnya: pip install openpyxl"
+                "Library 'lxml' tidak terinstall. "
+                "Hubungi administrator untuk menginstallnya: pip install lxml"
             ))
-        
+
         template_path = self._get_template_path(template_name)
         if not os.path.exists(template_path):
             raise UserError(_(
                 "File template '%s' tidak ditemukan. "
                 "Pastikan file template sudah ada di folder static/excel_templates/"
             ) % template_name)
-        
-        # Buka workbook langsung dari template (read-only copy via tempfile)
-        wb = openpyxl.load_workbook(template_path)
-        return wb
 
-    def _save_workbook(self, wb):
-        """
-        Simpan workbook ke temporary file, baca sebagai base64.
-        Tidak menggunakan BytesIO untuk menghindari potensi korupsi
-        file yang mengandung gambar/objek bawaan template.
-        """
-        with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
-            tmp_path = tmp.name
-            wb.save(tmp_path)
-        
-        with open(tmp_path, 'rb') as f:
-            file_data = base64.b64encode(f.read())
-        
+        tmp_copy = None
+        tmp_output = None
         try:
-            os.unlink(tmp_path)
-        except OSError:
+            # Copy template ke tempfile (jangan edit asli)
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_copy = tmp.name
+            shutil.copy2(template_path, tmp_copy)
+
+            # Baca semua file dalam ZIP ke dict {filename: bytes}
+            all_files = {}
+            with zipfile.ZipFile(tmp_copy, 'r') as z:
+                for name in z.namelist():
+                    all_files[name] = z.read(name)
+
+            # Temukan sheet XML yang benar
+            sheet_key = self._find_sheet_xml_key(all_files, sheet_index)
+
+            # Edit hanya XML sheet tersebut
+            sheet_xml_bytes = all_files[sheet_key]
+            modified_sheet_xml = self._inject_cell_values(sheet_xml_bytes, cell_data)
+            all_files[sheet_key] = modified_sheet_xml
+
+            # Tulis ulang ZIP dengan semua file
+            with tempfile.NamedTemporaryFile(suffix='.xlsx', delete=False) as tmp:
+                tmp_output = tmp.name
+
+            with zipfile.ZipFile(tmp_output, 'w', zipfile.ZIP_DEFLATED) as z:
+                for name in all_files:
+                    z.writestr(name, all_files[name])
+
+            # Baca hasil sebagai base64
+            with open(tmp_output, 'rb') as f:
+                file_data = base64.b64encode(f.read())
+
+            return file_data
+
+        finally:
+            # Cleanup semua tempfile
+            for tmp_path in [tmp_copy, tmp_output]:
+                if tmp_path:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+
+    def _find_sheet_xml_key(self, all_files, sheet_index=0):
+        """
+        Cari xl/worksheets/sheetN.xml dari all_files.keys()
+        Baca urutan sheet dari xl/workbook.xml menggunakan lxml etree
+        Return key yang sesuai sheet_index
+        """
+        # Baca workbook.xml untuk mendapatkan urutan sheet
+        workbook_xml = all_files.get('xl/workbook.xml')
+        if workbook_xml is None:
+            # Fallback: cari langsung berdasarkan pola sheetN.xml
+            sheet_keys = sorted([
+                k for k in all_files.keys()
+                if re.match(r'xl/worksheets/sheet\d+\.xml$', k)
+            ])
+            if sheet_index < len(sheet_keys):
+                return sheet_keys[sheet_index]
+            raise UserError(_(
+                "Sheet index %s tidak ditemukan dalam template."
+            ) % sheet_index)
+
+        # Parse workbook.xml untuk mendapatkan urutan sheet
+        root = etree.fromstring(workbook_xml)
+        
+        # Cari elemen sheets
+        sheets_el = root.find('.//x:sheets', NSMAP)
+        if sheets_el is None:
+            # Fallback ke pola sheetN.xml
+            sheet_keys = sorted([
+                k for k in all_files.keys()
+                if re.match(r'xl/worksheets/sheet\d+\.xml$', k)
+            ])
+            if sheet_index < len(sheet_keys):
+                return sheet_keys[sheet_index]
+            raise UserError(_(
+                "Sheet index %s tidak ditemukan dalam template."
+            ) % sheet_index)
+
+        # Dapatkan semua sheet elements
+        sheet_elements = sheets_el.findall('x:sheet', NSMAP)
+        if sheet_index >= len(sheet_elements):
+            raise UserError(_(
+                "Sheet index %s tidak ditemukan dalam template."
+            ) % sheet_index)
+
+        # Dapatkan r:id dari sheet yang dituju
+        sheet_el = sheet_elements[sheet_index]
+        sheet_rel_id = sheet_el.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id')
+        
+        if sheet_rel_id:
+            # Cari relationship di xl/_rels/workbook.xml.rels
+            rels_key = 'xl/_rels/workbook.xml.rels'
+            rels_xml = all_files.get(rels_key)
+            if rels_xml:
+                rels_root = etree.fromstring(rels_xml)
+                # Cari Relationship dengan Id yang sesuai
+                for rel in rels_root:
+                    rel_id = rel.get('Id')
+                    if rel_id == sheet_rel_id:
+                        target = rel.get('Target')
+                        if target:
+                            # Target biasanya relatif seperti "worksheets/sheet1.xml"
+                            return f'xl/{target}'
+
+        # Fallback: jika tidak bisa resolve via rels, cari berdasarkan urutan sheetN.xml
+        sheet_keys = sorted([
+            k for k in all_files.keys()
+            if re.match(r'xl/worksheets/sheet\d+\.xml$', k)
+        ])
+        if sheet_index < len(sheet_keys):
+            return sheet_keys[sheet_index]
+
+        raise UserError(_(
+            "Sheet index %s tidak ditemukan dalam template."
+        ) % sheet_index)
+
+    def _inject_cell_values(self, sheet_xml_bytes, cell_data):
+        """
+        Parse XML dengan lxml etree
+        Index semua existing cell elements ke dict {ref: cell_element}
+        Untuk setiap cell di cell_data:
+          - Jika cell sudah ada: update nilainya via _update_cell_element()
+          - Jika cell belum ada: log warning dan skip
+        Return etree.tostring() dengan xml_declaration=True, encoding=UTF-8
+        """
+        root = etree.fromstring(sheet_xml_bytes)
+
+        # Cari sheetData element
+        sheet_data_el = root.find('.//x:sheetData', NSMAP)
+        if sheet_data_el is None:
+            _logger.warning("sheetData tidak ditemukan dalam sheet XML")
+            return sheet_xml_bytes
+
+        # Index semua existing cell elements ke dict {ref: cell_element}
+        # Cari row elements, lalu cell elements di dalamnya
+        existing_cells = {}
+        for row_el in sheet_data_el.findall('x:row', NSMAP):
+            for cell_el in row_el.findall('x:c', NSMAP):
+                ref = cell_el.get('r')
+                if ref:
+                    existing_cells[ref] = cell_el
+
+        # Untuk setiap cell di cell_data
+        for cell_ref, value in cell_data.items():
+            if cell_ref in existing_cells:
+                self._update_cell_element(existing_cells[cell_ref], value)
+            else:
+                _logger.warning(
+                    "Cell %s tidak ditemukan di template. Nilai tidak akan diisi.",
+                    cell_ref
+                )
+
+        # Return etree.tostring() dengan xml_declaration=True, encoding=UTF-8
+        return etree.tostring(
+            root,
+            xml_declaration=True,
+            encoding='UTF-8',
+            standalone=True
+        )
+
+    def _update_cell_element(self, cell_el, value):
+        """
+        Update nilai cell element:
+        - Simpan atribut 's' (style index) sebelum modifikasi — WAJIB agar format tidak hilang
+        - Hapus semua child nodes
+        - Untuk int/float: set tanpa 't' attribute, tambah <v> element
+        - Untuk string: set t="inlineStr", tambah <is><t> element
+          * Jika ada \n dalam string: tambah xml:space="preserve"
+        - Untuk None/'': kosongkan cell
+        - Restore atribut 's' setelah selesai
+        """
+        # Simpan atribut 's' (style index) sebelum modifikasi
+        style_attr = cell_el.get('s')
+
+        # Hapus semua child nodes
+        for child in list(cell_el):
+            cell_el.remove(child)
+
+        # Hapus atribut 't' (type) — akan di-set ulang sesuai tipe data
+        if 't' in cell_el.attrib:
+            del cell_el.attrib['t']
+
+        # Restore atribut 's' setelah selesai
+        if style_attr is not None:
+            cell_el.set('s', style_attr)
+
+        # Handle nilai berdasarkan tipe
+        if value is None or value == '':
+            # Kosongkan cell — tidak perlu child nodes
             pass
-        
-        wb.close()
-        
-        return file_data
 
-    def _get_cell(self, ws, cell_ref):
-        """Mendapatkan cell berdasarkan reference (contoh: 'B5')."""
-        return ws[cell_ref]
+        elif isinstance(value, (int, float)):
+            # Untuk int/float: set tanpa 't' attribute, tambah <v> element
+            v_el = etree.SubElement(cell_el, '{%s}v' % NS_SPREADSHEET)
+            v_el.text = str(value)
 
-    def _get_merged_cell_top_left(self, ws, cell_ref):
-        """
-        Jika cell_ref adalah bagian dari merged range, kembalikan referensi
-        cell utama (top-left) dari merged range tersebut.
-        """
-        for merged_range in ws.merged_cells.ranges:
-            if cell_ref in merged_range:
-                top_left = merged_range.min_row, merged_range.min_col
-                return f"{get_column_letter(top_left[1])}{top_left[0]}"
-        return cell_ref
+        elif isinstance(value, bool):
+            # Boolean sebagai angka 0/1
+            v_el = etree.SubElement(cell_el, '{%s}v' % NS_SPREADSHEET)
+            v_el.text = '1' if value else '0'
 
-    def _set_cell_value(self, ws, cell_ref, value):
+        else:
+            # String: set t="inlineStr", tambah <is><t> element
+            cell_el.set('t', 'inlineStr')
+            is_el = etree.SubElement(cell_el, '{%s}is' % NS_SPREADSHEET)
+            t_el = etree.SubElement(is_el, '{%s}t' % NS_SPREADSHEET)
+            
+            str_value = str(value)
+            
+            # Jika ada \n dalam string: tambah xml:space="preserve"
+            if '\n' in str_value:
+                t_el.set('{%s}space' % NS_XML, 'preserve')
+            
+            t_el.text = str_value
+
+    # ============================================
+    # HELPER: CREATE ATTACHMENT
+    # ============================================
+
+    def _create_attachment(self, file_data, filename, res_model, res_id):
         """
-        Mengisi nilai ke cell tertentu tanpa mengubah format.
-        Handle merged cells untuk menghindari 'MergedCell' read-only error.
+        Helper membuat ir.attachment dan return action download
         """
-        actual_ref = self._get_merged_cell_top_left(ws, cell_ref)
-        cell = self._get_cell(ws, actual_ref)
-        cell.value = value
-        return cell
+        attachment = self.env['ir.attachment'].create({
+            'name': filename,
+            'datas': file_data,
+            'res_model': res_model,
+            'res_id': res_id,
+            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        })
+
+        return {
+            'name': _('Download Excel'),
+            'type': 'ir.actions.act_url',
+            'url': f'/web/content/{attachment.id}?download=true',
+            'target': 'self',
+        }
 
     # ============================================
     # 1. EXPORT ITEM HANDOVER (BAST) KE EXCEL
@@ -119,27 +333,18 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not handover.exists():
             raise UserError(_("Item Handover tidak ditemukan!"))
 
-        wb = self._load_template('bast_template.xlsx')
-        ws = wb.active
-
         # Tanggal
         tgl = handover.handover_date
         tgl_str = tgl.strftime('%d/%m/%Y') if tgl else ''
-        self._set_cell_value(ws, 'K11', tgl_str)
-        
-        # Pihak: Yang Menyerahkan
-        sender_name = handover.sender_id.name if handover.sender_id else ''
-        self._set_cell_value(ws, 'K7', sender_name)
-        
-        sender_job = handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else ''
-        self._set_cell_value(ws, 'K8', sender_job)
-        
-        # Pihak: Yang Menerima
-        receiver_name = handover.receiver_id.name if handover.receiver_id else ''
-        self._set_cell_value(ws, 'K9', receiver_name)
-        
-        receiver_job = handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else ''
-        self._set_cell_value(ws, 'K10', receiver_job)
+
+        # Kumpulkan semua data ke satu dict cell_data
+        cell_data = {
+            'K11': tgl_str,
+            'K7': handover.sender_id.name if handover.sender_id else '',
+            'K8': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
+            'K9': handover.receiver_id.name if handover.receiver_id else '',
+            'K10': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
+        }
 
         # Tabel Items
         start_row = 14
@@ -147,7 +352,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         
         for idx, line in enumerate(handover.line_ids, start=1):
             # No
-            self._set_cell_value(ws, f'B{current_row}', idx)
+            cell_data[f'B{current_row}'] = idx
             
             # Nama Barang
             if line.item_type == 'asset' and line.asset_id:
@@ -158,18 +363,18 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 item_name = line.consumable_id.name if line.consumable_id.name else ''
             else:
                 item_name = ''
-            self._set_cell_value(ws, f'D{current_row}', item_name)
+            cell_data[f'D{current_row}'] = item_name
             
             # Jumlah
             qty = line.quantity if line.quantity else 0
-            self._set_cell_value(ws, f'S{current_row}', qty)
+            cell_data[f'S{current_row}'] = qty
             
             # Kondisi
             if line.item_type == 'asset' and line.asset_id:
                 kondisi = line.asset_id.condition if line.asset_id.condition else 'Baik'
             else:
                 kondisi = 'Baik'
-            self._set_cell_value(ws, f'X{current_row}', kondisi.capitalize())
+            cell_data[f'X{current_row}'] = kondisi.capitalize()
             
             # Keterangan (SN / Notes)
             keterangan = ''
@@ -179,29 +384,19 @@ class ITAssetExcelTemplate(models.AbstractModel):
                 if keterangan:
                     keterangan += '\n'
                 keterangan += line.notes
-            self._set_cell_value(ws, f'AF{current_row}', keterangan)
+            cell_data[f'AF{current_row}'] = keterangan
             
             current_row += 1
 
-        file_data = self._save_workbook(wb)
+        file_data = self._fill_template('bast_template.xlsx', cell_data)
         
         filename = f"BAST_{handover.name}_{tgl_str}.xlsx"
         filename = filename.replace('/', '_').replace('\\', '_')
         
-        attachment = self.env['ir.attachment'].create({
-            'name': filename,
-            'datas': file_data,
-            'res_model': 'it_asset.item.handover',
-            'res_id': handover.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-
-        return {
-            'name': _('Download Excel'),
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'self',
-        }
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.item.handover', handover.id
+        )
 
     # ============================================
     # 2. EXPORT ASSET REQUEST KE EXCEL
@@ -212,39 +407,26 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not request.exists():
             raise UserError(_("Asset Request tidak ditemukan!"))
 
-        wb = self._load_template('asset_request_template.xlsx')
-        ws = wb.active
-
-        self._set_cell_value(ws, 'C5', request.name if request.name else '')
-        self._set_cell_value(ws, 'C6', request.employee_id.name if request.employee_id else '')
-        self._set_cell_value(ws, 'C7', request.department_id.name if request.department_id else '')
-        
         tgl = request.request_date
-        self._set_cell_value(ws, 'C8', tgl.strftime('%d/%m/%Y') if tgl else '')
-        
-        self._set_cell_value(ws, 'C9', request.category_id.name if request.category_id else '')
-        self._set_cell_value(ws, 'C10', request.reason if request.reason else '')
-        
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
-        self._set_cell_value(ws, 'C11', state_label)
 
-        file_data = self._save_workbook(wb)
+        cell_data = {
+            'C5': request.name if request.name else '',
+            'C6': request.employee_id.name if request.employee_id else '',
+            'C7': request.department_id.name if request.department_id else '',
+            'C8': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'C9': request.category_id.name if request.category_id else '',
+            'C10': request.reason if request.reason else '',
+            'C11': state_label,
+        }
+
+        file_data = self._fill_template('asset_request_template.xlsx', cell_data)
         filename = f"Asset_Request_{request.name}.xlsx"
 
-        attachment = self.env['ir.attachment'].create({
-            'name': filename,
-            'datas': file_data,
-            'res_model': 'it_asset.request',
-            'res_id': request.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-
-        return {
-            'name': _('Download Excel'),
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'self',
-        }
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.request', request.id
+        )
 
     # ============================================
     # 3. EXPORT DAMAGE REPORT KE EXCEL
@@ -255,37 +437,25 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not report.exists():
             raise UserError(_("Damage Report tidak ditemukan!"))
 
-        wb = self._load_template('damage_report_template.xlsx')
-        ws = wb.active
-
-        self._set_cell_value(ws, 'C5', report.name if report.name else '')
-        
         tgl = report.report_date
-        self._set_cell_value(ws, 'C6', tgl.strftime('%d %B %Y') if tgl else '')
-        
-        self._set_cell_value(ws, 'C7', report.asset_id.name if report.asset_id else '')
-        self._set_cell_value(ws, 'C8', report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '')
-        self._set_cell_value(ws, 'C9', report.employee_id.name if report.employee_id else '')
-        self._set_cell_value(ws, 'C10', report.damage_type if report.damage_type else '')
-        self._set_cell_value(ws, 'C11', report.description if report.description else '')
 
-        file_data = self._save_workbook(wb)
+        cell_data = {
+            'C5': report.name if report.name else '',
+            'C6': tgl.strftime('%d %B %Y') if tgl else '',
+            'C7': report.asset_id.name if report.asset_id else '',
+            'C8': report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '',
+            'C9': report.employee_id.name if report.employee_id else '',
+            'C10': report.damage_type if report.damage_type else '',
+            'C11': report.description if report.description else '',
+        }
+
+        file_data = self._fill_template('damage_report_template.xlsx', cell_data)
         filename = f"Damage_Report_{report.name}.xlsx"
 
-        attachment = self.env['ir.attachment'].create({
-            'name': filename,
-            'datas': file_data,
-            'res_model': 'it_asset.damage_report',
-            'res_id': report.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-
-        return {
-            'name': _('Download Excel'),
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'self',
-        }
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.damage_report', report.id
+        )
 
     # ============================================
     # 4. EXPORT ACCOUNT REQUEST KE EXCEL
@@ -296,39 +466,26 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not request.exists():
             raise UserError(_("Account Request tidak ditemukan!"))
 
-        wb = self._load_template('account_request_template.xlsx')
-        ws = wb.active
-
-        self._set_cell_value(ws, 'C5', request.name if request.name else '')
-        self._set_cell_value(ws, 'C6', request.employee_id.name if request.employee_id else '')
-        self._set_cell_value(ws, 'C7', request.department_id.name if request.department_id else '')
-        
         tgl = request.request_date
-        self._set_cell_value(ws, 'C8', tgl.strftime('%d/%m/%Y') if tgl else '')
-        
-        self._set_cell_value(ws, 'C9', request.account_type if request.account_type else '')
-        self._set_cell_value(ws, 'C10', request.reason if request.reason else '')
-        
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
-        self._set_cell_value(ws, 'C11', state_label)
 
-        file_data = self._save_workbook(wb)
+        cell_data = {
+            'C5': request.name if request.name else '',
+            'C6': request.employee_id.name if request.employee_id else '',
+            'C7': request.department_id.name if request.department_id else '',
+            'C8': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'C9': request.account_type if request.account_type else '',
+            'C10': request.reason if request.reason else '',
+            'C11': state_label,
+        }
+
+        file_data = self._fill_template('account_request_template.xlsx', cell_data)
         filename = f"Account_Request_{request.name}.xlsx"
 
-        attachment = self.env['ir.attachment'].create({
-            'name': filename,
-            'datas': file_data,
-            'res_model': 'it_asset.account_request',
-            'res_id': request.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-
-        return {
-            'name': _('Download Excel'),
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'self',
-        }
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.account_request', request.id
+        )
 
     # ============================================
     # 5. EXPORT HANDOVER (OLD) KE EXCEL
@@ -339,37 +496,13 @@ class ITAssetExcelTemplate(models.AbstractModel):
         if not handover.exists():
             raise UserError(_("Handover tidak ditemukan!"))
 
-        wb = self._load_template('handover_template.xlsx')
-        ws = wb.active
-
-        self._set_cell_value(ws, 'A9', handover.name if handover.name else '')
-        
         tgl = handover.handover_date
-        self._set_cell_value(ws, 'A11', tgl.strftime('%d %B %Y') if tgl else '')
-        
-        sender_name = handover.sender_id.name if handover.sender_id else ''
-        self._set_cell_value(ws, 'I14', sender_name)
-        
-        sender_job = handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else ''
-        self._set_cell_value(ws, 'I15', sender_job)
-        
-        receiver_name = handover.receiver_id.name if handover.receiver_id else ''
-        self._set_cell_value(ws, 'Z14', receiver_name)
-        
-        receiver_job = handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else ''
-        self._set_cell_value(ws, 'Z15', receiver_job)
-        
-        # Baris tabel item (single asset)
-        self._set_cell_value(ws, 'B21', 1)  # No
-        self._set_cell_value(ws, 'D21', handover.asset_id.name if handover.asset_id else '')  # Nama Barang
-        self._set_cell_value(ws, 'Q21', 1)  # Quantity
-        
+
         # Kondisi
         kondisi = ''
         if handover.asset_id and handover.asset_id.condition:
             kondisi = handover.asset_id.condition.capitalize()
-        self._set_cell_value(ws, 'S21', kondisi)  # Kondisi
-        
+
         # Keterangan (SN + Notes)
         keterangan = ''
         if handover.asset_id and handover.asset_id.lot_id:
@@ -378,22 +511,25 @@ class ITAssetExcelTemplate(models.AbstractModel):
             if keterangan:
                 keterangan += '\n'
             keterangan += handover.notes
-        self._set_cell_value(ws, 'X21', keterangan)  # Keterangan
 
-        file_data = self._save_workbook(wb)
+        cell_data = {
+            'A9': handover.name if handover.name else '',
+            'A11': tgl.strftime('%d %B %Y') if tgl else '',
+            'I14': handover.sender_id.name if handover.sender_id else '',
+            'I15': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
+            'Z14': handover.receiver_id.name if handover.receiver_id else '',
+            'Z15': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
+            'B21': 1,
+            'D21': handover.asset_id.name if handover.asset_id else '',
+            'Q21': 1,
+            'S21': kondisi,
+            'X21': keterangan,
+        }
+
+        file_data = self._fill_template('handover_template.xlsx', cell_data)
         filename = f"Handover_{handover.name}.xlsx"
 
-        attachment = self.env['ir.attachment'].create({
-            'name': filename,
-            'datas': file_data,
-            'res_model': 'it_asset.handover',
-            'res_id': handover.id,
-            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        })
-
-        return {
-            'name': _('Download Excel'),
-            'type': 'ir.actions.act_url',
-            'url': f'/web/content/{attachment.id}?download=true',
-            'target': 'self',
-        }
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.handover', handover.id
+        )
