@@ -292,12 +292,6 @@
               action="action_it_asset_damage_report" 
               sequence="30"/>
 
-    <menuitem id="it_asset_menu_form_material_request" 
-              name="Material Request" 
-              parent="it_asset_menu_forms" 
-              action="action_it_asset_material_request" 
-              sequence="35"/>
-
     <!-- Material Request Views -->
     <record id="view_it_asset_material_request_list" model="ir.ui.view">
         <field name="name">it.asset.material_request.list</field>
@@ -366,6 +360,12 @@
             <p class="o_view_nocontent_smiling_face">Create your first material request!</p>
         </field>
     </record>
+
+    <menuitem id="it_asset_menu_form_material_request" 
+              name="Material Request" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_material_request" 
+              sequence="35"/>
 
     <!-- Item Handover Action -->
     <record id="action_it_item_handover" model="ir.actions.act_window">
