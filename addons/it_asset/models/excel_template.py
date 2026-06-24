@@ -449,7 +449,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'T6': tgl.strftime('%d/%m/%Y') if tgl else '',
             'B40': request.reason if request.reason else '',
             # 'C11': state_label,
-            'B56': request.name if request.name else '',
+            'B56': request.employee_id.name if request.employee_id else '',
             'D57': tgl.strftime('%d/%m/%Y') if tgl else '',
         }
 
@@ -496,7 +496,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'J40': report.verified_by_id.name if report.verified_by_id else '',
             'S40': report.known_by_id.name if report.known_by_id else '',
             'AB40': report.approved_by_id.name if report.approved_by_id else '',
-            'Z32': f" Samaenre, {_format_date_indonesia(tgl)} " if tgl else '',
+            'Z32': f" Samaenre, {_format_date_indonesia(tgl, '%d %B %Y')} " if tgl else '',
             
         }
 
@@ -542,7 +542,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         )
 
     # ============================================
-    # 5. EXPORT HANDOVER (OLD) KE EXCEL
+    # 5. EXPORT HANDOVER KE EXCEL
     # ============================================
 
     def export_handover_excel(self, handover_id):
@@ -568,19 +568,33 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         cell_data = {
             'A9': handover.name if handover.name else '',
-            'A11': f" Pada hari {_format_date_indonesia(tgl)} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
+            'A18': f" Pada hari {_format_date_indonesia(tgl)} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
             'I14': handover.sender_id.name if handover.sender_id else '',
             'I15': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
             'Z14': handover.receiver_id.name if handover.receiver_id else '',
             'Z15': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
             'C45': handover.sender_id.name if handover.sender_id else '',
-            'N45': handover.receiver_id.job_id.name if handover.receiver_id and handover.receiver_id.job_id else '',
-            'B21': 1,
-            'D21': handover.asset_id.name if handover.asset_id else '',
-            'Q21': 1,
-            'S21': kondisi,
-            'X21': keterangan,
+            'N45': handover.receiver_id.name if handover.receiver_id else '',
         }
+
+        # Baris 21: Asset utama (Laptop/PC dll)
+        cell_data['B21'] = 1
+        cell_data['D21'] = handover.asset_id.name if handover.asset_id else ''
+        cell_data['Q21'] = 1
+        cell_data['S21'] = kondisi
+        cell_data['X21'] = keterangan
+
+        # Baris 22-27: Accessories / Perintilan
+        accessories = handover.asset_id.accessory_ids if handover.asset_id else []
+        for idx, acc in enumerate(accessories, start=22):
+            if idx > 27:
+                break
+            cell_data[f'B{idx}'] = idx - 21
+            cell_data[f'D{idx}'] = acc.name
+            cell_data[f'Q{idx}'] = acc.quantity
+            acc_kondisi = dict(acc._fields['condition'].selection).get(acc.condition, 'Good')
+            cell_data[f'S{idx}'] = acc_kondisi
+            cell_data[f'X{idx}'] = acc.serial_number or ''
 
         file_data = self._fill_template('handover_template.xlsx', cell_data)
         filename = f"Handover_{handover.name}.xlsx"

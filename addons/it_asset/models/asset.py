@@ -60,6 +60,7 @@ class ITAsset(models.Model):
     maintenance_ids = fields.One2many('it_asset.maintenance', 'asset_id', string='Maintenances')
     printer_usage_ids = fields.One2many('it_asset.printer.usage', 'asset_id', string='Printer Usage Records')
     is_printer = fields.Boolean(compute='_compute_is_printer', store=True)
+    accessory_ids = fields.One2many('it_asset.accessory', 'asset_id', string='Accessories / Perintilan')
     damage_report_count = fields.Integer(compute='_compute_form_counts')
     handover_count = fields.Integer(compute='_compute_form_counts')
     asset_display_name = fields.Char(string='Display Name', compute='_compute_asset_display_name', store=True)

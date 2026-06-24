@@ -8,5 +8,6 @@ from . import asset_unit
 from . import printer_usage
 from . import asset_form
 from . import asset_swap
+from . import asset_accessory
 from . import excel_template
 from . import excel_export_mixin
