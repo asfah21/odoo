@@ -418,14 +418,25 @@ class ITAssetExcelTemplate(models.AbstractModel):
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
 
         cell_data = {
-            'C5': request.name if request.name else '',
-            'C6': request.employee_id.name if request.employee_id else '',
-            'C7': request.department_id.name if request.department_id else '',
-            'C8': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'C9': request.category_id.name if request.category_id else '',
-            'C10': request.reason if request.reason else '',
-            'C11': state_label,
+            'B11': request.name if request.name else '',
+            'N11': request.employee_id.name if request.employee_id else '',
+            'AN11': request.department_id.name if request.department_id else '',
+            'T6': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'B40': request.reason if request.reason else '',
+            # 'C11': state_label,
+            'B56': request.name if request.name else '',
+            'D57': tgl.strftime('%d/%m/%Y') if tgl else '',
         }
+
+        # Logic category: Laptop -> centang C21, Printer -> centang C23, lainnya -> tulis di D35
+        if request.category_id:
+            cat_name = request.category_id.name.lower()
+            if 'laptop' in cat_name:
+                cell_data['C21'] = '✓'
+            elif 'printer' in cat_name:
+                cell_data['C23'] = '✓'
+            else:
+                cell_data['D35'] = request.category_id.name
 
         file_data = self._fill_template('asset_request_template.xlsx', cell_data)
         filename = f"Asset_Request_{request.name}.xlsx"
@@ -447,13 +458,19 @@ class ITAssetExcelTemplate(models.AbstractModel):
         tgl = report.report_date
 
         cell_data = {
-            'C5': report.name if report.name else '',
-            'C6': tgl.strftime('%d %B %Y') if tgl else '',
-            'C7': report.asset_id.name if report.asset_id else '',
-            'C8': report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '',
-            'C9': report.employee_id.name if report.employee_id else '',
-            'C10': report.damage_type if report.damage_type else '',
-            'C11': report.description if report.description else '',
+            'A9': report.name if report.name else '',
+            'A11': f" Pada hari {tgl.strftime('%A, %d %B %Y')} telah terjadi kerusakan perangkat sebanyak 1 (satu) unit dengan rincian sebagai berikut:" if tgl else '',
+            'K14': report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '',
+            'K15': report.employee_id.name if report.employee_id else '',
+            'K16': report.asset_id.category_id.name if report.asset_id and report.asset_id.category_id else '',
+            'K17': report.asset_id.name if report.asset_id else '',
+            'K18': report.asset_id.model if report.asset_id and report.asset_id.model else '',
+            'K19': report.asset_id.lot_id.name if report.asset_id and report.asset_id.lot_id else '',
+            'A23': report.description if report.description else '',
+            'A40': report.user_id.name if report.user_id else '',
+            'J40': report.verified_by_id.name if report.verified_by_id else '',
+            'S40': report.known_by_id.name if report.known_by_id else '',
+            'AB40': report.approved_by_id.name if report.approved_by_id else '',
         }
 
         file_data = self._fill_template('damage_report_template.xlsx', cell_data)
@@ -477,13 +494,14 @@ class ITAssetExcelTemplate(models.AbstractModel):
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
 
         cell_data = {
-            'C5': request.name if request.name else '',
-            'C6': request.employee_id.name if request.employee_id else '',
-            'C7': request.department_id.name if request.department_id else '',
-            'C8': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'C9': request.account_type if request.account_type else '',
-            'C10': request.reason if request.reason else '',
-            'C11': state_label,
+            # 'C5': request.name if request.name else '',
+            'R11': request.employee_id.name if request.employee_id else '',
+            'R14': request.department_id.name if request.department_id else '',
+            'D49': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'R19': request.account_type if request.account_type else '',
+            'B25': request.reason if request.reason else '',
+            # 'C11': state_label,
+            'B48': request.employee_id.name if request.employee_id else '',
         }
 
         file_data = self._fill_template('account_request_template.xlsx', cell_data)
@@ -521,7 +539,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         cell_data = {
             'A9': handover.name if handover.name else '',
-            'A11': f" Pada hari {format_date(tgl, format='EEEE, dd MMMM yyyy')} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
+            'A11': f" Pada hari {tgl.strftime('%A, %d %B %Y')} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
             'I14': handover.sender_id.name if handover.sender_id else '',
             'I15': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
             'Z14': handover.receiver_id.name if handover.receiver_id else '',
