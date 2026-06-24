@@ -262,36 +262,6 @@
         </field>
     </record>
 
-    <!-- MENU DEFINITIONS -->
-    <menuitem id="it_asset_menu_forms" 
-              name="Form" 
-              parent="it_asset_menu_root" 
-              sequence="15"/> <!-- 15 puts it between Asset Management (10) and Fleet (20) -->
-
-    <menuitem id="it_asset_menu_form_request" 
-              name="Asset Request" 
-              parent="it_asset_menu_forms" 
-              action="action_it_asset_request" 
-              sequence="10"/>
-
-    <menuitem id="it_asset_menu_form_account_request" 
-              name="Account Request" 
-              parent="it_asset_menu_forms" 
-              action="action_it_asset_account_request" 
-              sequence="15"/>
-
-    <menuitem id="it_asset_menu_form_handover" 
-              name="Handover" 
-              parent="it_asset_menu_forms" 
-              action="action_it_asset_handover" 
-              sequence="20"/>
-
-    <menuitem id="it_asset_menu_form_damage" 
-              name="Damage Report" 
-              parent="it_asset_menu_forms" 
-              action="action_it_asset_damage_report" 
-              sequence="30"/>
-
     <!-- Material Request Views -->
     <record id="view_it_asset_material_request_list" model="ir.ui.view">
         <field name="name">it.asset.material_request.list</field>
@@ -316,6 +286,7 @@
                     <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'submitted'"/>
                     <button name="action_fulfill" string="Mark Fulfilled" type="object" class="oe_highlight" invisible="state != 'approved'"/>
                     <button name="action_reject" string="Reject" type="object" invisible="state not in ['submitted', 'approved']"/>
+                    <button name="export_material_request_excel" string="Export Excel" type="object" class="btn-success" icon="fa-file-excel-o" invisible="state == 'draft'"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,fulfilled"/>
                 </header>
                 <sheet>
@@ -331,13 +302,23 @@
                             <field name="request_date"/>
                         </group>
                     </group>
+                    <group string="Approval">
+                        <group>
+                            <field name="known_by_id" placeholder="Diketahui Oleh"/>
+                        </group>
+                        <group>
+                            <field name="approved_by_id" placeholder="Disetujui Oleh"/>
+                        </group>
+                    </group>
                     <notebook>
                         <page string="Items">
                             <field name="line_ids">
                                 <list editable="bottom">
                                     <field name="name"/>
+                                    <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="uom"/>
+                                    <field name="purpose"/>
                                     <field name="notes"/>
                                 </list>
                             </field>
@@ -361,11 +342,41 @@
         </field>
     </record>
 
+    <!-- MENU DEFINITIONS -->
+    <menuitem id="it_asset_menu_forms" 
+              name="Form" 
+              parent="it_asset_menu_root" 
+              sequence="15"/> <!-- 15 puts it between Asset Management (10) and Fleet (20) -->
+
+    <menuitem id="it_asset_menu_form_request" 
+              name="Asset Request" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_request" 
+              sequence="10"/>
+
+    <menuitem id="it_asset_menu_form_account_request" 
+              name="Account Request" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_account_request" 
+              sequence="15"/>
+
     <menuitem id="it_asset_menu_form_material_request" 
               name="Material Request" 
               parent="it_asset_menu_forms" 
               action="action_it_asset_material_request" 
-              sequence="35"/>
+              sequence="17"/>
+
+    <menuitem id="it_asset_menu_form_handover" 
+              name="Handover" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_handover" 
+              sequence="20"/>
+
+    <menuitem id="it_asset_menu_form_damage" 
+              name="Damage Report" 
+              parent="it_asset_menu_forms" 
+              action="action_it_asset_damage_report" 
+              sequence="30"/>
 
     <!-- Item Handover Action -->
     <record id="action_it_item_handover" model="ir.actions.act_window">

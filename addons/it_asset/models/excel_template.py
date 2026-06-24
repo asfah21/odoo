@@ -603,3 +603,49 @@ class ITAssetExcelTemplate(models.AbstractModel):
             file_data, filename,
             'it_asset.handover', handover.id
         )
+
+    # ============================================
+    # 6. EXPORT MATERIAL REQUEST KE EXCEL
+    # ============================================
+
+    def export_material_request_excel(self, request_id):
+        request = self.env['it_asset.material_request'].browse(request_id)
+        if not request.exists():
+            raise UserError(_("Material Request tidak ditemukan!"))
+
+        tgl = request.request_date
+        state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
+
+        cell_data = {
+            'B11': request.employee_id.name if request.employee_id else '',
+            'AN11': request.department_id.name if request.department_id else '',
+            'T6': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'B40': request.reason if request.reason else '',
+            'B56': request.employee_id.name if request.employee_id else '',
+            'D57': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'B58': request.known_by_id.name if request.known_by_id else '',
+            'B59': request.approved_by_id.name if request.approved_by_id else '',
+        }
+
+        # Isi tabel items mulai baris 21
+        start_row = 21
+        current_row = start_row
+        for idx, line in enumerate(request.line_ids, start=1):
+            if current_row > 35:  # max baris
+                break
+            cell_data[f'B{current_row}'] = idx
+            cell_data[f'D{current_row}'] = line.name
+            cell_data[f'H{current_row}'] = line.description or ''
+            cell_data[f'S{current_row}'] = line.quantity
+            cell_data[f'X{current_row}'] = line.uom or ''
+            cell_data[f'AF{current_row}'] = line.purpose or ''
+            cell_data[f'AM{current_row}'] = line.notes or ''
+            current_row += 1
+
+        file_data = self._fill_template('material_request_template.xlsx', cell_data)
+        filename = f"Material_Request_{request.name}.xlsx"
+
+        return self._create_attachment(
+            file_data, filename,
+            'it_asset.material_request', request.id
+        )
