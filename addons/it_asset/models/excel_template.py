@@ -37,8 +37,33 @@ NSMAP = {
     'r': NS_RELATIONSHIPS,
 }
 
+# Map hari dan bulan Inggris -> Indonesia
+HARI_MAP = {
+    'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
+    'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu',
+    'Sunday': 'Minggu',
+}
+BULAN_MAP = {
+    'January': 'Januari', 'February': 'Februari', 'March': 'Maret',
+    'April': 'April', 'May': 'Mei', 'June': 'Juni',
+    'July': 'Juli', 'August': 'Agustus', 'September': 'September',
+    'October': 'Oktober', 'November': 'November', 'December': 'Desember',
+}
+
+def _format_date_indonesia(tgl, format_str='%A, %d %B %Y'):
+    """Format tanggal dengan hari dan bulan dalam Bahasa Indonesia."""
+    if not tgl:
+        return ''
+    result = tgl.strftime(format_str)
+    for en, id in HARI_MAP.items():
+        result = result.replace(en, id)
+    for en, id in BULAN_MAP.items():
+        result = result.replace(en, id)
+    return result
+
 
 class ITAssetExcelTemplate(models.AbstractModel):
+
     _name = 'it_asset.excel_template'
     _description = 'Excel Template Export untuk IT Asset'
 
@@ -418,8 +443,8 @@ class ITAssetExcelTemplate(models.AbstractModel):
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
 
         cell_data = {
-            'B11': request.name if request.name else '',
-            'N11': request.employee_id.name if request.employee_id else '',
+            # 'B11': request.name if request.name else '',
+            'B11': request.employee_id.name if request.employee_id else '',
             'AN11': request.department_id.name if request.department_id else '',
             'T6': tgl.strftime('%d/%m/%Y') if tgl else '',
             'B40': request.reason if request.reason else '',
@@ -459,7 +484,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         cell_data = {
             'A9': report.name if report.name else '',
-            'A11': f" Pada hari {tgl.strftime('%A, %d %B %Y')} telah terjadi kerusakan perangkat sebanyak 1 (satu) unit dengan rincian sebagai berikut:" if tgl else '',
+            'A11': f" Pada hari {_format_date_indonesia(tgl)} telah terjadi kerusakan perangkat sebanyak 1 (satu) unit dengan rincian sebagai berikut:" if tgl else '',
             'K14': report.asset_id.asset_tag if report.asset_id and report.asset_id.asset_tag else '',
             'K15': report.employee_id.name if report.employee_id else '',
             'K16': report.asset_id.category_id.name if report.asset_id and report.asset_id.category_id else '',
@@ -471,6 +496,8 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'J40': report.verified_by_id.name if report.verified_by_id else '',
             'S40': report.known_by_id.name if report.known_by_id else '',
             'AB40': report.approved_by_id.name if report.approved_by_id else '',
+            'Z32': f" Samaenre, {_format_date_indonesia(tgl)} " if tgl else '',
+            
         }
 
         file_data = self._fill_template('damage_report_template.xlsx', cell_data)
@@ -493,12 +520,14 @@ class ITAssetExcelTemplate(models.AbstractModel):
         tgl = request.request_date
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
 
+        account_type_label = dict(request._fields['account_type'].selection).get(request.account_type, '') if request.account_type else ''
+
         cell_data = {
             # 'C5': request.name if request.name else '',
             'R11': request.employee_id.name if request.employee_id else '',
             'R14': request.department_id.name if request.department_id else '',
             'D49': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'R19': request.account_type if request.account_type else '',
+            'R19': account_type_label,
             'B25': request.reason if request.reason else '',
             # 'C11': state_label,
             'B48': request.employee_id.name if request.employee_id else '',
@@ -539,7 +568,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         cell_data = {
             'A9': handover.name if handover.name else '',
-            'A11': f" Pada hari {tgl.strftime('%A, %d %B %Y')} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
+            'A11': f" Pada hari {_format_date_indonesia(tgl)} telah dilakukan serah terima perangkat dengan rincian:" if tgl else '',
             'I14': handover.sender_id.name if handover.sender_id else '',
             'I15': handover.sender_id.job_id.name if handover.sender_id and handover.sender_id.job_id else '',
             'Z14': handover.receiver_id.name if handover.receiver_id else '',
