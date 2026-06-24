@@ -11,7 +11,13 @@ class ITAssetMaterialRequest(models.Model):
     employee_id = fields.Many2one('hr.employee', string='Requester', required=True, default=lambda self: self.env.user.employee_id)
     department_id = fields.Many2one('hr.department', string='Department', related='employee_id.department_id', readonly=True)
     request_date = fields.Date(string='Request Date', default=fields.Date.context_today, required=True)
-    reason = fields.Text(string='Reason / Notes')
+    priority = fields.Selection([
+        ('p1', 'P1'),
+        ('p2', 'P2'),
+        ('p3', 'P3'),
+    ], string='Priority', default='p2')
+    reason = fields.Text(string='Reason')
+    notes = fields.Text(string='Notes')
     known_by_id = fields.Many2one('hr.employee', string='Diketahui Oleh')
     approved_by_id = fields.Many2one('hr.employee', string='Disetujui Oleh')
     state = fields.Selection([
@@ -55,8 +61,9 @@ class ITAssetMaterialRequestLine(models.Model):
 
     request_id = fields.Many2one('it_asset.material_request', string='Request', required=True, ondelete='cascade')
     name = fields.Char(string='Item Name', required=True)
-    description = fields.Char(string='Description')
+    description = fields.Char(string='Description / Keterangan')
     quantity = fields.Float(string='Quantity', default=1.0, required=True)
     uom = fields.Char(string='Unit of Measure', default='Unit')
+    reason = fields.Char(string='Reason')
     purpose = fields.Char(string='For Purpose / Untuk Kebutuhan')
     notes = fields.Text(string='Notes')

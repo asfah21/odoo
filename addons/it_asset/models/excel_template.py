@@ -616,30 +616,33 @@ class ITAssetExcelTemplate(models.AbstractModel):
         tgl = request.request_date
         state_label = dict(request._fields['state'].selection).get(request.state, '') if request.state else ''
 
+        priority_label = dict(request._fields['priority'].selection).get(request.priority, '') if request.priority else ''
+
         cell_data = {
-            'B11': request.employee_id.name if request.employee_id else '',
-            'AN11': request.department_id.name if request.department_id else '',
-            'T6': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'B40': request.reason if request.reason else '',
-            'B56': request.employee_id.name if request.employee_id else '',
-            'D57': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'B58': request.known_by_id.name if request.known_by_id else '',
-            'B59': request.approved_by_id.name if request.approved_by_id else '',
+            'B32': request.employee_id.name if request.employee_id else '',
+            'I6': request.department_id.name if request.department_id else '',
+            'AS7': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'F34': tgl.strftime('%d/%m/%Y') if tgl else '',
+            'AB32': request.known_by_id.name if request.known_by_id else '',
+            'BB32': request.approved_by_id.name if request.approved_by_id else '',
+            'C21': request.notes if request.notes else '',
         }
 
-        # Isi tabel items mulai baris 21
-        start_row = 21
+        # Priority: isi teks P1/P2/P3 di cell terpisah
+        cell_data['AP22'] = priority_label
+
+        # Isi tabel items mulai baris 11 (I11 - I18)
+        start_row = 11
         current_row = start_row
         for idx, line in enumerate(request.line_ids, start=1):
-            if current_row > 35:  # max baris
+            if current_row > 18:  # max baris
                 break
-            cell_data[f'B{current_row}'] = idx
-            cell_data[f'D{current_row}'] = line.name
-            cell_data[f'H{current_row}'] = line.description or ''
-            cell_data[f'S{current_row}'] = line.quantity
-            cell_data[f'X{current_row}'] = line.uom or ''
-            cell_data[f'AF{current_row}'] = line.purpose or ''
-            cell_data[f'AM{current_row}'] = line.notes or ''
+            cell_data[f'I{current_row}'] = line.name
+            cell_data[f'V{current_row}'] = line.description or ''
+            cell_data[f'AH{current_row}'] = line.quantity
+            cell_data[f'AK{current_row}'] = line.uom or ''
+            cell_data[f'AU{current_row}'] = line.purpose or ''
+            cell_data[f'BC{current_row}'] = line.reason or ''
             current_row += 1
 
         file_data = self._fill_template('material_request_template.xlsx', cell_data)

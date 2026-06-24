@@ -300,6 +300,7 @@
                         </group>
                         <group>
                             <field name="request_date"/>
+                            <field name="priority" widget="radio"/>
                         </group>
                     </group>
                     <group string="Approval">
@@ -318,15 +319,15 @@
                                     <field name="description"/>
                                     <field name="quantity"/>
                                     <field name="uom"/>
+                                    <field name="reason"/>
                                     <field name="purpose"/>
-                                    <field name="notes"/>
                                 </list>
                             </field>
                         </page>
-                        <page string="Reason">
-                            <field name="reason" placeholder="Why do you need these materials?"/>
-                        </page>
                     </notebook>
+                    <group string="Notes">
+                        <field name="notes" placeholder="Additional notes..." nolabel="1"/>
+                    </group>
                 </sheet>
                 <chatter/>
             </form>
