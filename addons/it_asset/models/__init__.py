@@ -11,3 +11,4 @@ from . import asset_swap
 from . import asset_accessory
 from . import excel_template
 from . import excel_export_mixin
+from . import material_request
