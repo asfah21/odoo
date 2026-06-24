@@ -585,7 +585,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
         cell_data['X21'] = keterangan
 
         # Baris 22-27: Accessories / Perintilan
-        accessories = handover.asset_id.accessory_ids if handover.asset_id else []
+        accessories = handover.accessory_ids
         for idx, acc in enumerate(accessories, start=22):
             if idx > 27:
                 break

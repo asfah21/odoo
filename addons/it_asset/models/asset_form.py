@@ -319,6 +319,7 @@ class ITAssetHandover(models.Model):
         ('draft', 'Draft'),
         ('signed', 'Signed')
     ], string='Status', default='draft', tracking=True)
+    accessory_ids = fields.One2many('it_asset.handover.accessory', 'handover_id', string='Accessories / Perintilan')
 
     @api.model_create_multi
     def create(self, vals_list):

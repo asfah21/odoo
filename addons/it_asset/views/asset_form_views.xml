@@ -104,6 +104,18 @@
                         <field name="notes"/>
                         <field name="signature" widget="signature" readonly="state == 'signed'"/>
                     </group>
+                    <notebook>
+                        <page string="Accessories / Perintilan" name="accessories">
+                            <field name="accessory_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="quantity"/>
+                                    <field name="condition"/>
+                                    <field name="serial_number"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
                 <chatter/>
             </form>
