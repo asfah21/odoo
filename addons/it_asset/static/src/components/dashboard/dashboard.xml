@@ -377,34 +377,89 @@
                             </div>
 
                             <div class="flex-grow-1 d-flex flex-column justify-content-center">
-                                <!-- Bar Chart: Total vs Fulfilled -->
-                                <div class="d-flex align-items-end justify-content-around" style="height: 180px;">
-                                    <!-- Total Documents Bar -->
-                                    <div class="d-flex flex-column align-items-center flex-grow-1">
-                                        <div class="fw-bold mb-2 small" t-esc="state.stats.request_stats.total_all"/>
-                                        <div class="column-bar shadow-sm"
-                                             t-attf-style="height: {{ Math.min((state.stats.request_stats.total_all / (state.stats.request_stats.total_all || 1)) * 160, 160) }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 50px; border-radius: 6px 6px 0 0; transition: height 1s ease-out;"/>
-                                        <div class="mt-2 small text-muted text-center fw-bold" style="font-size: 0.7rem;">Total</div>
+                                <!-- Horizontal Bar Chart: 4 bars grouped by Total & Fulfilled -->
+                                <div class="horizontal-chart-container" style="padding: 0 4px;">
+                                    
+                                    <!-- Group Label: TOTAL -->
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="small fw-bold text-uppercase text-muted" style="font-size: 0.6rem; letter-spacing: 0.5px;">Total Documents</span>
+                                        <div class="flex-grow-1 ms-2" style="border-bottom: 1px dashed #dee2e6;"></div>
                                     </div>
-                                    <!-- Fulfilled Documents Bar -->
-                                    <div class="d-flex flex-column align-items-center flex-grow-1">
-                                        <div class="fw-bold mb-2 small text-success" t-esc="state.stats.request_stats.fulfilled_all"/>
-                                        <div class="column-bar shadow-sm"
-                                             t-attf-style="height: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.fulfilled_all / state.stats.request_stats.total_all) * 160 : 0) }}px; background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%); width: 50px; border-radius: 6px 6px 0 0; transition: height 1s ease-out;"/>
-                                        <div class="mt-2 small text-muted text-center fw-bold" style="font-size: 0.7rem;">Fulfilled</div>
-                                    </div>
-                                </div>
 
-                                <!-- Legend / Breakdown -->
-                                <div class="mt-4 pt-3 border-top">
-                                    <div class="d-flex justify-content-between small mb-2">
-                                        <span class="text-muted"><i class="fa fa-circle me-1 text-indigo"></i>Asset Request</span>
-                                        <span class="fw-bold"><t t-esc="state.stats.request_stats.total_asset"/> / <t t-esc="state.stats.request_stats.fulfilled_asset"/> Fulfilled</span>
+                                    <!-- Bar 1: Asset Request (Total) -->
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="text-muted small text-truncate" style="width: 90px; font-size: 0.65rem; flex-shrink: 0;">
+                                            <i class="fa fa-circle me-1" style="color: #6366f1; font-size: 0.5rem;"></i>Asset Request
+                                        </div>
+                                        <div class="flex-grow-1" style="position: relative; height: 22px;">
+                                            <div class="progress" style="height: 22px; border-radius: 4px; background: #f1f5f9;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     t-attf-style="width: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.total_asset / state.stats.request_stats.total_all) * 100 : 0) }}%; background: linear-gradient(90deg, #6366f1, #818cf8); border-radius: 4px; transition: width 1s ease-out;">
+                                                </div>
+                                            </div>
+                                            <span class="fw-bold small px-2" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #1e293b;">
+                                                <t t-esc="state.stats.request_stats.total_asset"/>
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div class="d-flex justify-content-between small">
-                                        <span class="text-muted"><i class="fa fa-circle me-1 text-green"></i>Material Request</span>
-                                        <span class="fw-bold"><t t-esc="state.stats.request_stats.total_material"/> / <t t-esc="state.stats.request_stats.fulfilled_material"/> Fulfilled</span>
+
+                                    <!-- Bar 2: Material Request (Total) -->
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="text-muted small text-truncate" style="width: 90px; font-size: 0.65rem; flex-shrink: 0;">
+                                            <i class="fa fa-circle me-1" style="color: #a855f7; font-size: 0.5rem;"></i>Material Request
+                                        </div>
+                                        <div class="flex-grow-1" style="position: relative; height: 22px;">
+                                            <div class="progress" style="height: 22px; border-radius: 4px; background: #f1f5f9;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     t-attf-style="width: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.total_material / state.stats.request_stats.total_all) * 100 : 0) }}%; background: linear-gradient(90deg, #a855f7, #c084fc); border-radius: 4px; transition: width 1s ease-out;">
+                                                </div>
+                                            </div>
+                                            <span class="fw-bold small px-2" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #1e293b;">
+                                                <t t-esc="state.stats.request_stats.total_material"/>
+                                            </span>
+                                        </div>
                                     </div>
+
+                                    <!-- Group Label: FULFILLED -->
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="small fw-bold text-uppercase text-muted" style="font-size: 0.6rem; letter-spacing: 0.5px;">Fulfilled</span>
+                                        <div class="flex-grow-1 ms-2" style="border-bottom: 1px dashed #dee2e6;"></div>
+                                    </div>
+
+                                    <!-- Bar 3: Asset Request (Fulfilled) -->
+                                    <div class="d-flex align-items-center mb-2">
+                                        <div class="text-muted small text-truncate" style="width: 90px; font-size: 0.65rem; flex-shrink: 0;">
+                                            <i class="fa fa-circle me-1" style="color: #22c55e; font-size: 0.5rem;"></i>Asset Request
+                                        </div>
+                                        <div class="flex-grow-1" style="position: relative; height: 22px;">
+                                            <div class="progress" style="height: 22px; border-radius: 4px; background: #f1f5f9;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     t-attf-style="width: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.fulfilled_asset / state.stats.request_stats.total_all) * 100 : 0) }}%; background: linear-gradient(90deg, #22c55e, #4ade80); border-radius: 4px; transition: width 1s ease-out;">
+                                                </div>
+                                            </div>
+                                            <span class="fw-bold small px-2" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #1e293b;">
+                                                <t t-esc="state.stats.request_stats.fulfilled_asset"/>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bar 4: Material Request (Fulfilled) -->
+                                    <div class="d-flex align-items-center mb-0">
+                                        <div class="text-muted small text-truncate" style="width: 90px; font-size: 0.65rem; flex-shrink: 0;">
+                                            <i class="fa fa-circle me-1" style="color: #16a34a; font-size: 0.5rem;"></i>Material Request
+                                        </div>
+                                        <div class="flex-grow-1" style="position: relative; height: 22px;">
+                                            <div class="progress" style="height: 22px; border-radius: 4px; background: #f1f5f9;">
+                                                <div class="progress-bar" role="progressbar"
+                                                     t-attf-style="width: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.fulfilled_material / state.stats.request_stats.total_all) * 100 : 0) }}%; background: linear-gradient(90deg, #16a34a, #22c55e); border-radius: 4px; transition: width 1s ease-out;">
+                                                </div>
+                                            </div>
+                                            <span class="fw-bold small px-2" style="position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 0.7rem; color: #1e293b;">
+                                                <t t-esc="state.stats.request_stats.fulfilled_material"/>
+                                            </span>
+                                        </div>
+                                    </div>
+
                                 </div>
                             </div>
                         </div>

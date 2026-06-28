@@ -28,7 +28,7 @@ export class ITAssetDashboard extends Component {
                 state_distribution: [],
                 category_distribution: [],
                 fleet_comparison: { assets: 0, units: 0, ratio: 0 },
-                request_stats: { total_all: 0, total_asset: 0, total_material: 0, fulfilled_all: 0, fulfilled_asset: 0, fulfilled_material: 0 }
+                request_stats: { total_all: 0, total_asset: 0, total_material: 0, fulfilled_all: 0, fulfilled_asset: 0, fulfilled_material: 0, max_val: 1, groups: [] }
             }
         });
 

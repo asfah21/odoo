@@ -509,7 +509,7 @@ class ITAsset(models.Model):
         }
 
     def _get_asset_material_request_stats(self):
-        """Fetch Asset/Material Request summary for the dashboard (bar chart: Total vs Fulfilled)"""
+        """Fetch Asset/Material Request summary for the dashboard (horizontal bar chart: Total vs Fulfilled)"""
         AssetRequest = self.env['it_asset.request']
         MaterialRequest = self.env['it_asset.material_request']
 
@@ -523,6 +523,9 @@ class ITAsset(models.Model):
         fulfilled_material = MaterialRequest.search_count([('state', '=', 'fulfilled')])
         fulfilled_all = fulfilled_asset + fulfilled_material
 
+        # Max value for percentage calculation (avoid division by zero)
+        max_val = max(total_asset, total_material, fulfilled_asset, fulfilled_material, 1)
+
         return {
             'total_all': total_all,
             'total_asset': total_asset,
@@ -530,4 +533,22 @@ class ITAsset(models.Model):
             'fulfilled_all': fulfilled_all,
             'fulfilled_asset': fulfilled_asset,
             'fulfilled_material': fulfilled_material,
+            'max_val': max_val,
+            # Structured data for horizontal bar chart grouped rendering
+            'groups': [
+                {
+                    'label': 'Total Documents',
+                    'bars': [
+                        {'label': 'Asset Request', 'value': total_asset, 'color': '#6366f1'},
+                        {'label': 'Material Request', 'value': total_material, 'color': '#a855f7'},
+                    ]
+                },
+                {
+                    'label': 'Fulfilled',
+                    'bars': [
+                        {'label': 'Asset Request', 'value': fulfilled_asset, 'color': '#22c55e'},
+                        {'label': 'Material Request', 'value': fulfilled_material, 'color': '#16a34a'},
+                    ]
+                }
+            ]
         }
