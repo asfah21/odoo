@@ -365,93 +365,47 @@
                         </div>
                     </div>
 
-                    <!-- Printer Usage (30%) -->
+                    <!-- Asset/Material Request (30%) -->
                     <div class="col-12 col-lg-4">
                         <div class="chart-panel shadow-sm h-100 mb-0 d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h4 class="mb-0">Printer Usage</h4>
-                                <!-- Printer Period Filter -->
-                                <div class="dropdown">
-                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                        <t t-esc="state.printerPeriod"/>
-                                    </button>
-                                    <ul class="dropdown-menu shadow">
-                                        <li class="px-2 py-1">
-                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
-                                                 t-attf-class="{{state.printerPeriod === '1D' ? 'selected-item' : ''}}"
-                                                 t-on-click.prevent="() => this.setPrinterPeriod('1D')">
-                                                <span>1D (Today)</span>
-                                            </div>
-                                        </li>
-                                        <li class="px-2 py-1">
-                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
-                                                 t-attf-class="{{state.printerPeriod === '7D' ? 'selected-item' : ''}}"
-                                                 t-on-click.prevent="() => this.setPrinterPeriod('7D')">
-                                                <span>7D (Last Week)</span>
-                                            </div>
-                                        </li>
-                                        <li class="px-2 py-1">
-                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
-                                                 t-attf-class="{{state.printerPeriod === '1M' ? 'selected-item' : ''}}"
-                                                 t-on-click.prevent="() => this.setPrinterPeriod('1M')">
-                                                <span>1M (Last Month)</span>
-                                            </div>
-                                        </li>
-                                        <li class="px-2 py-1">
-                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
-                                                 t-attf-class="{{state.printerPeriod === '1Y' ? 'selected-item' : ''}}"
-                                                 t-on-click.prevent="() => this.setPrinterPeriod('1Y')">
-                                                <span>1Y (Last Year)</span>
-                                            </div>
-                                        </li>
-                                        <li><hr class="dropdown-divider"/></li>
-                                        <li class="px-2 py-1">
-                                            <div class="dropdown-item d-flex align-items-center cursor-pointer" 
-                                                 t-attf-class="{{state.printerPeriod === 'ALL' ? 'selected-item' : ''}}"
-                                                 t-on-click.prevent="() => this.setPrinterPeriod('ALL')">
-                                                <span>ALL (Total)</span>
-                                            </div>
-                                        </li>
-                                    </ul>
+                                <h4 class="mb-0">Asset/Material Request</h4>
+                                <div class="badge-total shadow-sm px-2 py-1 rounded-3 bg-light border d-flex align-items-center">
+                                    <i class="fa fa-file-text-o me-2 text-primary small"></i>
+                                    <span class="fw-bold text-primary" t-esc="state.stats.request_stats.total_all"/>
                                 </div>
                             </div>
-                            
-                            <div class="flex-grow-1 d-flex flex-column justify-content-between">
-                                <div class="printer-stats-main mb-4">
-                                    <div class="d-flex align-items-end gap-2 mb-1">
-                                        <span class="h2 mb-0 fw-black text-slate-800"><t t-esc="state.stats.printer_stats.total_pages.toLocaleString()"/></span>
-                                        <span class="text-muted small pb-1">
-                                            <t t-if="state.printerPeriod == 'ALL'">Total Printed</t>
-                                            <t t-else="">Pages Printed</t>
-                                        </span>
+
+                            <div class="flex-grow-1 d-flex flex-column justify-content-center">
+                                <!-- Bar Chart: Total vs Fulfilled -->
+                                <div class="d-flex align-items-end justify-content-around" style="height: 180px;">
+                                    <!-- Total Documents Bar -->
+                                    <div class="d-flex flex-column align-items-center flex-grow-1">
+                                        <div class="fw-bold mb-2 small" t-esc="state.stats.request_stats.total_all"/>
+                                        <div class="column-bar shadow-sm"
+                                             t-attf-style="height: {{ Math.min((state.stats.request_stats.total_all / (state.stats.request_stats.total_all || 1)) * 160, 160) }}px; background: linear-gradient(180deg, #6366f1 0%, #a855f7 100%); width: 50px; border-radius: 6px 6px 0 0; transition: height 1s ease-out;"/>
+                                        <div class="mt-2 small text-muted text-center fw-bold" style="font-size: 0.7rem;">Total</div>
+                                    </div>
+                                    <!-- Fulfilled Documents Bar -->
+                                    <div class="d-flex flex-column align-items-center flex-grow-1">
+                                        <div class="fw-bold mb-2 small text-success" t-esc="state.stats.request_stats.fulfilled_all"/>
+                                        <div class="column-bar shadow-sm"
+                                             t-attf-style="height: {{ (state.stats.request_stats.total_all > 0 ? (state.stats.request_stats.fulfilled_all / state.stats.request_stats.total_all) * 160 : 0) }}px; background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%); width: 50px; border-radius: 6px 6px 0 0; transition: height 1s ease-out;"/>
+                                        <div class="mt-2 small text-muted text-center fw-bold" style="font-size: 0.7rem;">Fulfilled</div>
                                     </div>
                                 </div>
 
-                                <div class="usage-split-box mb-0">
-                                    <div class="d-flex justify-content-between micro-text mb-1 fw-bold">
-                                        <span class="text-muted">B/W vs COLOR</span>
-                                        <span class="text-purple"><t t-esc="((state.stats.printer_stats.total_color / (state.stats.printer_stats.total_pages or 1)) * 100).toFixed(0)"/>% Color</span>
+                                <!-- Legend / Breakdown -->
+                                <div class="mt-4 pt-3 border-top">
+                                    <div class="d-flex justify-content-between small mb-2">
+                                        <span class="text-muted"><i class="fa fa-circle me-1 text-indigo"></i>Asset Request</span>
+                                        <span class="fw-bold"><t t-esc="state.stats.request_stats.total_asset"/> / <t t-esc="state.stats.request_stats.fulfilled_asset"/> Fulfilled</span>
                                     </div>
-                                    <div class="progress" style="height: 8px; border-radius: 4px; background: #e2e8f0;">
-                                        <div class="progress-bar" role="progressbar" 
-                                             t-attf-style="width: {{ (state.stats.printer_stats.total_bw / (state.stats.printer_stats.total_pages or 1)) * 100 }}%; background-color: #475569;" 
-                                             t-att-aria-valuenow="state.stats.printer_stats.total_bw" aria-valuemin="0" t-att-aria-valuemax="state.stats.printer_stats.total_pages"></div>
-                                        <div class="progress-bar" role="progressbar" 
-                                             t-attf-style="width: {{ (state.stats.printer_stats.total_color / (state.stats.printer_stats.total_pages or 1)) * 100 }}%; background: linear-gradient(90deg, #f472b6, #a855f7);" 
-                                             t-att-aria-valuenow="state.stats.printer_stats.total_color" aria-valuemin="0" t-att-aria-valuemax="state.stats.printer_stats.total_pages"></div>
-                                    </div>
-                                    <div class="d-flex justify-content-between mt-2">
-                                        <div class="small d-flex align-items-center">
-                                            <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #475569;"></div>
-                                            <span class="text-muted"><t t-esc="state.stats.printer_stats.total_bw.toLocaleString()"/> B/W</span>
-                                        </div>
-                                        <div class="small d-flex align-items-center">
-                                            <div class="rounded-circle me-1" style="width: 8px; height: 8px; background: #a855f7;"></div>
-                                            <span class="text-muted"><t t-esc="state.stats.printer_stats.total_color.toLocaleString()"/> Color</span>
-                                        </div>
+                                    <div class="d-flex justify-content-between small">
+                                        <span class="text-muted"><i class="fa fa-circle me-1 text-green"></i>Material Request</span>
+                                        <span class="fw-bold"><t t-esc="state.stats.request_stats.total_material"/> / <t t-esc="state.stats.request_stats.fulfilled_material"/> Fulfilled</span>
                                     </div>
                                 </div>
-
                             </div>
                         </div>
                     </div>

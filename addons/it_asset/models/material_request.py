@@ -61,9 +61,9 @@ class ITAssetMaterialRequestLine(models.Model):
 
     request_id = fields.Many2one('it_asset.material_request', string='Request', required=True, ondelete='cascade')
     name = fields.Char(string='Item Name', required=True)
-    description = fields.Char(string='Description / Keterangan')
+    description = fields.Char(string='Description')
     quantity = fields.Float(string='Quantity', default=1.0, required=True)
-    uom = fields.Char(string='Unit of Measure', default='Unit')
-    reason = fields.Char(string='Reason')
-    purpose = fields.Char(string='For Purpose / Untuk Kebutuhan')
+    uom = fields.Char(string='Unit of Measure', default='Unit')    
+    purpose = fields.Char(string='Untuk Kebutuhan')
+    reason = fields.Char(string='Keterangan')
     notes = fields.Text(string='Notes')

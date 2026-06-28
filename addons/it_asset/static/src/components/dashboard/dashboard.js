@@ -10,7 +10,6 @@ export class ITAssetDashboard extends Component {
         this.action = useService("action");
         this.state = useState({
             showMobileFilters: false,
-            printerPeriod: '7D',
             radioMode: 'digital',
             stats: {
                 total_assets: 0,
@@ -29,7 +28,7 @@ export class ITAssetDashboard extends Component {
                 state_distribution: [],
                 category_distribution: [],
                 fleet_comparison: { assets: 0, units: 0, ratio: 0 },
-                printer_stats: { total_color: 0, total_bw: 0, total_pages: 0, recent_pages: 0 }
+                request_stats: { total_all: 0, total_asset: 0, total_material: 0, fulfilled_all: 0, fulfilled_asset: 0, fulfilled_material: 0 }
             }
         });
 
@@ -53,7 +52,6 @@ export class ITAssetDashboard extends Component {
 
     async loadDashboardData() {
         const kwargs = {
-            printer_period: this.state.printerPeriod,
             radio_mode: this.state.radioMode,
         };
 
@@ -122,11 +120,6 @@ export class ITAssetDashboard extends Component {
     async onDateChange(type, ev) {
         if (type === 'start') this.dateStart = ev.target.value || null;
         if (type === 'end') this.dateEnd = ev.target.value || null;
-        await this.loadDashboardData();
-    }
-
-    async setPrinterPeriod(period) {
-        this.state.printerPeriod = period;
         await this.loadDashboardData();
     }
 

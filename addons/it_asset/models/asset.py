@@ -441,7 +441,7 @@ class ITAsset(models.Model):
             'laptop_condition_distribution': self._get_laptop_condition_stats(date_start, date_end, category_ids),
             'category_distribution': sorted(category_data, key=lambda x: x['count'], reverse=True),
             'fleet_comparison': self._get_fleet_comparison_stats(comp_asset_cat_ids, fleet_category_ids),
-            'printer_stats': self._get_printer_dashboard_stats(printer_period)
+            'request_stats': self._get_asset_material_request_stats()
         })
         return stats
 
@@ -508,47 +508,26 @@ class ITAsset(models.Model):
             'fleet_cat_ids': fleet_cat_ids or []
         }
 
-    def _get_printer_dashboard_stats(self, period='7D'):
-        """Fetch printer usage summary for the dashboard"""
-        Usage = self.env['it_asset.printer.usage']
-        
-        # Determine Date Range
-        if period == 'ALL':
-            # For ALL, we show the LATEST absolute readings for each printer
-            latest_usage_ids = Usage._read_group([], ['asset_id'], ['id:max'])
-            ids = [row[1] for row in latest_usage_ids if row[1]]
-            latest_records = Usage.browse(ids)
-            
-            total_bw = sum(latest_records.mapped('bw_pages'))
-            total_color = sum(latest_records.mapped('color_pages'))
-            total_printed = total_bw + total_color
-        else:
-            # For specific periods, we sum the growth recorded in that period
-            days = 7
-            if period == '1D': days = 0
-            elif period == '1M': days = 30
-            elif period == '1Y': days = 365
-            
-            end_date = fields.Date.today()
-            start_date = end_date - relativedelta(days=days)
-            
-            # Using read_group to sum up the differences (growth) within the period
-            domain = [('date', '>=', start_date), ('date', '<=', end_date)]
-            usage_totals = Usage.read_group(domain, ['bw_diff', 'color_diff', 'pages_diff'], [])
-            
-            if usage_totals and usage_totals[0]:
-                data = usage_totals[0]
-                total_bw = data.get('bw_diff') or 0
-                total_color = data.get('color_diff') or 0
-                total_printed = data.get('pages_diff') or 0
-            else:
-                total_bw = 0
-                total_color = 0
-                total_printed = 0
+    def _get_asset_material_request_stats(self):
+        """Fetch Asset/Material Request summary for the dashboard (bar chart: Total vs Fulfilled)"""
+        AssetRequest = self.env['it_asset.request']
+        MaterialRequest = self.env['it_asset.material_request']
+
+        # Total documents
+        total_asset = AssetRequest.search_count([])
+        total_material = MaterialRequest.search_count([])
+        total_all = total_asset + total_material
+
+        # Fulfilled documents
+        fulfilled_asset = AssetRequest.search_count([('state', '=', 'fulfilled')])
+        fulfilled_material = MaterialRequest.search_count([('state', '=', 'fulfilled')])
+        fulfilled_all = fulfilled_asset + fulfilled_material
 
         return {
-            'total_color': total_color,
-            'total_bw': total_bw,
-            'total_pages': total_printed,
-            'period': period
+            'total_all': total_all,
+            'total_asset': total_asset,
+            'total_material': total_material,
+            'fulfilled_all': fulfilled_all,
+            'fulfilled_asset': fulfilled_asset,
+            'fulfilled_material': fulfilled_material,
         }

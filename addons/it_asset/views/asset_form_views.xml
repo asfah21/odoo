@@ -319,9 +319,9 @@
                                     <field name="name"/>
                                     <field name="description"/>
                                     <field name="quantity"/>
-                                    <field name="uom"/>
-                                    <field name="reason"/>
+                                    <field name="uom"/>                                    
                                     <field name="purpose"/>
+                                    <field name="reason"/>
                                 </list>
                             </field>
                         </page>
