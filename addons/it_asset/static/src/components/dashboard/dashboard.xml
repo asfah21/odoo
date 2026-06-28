@@ -382,7 +382,7 @@
                                     
                                     <!-- Group Label: TOTAL -->
                                     <div class="d-flex align-items-center mb-1">
-                                        <span class="small fw-bold text-uppercase text-muted" style="font-size: 0.55rem; letter-spacing: 0.5px;">Total Documents</span>
+                                        <span class="small fw-bold text-uppercase text-muted" style="font-size: 0.55rem; letter-spacing: 0.5px;">Total Requests</span>
                                         <div class="flex-grow-1 ms-2" style="border-bottom: 1px dashed #dee2e6;"></div>
                                     </div>
 
