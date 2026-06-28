@@ -272,6 +272,7 @@
                 <field name="employee_id"/>
                 <field name="request_date"/>
                 <field name="state" widget="badge" decoration-info="state == 'submitted'" decoration-success="state == 'approved'" decoration-warning="state == 'draft'"/>
+                <field name="notes"/>
             </list>
         </field>
     </record>
