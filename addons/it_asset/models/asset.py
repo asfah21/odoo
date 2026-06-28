@@ -537,7 +537,7 @@ class ITAsset(models.Model):
             # Structured data for horizontal bar chart grouped rendering
             'groups': [
                 {
-                    'label': 'Total Documents',
+                    'label': 'Total Requests',
                     'bars': [
                         {'label': 'Asset Request', 'value': total_asset, 'color': '#6366f1'},
                         {'label': 'Material Request', 'value': total_material, 'color': '#a855f7'},
