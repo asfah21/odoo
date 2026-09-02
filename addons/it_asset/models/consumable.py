@@ -7,6 +7,10 @@ class ITConsumable(models.Model):
     _order = 'name asc'
 
     name = fields.Char(string='Consumable Name', required=True, tracking=True)
+    consumable_type = fields.Selection([
+        ('it', 'IT Consumable'),
+        ('operation', 'Operation Consumable'),
+    ], string='Domain', default='it', required=True, tracking=True)
     product_id = fields.Many2one(
         'product.product', 
         string='Related Product', 

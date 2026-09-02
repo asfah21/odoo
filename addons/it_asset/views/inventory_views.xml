@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ============================================================ -->
+    <!-- ACTIONS: DOMAIN IT                                           -->
+    <!-- ============================================================ -->
+    
+    <!-- 1. IT Assets -->
+    <record id="action_inventory_it_assets" model="ir.actions.act_window">
+        <field name="name">IT Assets</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'it'), ('it_type', '=', 'asset')]</field>
+        <field name="context">{'default_asset_type': 'it', 'default_it_type': 'asset', 'search_default_it_type_asset': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Track IT Assets!</p>
+            <p>Laptops, desktops, monitors, office printers, and servers.</p>
+        </field>
+    </record>
+
+    <!-- 2. IT Accessories -->
+    <record id="action_inventory_it_accessories" model="ir.actions.act_window">
+        <field name="name">Accessories</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'it'), ('it_type', '=', 'accessory')]</field>
+        <field name="context">{'default_asset_type': 'it', 'default_it_type': 'accessory', 'search_default_it_type_accessory': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Manage IT Accessories!</p>
+            <p>Keyboards, mice, HDMI cables, adapters, and chargers.</p>
+        </field>
+    </record>
+
+    <!-- 3. IT Spare Parts -->
+    <record id="action_inventory_it_spare_parts" model="ir.actions.act_window">
+        <field name="name">Spare Parts</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'it'), ('it_type', '=', 'spare_part')]</field>
+        <field name="context">{'default_asset_type': 'it', 'default_it_type': 'spare_part', 'search_default_it_type_spare_part': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Manage Spare Parts!</p>
+            <p>RAM, SSDs, Power Supplies, and replacement components.</p>
+        </field>
+    </record>
+
+    <!-- 4. IT Tools -->
+    <record id="action_inventory_it_tools" model="ir.actions.act_window">
+        <field name="name">Tools</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'it'), ('it_type', '=', 'tool')]</field>
+        <field name="context">{'default_asset_type': 'it', 'default_it_type': 'tool', 'search_default_it_type_tool': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Manage IT Tools!</p>
+            <p>Multimeters, soldering stations, crimping tools, and LAN testers.</p>
+        </field>
+    </record>
+
+    <!-- 5. IT Consumables -->
+    <record id="action_inventory_it_consumables" model="ir.actions.act_window">
+        <field name="name">IT Consumables</field>
+        <field name="res_model">it_asset.consumable</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('consumable_type', '=', 'it')]</field>
+        <field name="context">{'default_consumable_type': 'it', 'search_default_it_consumables': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Track IT Consumables!</p>
+            <p>Solder wire, RJ45 connectors, UTP cables, and thermal paste.</p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- ACTIONS: DOMAIN OPERATION                                    -->
+    <!-- ============================================================ -->
+
+    <!-- 1. Operational Assets (Radio, CCTV, Telemetry) -->
+    <record id="action_inventory_operation_assets" model="ir.actions.act_window">
+        <field name="name">Operational Assets</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'operation')]</field>
+        <field name="context">{'default_asset_type': 'operation', 'default_usage_type': 'unit', 'search_default_operation_assets': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Track Operational Assets!</p>
+            <p>Radio Rig, Radio HT/Digital, Mine CCTV, Repeaters, and GPS telemetry.</p>
+        </field>
+    </record>
+
+    <!-- 2. Operational Consumables (Coaxial, BNC, Antennas, Fuses) -->
+    <record id="action_inventory_operation_consumables" model="ir.actions.act_window">
+        <field name="name">Operational Consumables</field>
+        <field name="res_model">it_asset.consumable</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('consumable_type', '=', 'operation')]</field>
+        <field name="context">{'default_consumable_type': 'operation', 'search_default_operation_consumables': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Track Operational Consumables!</p>
+            <p>RG58/RG8 coaxial cables, BNC/PL-259 connectors, radio fuses, and brackets.</p>
+        </field>
+    </record>
+
+    <!-- 3. Fleet Units -->
+    <record id="action_inventory_operation_fleet" model="ir.actions.act_window">
+        <field name="name">Fleet Units</field>
+        <field name="res_model">it_asset.unit</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Manage Fleet Units!</p>
+            <p>Dump Trucks, Excavators, Light Vehicles, and Water Trucks.</p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- MENU STRUCTURE: INVENTORY                                     -->
+    <!-- ============================================================ -->
+
+    <!-- TOP BAR MENU: Inventory -->
+    <menuitem id="it_asset_menu_inventory" 
+              name="Inventory" 
+              parent="it_asset_menu_root" 
+              sequence="15"/>
+
+    <!-- GROUP 1: IT -->
+    <menuitem id="it_inventory_group_it" 
+              name="IT" 
+              parent="it_asset_menu_inventory" 
+              sequence="10"/>
+
+    <menuitem id="it_inventory_menu_it_assets" 
+              name="Assets" 
+              parent="it_inventory_group_it" 
+              action="action_inventory_it_assets" 
+              sequence="10"/>
+
+    <menuitem id="it_inventory_menu_it_accessories" 
+              name="Accessories" 
+              parent="it_inventory_group_it" 
+              action="action_inventory_it_accessories" 
+              sequence="20"/>
+
+    <menuitem id="it_inventory_menu_it_spare_parts" 
+              name="Spare Parts" 
+              parent="it_inventory_group_it" 
+              action="action_inventory_it_spare_parts" 
+              sequence="30"/>
+
+    <menuitem id="it_inventory_menu_it_tools" 
+              name="Tools" 
+              parent="it_inventory_group_it" 
+              action="action_inventory_it_tools" 
+              sequence="40"/>
+
+    <menuitem id="it_inventory_menu_it_consumables" 
+              name="Consumables" 
+              parent="it_inventory_group_it" 
+              action="action_inventory_it_consumables" 
+              sequence="50"/>
+
+    <!-- GROUP 2: Operation -->
+    <menuitem id="it_inventory_group_operation" 
+              name="Operation" 
+              parent="it_asset_menu_inventory" 
+              sequence="20"/>
+
+    <menuitem id="it_inventory_menu_operation_assets" 
+              name="Assets" 
+              parent="it_inventory_group_operation" 
+              action="action_inventory_operation_assets" 
+              sequence="10"/>
+
+    <menuitem id="it_inventory_menu_operation_consumables" 
+              name="Consumables" 
+              parent="it_inventory_group_operation" 
+              action="action_inventory_operation_consumables" 
+              sequence="20"/>
+
+    <menuitem id="it_inventory_menu_operation_fleet" 
+              name="Fleet" 
+              parent="it_inventory_group_operation" 
+              action="action_inventory_operation_fleet" 
+              sequence="30"/>
+
+</odoo>

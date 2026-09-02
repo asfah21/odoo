@@ -6,6 +6,7 @@
         <field name="arch" type="xml">
             <list string="Consumables">
                 <field name="name"/>
+                <field name="consumable_type" widget="badge" decoration-info="consumable_type == 'it'" decoration-warning="consumable_type == 'operation'"/>
                 <field name="product_id"/>
                 <field name="qty_available" decoration-danger="qty_available &lt; min_quantity" decoration-bf="qty_available &lt; min_quantity"/>
                 <field name="uom_id" optional="show"/>
@@ -34,6 +35,7 @@
                     </div>
                     <group>
                         <group>
+                            <field name="consumable_type" widget="radio" options="{'horizontal': true}"/>
                             <field name="product_id"/>
                             <field name="standard_price" widget="monetary"/>
                         </group>
@@ -63,8 +65,14 @@
             <search string="Search Consumables">
                 <field name="name"/>
                 <field name="product_id"/>
-                 <filter string="Low Stock" name="low_stock" domain="[('qty_available', '&lt;', 5)]"/>
-                 <filter string="Out of Stock" name="out_of_stock" domain="[('qty_available', '&lt;=', 0)]"/>
+                <filter string="IT Consumables" name="it_consumables" domain="[('consumable_type', '=', 'it')]"/>
+                <filter string="Operation Consumables" name="operation_consumables" domain="[('consumable_type', '=', 'operation')]"/>
+                <separator/>
+                <filter string="Low Stock" name="low_stock" domain="[('qty_available', '&lt;', 5)]"/>
+                <filter string="Out of Stock" name="out_of_stock" domain="[('qty_available', '&lt;=', 0)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Domain" name="group_by_type" context="{'group_by': 'consumable_type'}"/>
+                </group>
             </search>
         </field>
     </record>
