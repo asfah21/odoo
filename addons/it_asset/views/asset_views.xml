@@ -105,33 +105,34 @@
                         <page string="Swap History" name="swaps" invisible="is_consumable == True or asset_type != 'operation'">
                             <field name="swap_ids">
                                 <list editable="bottom">
-                                    <field name="swap_date"/>
-                                    <field name="old_unit_id"/>
-                                    <field name="new_unit_id"/>
-                                    <field name="reason"/>
-                                    <field name="notes"/>
+                                    <field name="unit_id"/>
+                                    <field name="assignment_date"/>
+                                    <field name="return_date"/>
+                                    <field name="state" widget="badge"/>
+                                    <button name="action_return" type="object" string="Return" invisible="state == 'returned'" icon="fa-undo"/>
                                 </list>
                             </field>
                         </page>
-                        <page string="Maintenances" name="maintenances" invisible="is_consumable == True">
+                        <page string="Maintenance History" name="maintenance" invisible="is_consumable == True">
                             <field name="maintenance_ids">
                                 <list editable="bottom">
                                     <field name="maintenance_date"/>
                                     <field name="maintenance_type"/>
                                     <field name="description"/>
                                     <field name="cost"/>
+                                    <field name="technician"/>
                                 </list>
                             </field>
                         </page>
-                        <page string="Printer Usage" name="printer_usage" invisible="not is_printer">
+                        <page string="Printer Usage" name="printer_usage" invisible="is_printer == False">
                             <field name="printer_usage_ids">
                                 <list editable="bottom">
-                                    <field name="record_date"/>
-                                    <field name="start_meter"/>
-                                    <field name="end_meter"/>
-                                    <field name="pages_printed"/>
-                                    <field name="recorded_by_id"/>
-                                    <field name="notes"/>
+                                    <field name="date"/>
+                                    <field name="bw_pages"/>
+                                    <field name="color_pages"/>
+                                    <field name="total_pages"/>
+                                    <field name="pages_diff"/>
+                                    <field name="remarks"/>
                                 </list>
                             </field>
                         </page>
