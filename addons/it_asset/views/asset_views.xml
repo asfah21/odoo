@@ -179,8 +179,8 @@
                 <filter string="Degraded" name="degraded_condition" domain="[('condition', 'in', ('degraded', 'broken'))]"/>
                 
                 <group expand="0" string="Group By">
-                    <filter string="Asset Type" name="group_by_type" context="{'group_by': 'asset_type'}"/>
-                    <filter string="IT Type" name="group_by_it_type" context="{'group_by': 'it_type'}"/>
+                    <filter string="Owner" name="group_by_type" context="{'group_by': 'asset_type'}"/>
+                    <filter string="Type" name="group_by_it_type" context="{'group_by': 'it_type'}"/>
                     <filter string="Category" name="group_by_category" context="{'group_by': 'category_id'}"/>
                     <filter string="Status" name="group_by_state" context="{'group_by': 'state'}"/>
                     <filter string="Condition" name="group_by_condition" context="{'group_by': 'condition'}"/>

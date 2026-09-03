@@ -14,15 +14,15 @@ class ITAsset(models.Model):
     _rec_names_search = ['name', 'asset_tag', 'lot_id.name']
 
     asset_type = fields.Selection([
-        ('it', 'IT Asset'),
-        ('operation', 'Operation Asset'),
-    ], string='Asset Type', default='it', required=True, tracking=True)
+        ('it', 'IT'),
+        ('operation', 'Operation'),
+    ], string='Owner', default='it', required=True, tracking=True)
     it_type = fields.Selection([
         ('asset', 'Asset'),
         ('accessory', 'Accessory'),
         ('spare_part', 'Spare Part'),
         ('tool', 'Tool'),
-    ], string='IT Type', default='asset', tracking=True)
+    ], string='Type', default='asset', tracking=True)
 
     name = fields.Char(string='Asset Name', required=True, tracking=True)
     model = fields.Char(string='Model', tracking=True)
