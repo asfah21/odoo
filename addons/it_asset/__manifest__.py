@@ -36,6 +36,7 @@
             'it_asset/static/src/components/dashboard/dashboard.js',
             'it_asset/static/src/components/dashboard/dashboard.xml',
             'it_asset/static/src/components/dashboard/dashboard.scss',
+            'it_asset/static/src/scss/stock_dashboard.scss',
         ],
         'web.assets_frontend': [
             'it_asset/static/src/scss/login_style.scss',
