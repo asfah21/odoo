@@ -11,11 +11,15 @@ class ITAssetAssignment(models.Model):
         required=True,
         ondelete='cascade'
     )
+    asset_tag = fields.Char(related='asset_id.asset_tag', string='Asset Tag', store=True)
+    category_id = fields.Many2one(related='asset_id.category_id', string='Category', store=True)
+    asset_type = fields.Selection(related='asset_id.asset_type', string='Owner', store=True)
     employee_id = fields.Many2one(
         'hr.employee',
         string='Employee',
         required=True
     )
+    department_id = fields.Many2one(related='employee_id.department_id', string='Department', store=True)
     assignment_date = fields.Date(
         string='Assignment Date',
         default=fields.Date.context_today

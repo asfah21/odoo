@@ -155,7 +155,7 @@
 
     <!-- 5. IT Consumables -->
     <record id="action_inventory_it_consumables" model="ir.actions.act_window">
-        <field name="name">IT Consumables</field>
+        <field name="name">IT</field>
         <field name="res_model">it_asset.consumable</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('consumable_type', '=', 'it')]</field>
@@ -203,7 +203,7 @@
 
     <!-- 2. Operational Consumables (Coaxial, BNC, Antennas, Fuses) -->
     <record id="action_inventory_operation_consumables" model="ir.actions.act_window">
-        <field name="name">Operational Consumables</field>
+        <field name="name">Operation</field>
         <field name="res_model">it_asset.consumable</field>
         <field name="view_mode">list,form</field>
         <field name="domain">[('consumable_type', '=', 'operation')]</field>

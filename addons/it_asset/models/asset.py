@@ -69,12 +69,14 @@ class ITAsset(models.Model):
     is_printer = fields.Boolean(compute='_compute_is_printer', store=True)
     damage_report_count = fields.Integer(compute='_compute_form_counts')
     handover_count = fields.Integer(compute='_compute_form_counts')
+    assignment_count = fields.Integer(string='History Count', compute='_compute_form_counts')
     asset_display_name = fields.Char(string='Display Name', compute='_compute_asset_display_name', store=True)
 
     def _compute_form_counts(self):
         for record in self:
             record.damage_report_count = self.env['it_asset.damage_report'].search_count([('asset_id', '=', record.id)])
             record.handover_count = self.env['it_asset.handover'].search_count([('asset_id', '=', record.id)])
+            record.assignment_count = len(record.assignment_ids)
 
     def action_view_damage_reports(self):
         return {
@@ -94,6 +96,16 @@ class ITAsset(models.Model):
             'view_mode': 'list,form',
             'domain': [('asset_id', '=', self.id)],
             'context': {'default_asset_id': self.id},
+        }
+
+    def action_view_assignments(self):
+        return {
+            'name': _('History'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'it_asset.assignment',
+            'view_mode': 'list,form',
+            'domain': [('asset_id', '=', self.id)],
+            'context': {'default_asset_id': self.id, 'search_default_asset_id': self.id},
         }
 
     _sql_constraints = [

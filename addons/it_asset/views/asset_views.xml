@@ -29,6 +29,7 @@
                        decoration-warning="condition == 'degraded'"
                        decoration-danger="condition == 'broken'"
                        widget="badge" optional="show"/>
+                <field name="assignment_count" string="Transfers" optional="show"/>
             </list>
         </field>
     </record>
@@ -44,6 +45,9 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
+                        <button name="action_view_assignments" type="object" class="oe_stat_button" icon="fa-history">
+                            <field name="assignment_count" widget="statinfo" string="History"/>
+                        </button>
                         <button name="action_view_handovers" type="object" class="oe_stat_button" icon="fa-handshake-o">
                             <field name="handover_count" widget="statinfo" string="Handovers"/>
                         </button>
@@ -91,7 +95,7 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Assignment History" name="assignments" invisible="is_consumable == True">
+                        <page string="History" name="assignments" invisible="is_consumable == True">
                             <field name="assignment_ids">
                                 <list editable="bottom">
                                     <field name="employee_id"/>
