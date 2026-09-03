@@ -22,6 +22,7 @@ class ITAsset(models.Model):
         ('accessory', 'Accessory'),
         ('spare_part', 'Spare Part'),
         ('tool', 'Tool'),
+        ('consumable', 'Consumable'),
     ], string='Type', default='asset', tracking=True)
 
     name = fields.Char(string='Asset Name', required=True, tracking=True)
