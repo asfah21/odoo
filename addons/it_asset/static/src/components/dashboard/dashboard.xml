@@ -114,7 +114,7 @@
                             <div class="kpi-card-header">
                                 <span class="kpi-label">In Use</span>
                                 <div class="kpi-icon-badge kpi-blue">
-                                    <i class="fa fa-user-check"></i>
+                                    <i class="fa fa-user"></i>
                                 </div>
                             </div>
                             <div class="kpi-value" t-esc="state.stats.assigned"/>
