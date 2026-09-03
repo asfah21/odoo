@@ -301,10 +301,5 @@
               action="action_inventory_operation_consumables" 
               sequence="20"/>
 
-    <menuitem id="it_inventory_menu_operation_fleet" 
-              name="Fleet" 
-              parent="it_inventory_group_operation" 
-              action="action_inventory_operation_fleet" 
-              sequence="30"/>
 
 </odoo>
