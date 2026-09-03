@@ -1,19 +1,102 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <!-- ============================================================ -->
+    <!-- MASTER PRODUCT VIEWS (FOR ALL IT & OPERATION ITEMS)          -->
+    <!-- ============================================================ -->
+
+    <!-- Product Template List View for IT Inventory -->
+    <record id="view_it_product_template_list" model="ir.ui.view">
+        <field name="name">it.product.template.list</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <list string="IT Inventory Catalog">
+                <field name="default_code" optional="show"/>
+                <field name="name"/>
+                <field name="it_domain" widget="badge" decoration-info="it_domain == 'it'" decoration-warning="it_domain == 'operation'"/>
+                <field name="it_type" widget="badge" 
+                       decoration-primary="it_type == 'asset'"
+                       decoration-info="it_type == 'accessory'"
+                       decoration-warning="it_type == 'spare_part'"
+                       decoration-success="it_type == 'tool'"
+                       decoration-muted="it_type == 'consumable'"/>
+                <field name="categ_id"/>
+                <field name="qty_available" string="On Hand"/>
+                <field name="uom_id" optional="show"/>
+                <field name="standard_price" widget="monetary" optional="hide"/>
+                <field name="tracking" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Product Template Search View for IT Inventory -->
+    <record id="view_it_product_template_search" model="ir.ui.view">
+        <field name="name">it.product.template.search</field>
+        <field name="model">product.template</field>
+        <field name="arch" type="xml">
+            <search string="Search IT Catalog">
+                <field name="name" string="Product" filter_domain="['|', ('default_code', 'ilike', self), ('name', 'ilike', self)]"/>
+                <field name="default_code"/>
+                <field name="categ_id"/>
+
+                <!-- Domain Filters -->
+                <filter string="IT Domain" name="it_domain" domain="[('it_domain', '=', 'it')]"/>
+                <filter string="Operation Domain" name="operation_domain" domain="[('it_domain', '=', 'operation')]"/>
+                <separator/>
+
+                <!-- Classification Filters -->
+                <filter string="Assets" name="type_asset" domain="[('it_type', '=', 'asset')]"/>
+                <filter string="Accessories" name="type_accessory" domain="[('it_type', '=', 'accessory')]"/>
+                <filter string="Spare Parts" name="type_spare_part" domain="[('it_type', '=', 'spare_part')]"/>
+                <filter string="Tools" name="type_tool" domain="[('it_type', '=', 'tool')]"/>
+                <filter string="Consumables" name="type_consumable" domain="[('it_type', '=', 'consumable')]"/>
+                <separator/>
+
+                <!-- Stock Filters -->
+                <filter string="In Stock" name="in_stock" domain="[('qty_available', '>', 0)]"/>
+                <filter string="Out of Stock" name="out_of_stock" domain="[('qty_available', '&lt;=', 0)]"/>
+
+                <group expand="0" string="Group By">
+                    <filter string="Domain" name="group_by_domain" context="{'group_by': 'it_domain'}"/>
+                    <filter string="Type / Classification" name="group_by_type" context="{'group_by': 'it_type'}"/>
+                    <filter string="Category" name="group_by_category" context="{'group_by': 'categ_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Product Template Form View Inherit (Add IT Domain & Type) -->
+    <record id="view_it_product_template_form_inherit" model="ir.ui.view">
+        <field name="name">it.product.template.form.inherit</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='general_information']//group" position="inside">
+                <group string="IT Classification">
+                    <field name="it_domain" widget="radio" options="{'horizontal': true}"/>
+                    <field name="it_type" widget="radio" options="{'horizontal': true}"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
     <!-- ACTIONS: DOMAIN IT                                           -->
     <!-- ============================================================ -->
     
-    <!-- 0. All IT Items -->
+    <!-- 0. All IT Items (Master Product Catalog) -->
     <record id="action_inventory_it_all" model="ir.actions.act_window">
         <field name="name">All IT Items</field>
-        <field name="res_model">it_asset.asset</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('asset_type', '=', 'it')]</field>
-        <field name="context">{'default_asset_type': 'it', 'search_default_it_assets': 1}</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_product_template_list')}),
+            (0, 0, {'view_mode': 'search', 'view_id': ref('view_it_product_template_search')})
+        ]"/>
+        <field name="domain">[('it_domain', '=', 'it')]</field>
+        <field name="context">{'default_it_domain': 'it', 'search_default_it_domain': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">View All IT Inventory!</p>
-            <p>All IT assets, accessories, spare parts, and tools in one central view.</p>
+            <p class="o_view_nocontent_smiling_face">Manage All IT Inventory!</p>
+            <p>Unified catalog for all IT assets, accessories, spare parts, tools, and consumables.</p>
         </field>
     </record>
 
@@ -86,16 +169,20 @@
     <!-- ACTIONS: DOMAIN OPERATION                                    -->
     <!-- ============================================================ -->
 
-    <!-- 0. All Operation Items -->
+    <!-- 0. All Operation Items (Master Product Catalog) -->
     <record id="action_inventory_operation_all" model="ir.actions.act_window">
         <field name="name">All Operation Items</field>
-        <field name="res_model">it_asset.asset</field>
-        <field name="view_mode">list,form</field>
-        <field name="domain">[('asset_type', '=', 'operation')]</field>
-        <field name="context">{'default_asset_type': 'operation', 'default_usage_type': 'unit', 'search_default_operation_assets': 1}</field>
+        <field name="res_model">product.template</field>
+        <field name="view_mode">list,kanban,form</field>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_product_template_list')}),
+            (0, 0, {'view_mode': 'search', 'view_id': ref('view_it_product_template_search')})
+        ]"/>
+        <field name="domain">[('it_domain', '=', 'operation')]</field>
+        <field name="context">{'default_it_domain': 'operation', 'search_default_operation_domain': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">View All Operation Inventory!</p>
-            <p>All operational radios, telemetry, CCTV, and site equipment.</p>
+            <p class="o_view_nocontent_smiling_face">Manage All Operation Inventory!</p>
+            <p>Unified catalog for operational radios, telemetry, CCTV, antennas, cables, and parts.</p>
         </field>
     </record>
 
