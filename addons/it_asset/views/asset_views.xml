@@ -187,7 +187,7 @@
                     <filter string="Condition" name="group_by_condition" context="{'group_by': 'condition'}"/>
                     <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
                     <filter string="Unit/Vehicle" name="group_by_unit" context="{'group_by': 'unit_id'}"/>
-                    <filter string="Radio Mode" name="group_by_radio_mode" context="{'group_by': 'radio_mode'}"/>
+                    <filter string="Mode" name="group_by_radio_mode" context="{'group_by': 'radio_mode'}"/>
                 </group>
             </search>
         </field>
@@ -225,38 +225,14 @@
 
     <!-- [2] TOP BAR MENUS -->
     <menuitem id="it_asset_menu_management" 
-              name="Asset Management" 
+              name="Activity" 
               parent="it_asset_menu_root" 
-              sequence="10"/>
+              sequence="20"/>
 
     <menuitem id="it_asset_menu_fleet" 
               name="Fleet" 
               parent="it_asset_menu_root" 
-              sequence="20"/>
-
-    <!-- [3] GROUP HEADERS (Asset Management) -->
-    <menuitem id="it_asset_menu_it_group" 
-              name="IT" 
-              parent="it_asset_menu_management" 
-              sequence="40"/>
-
-    <menuitem id="it_asset_menu_operational_group" 
-              name="Operational" 
-              parent="it_asset_menu_management" 
-              sequence="50"/>
-
-    <!-- [4] CHILD DROP_DOWN ITEMS -->
-    <menuitem id="it_asset_menu_assets_it" 
-              name="IT Assets" 
-              parent="it_asset_menu_it_group" 
-              action="action_it_asset_type_it" 
-              sequence="10"/>
-
-    <menuitem id="it_asset_menu_assets_operation" 
-              name="Operational Assets" 
-              parent="it_asset_menu_operational_group" 
-              action="action_it_asset_type_operation" 
-              sequence="10"/>
+              sequence="30"/>
 
     <record id="action_it_asset_sync_inventory" model="ir.actions.server">
         <field name="name">Sync with Inventory</field>

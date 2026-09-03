@@ -83,19 +83,15 @@
     <!-- ACTIONS: DOMAIN IT                                           -->
     <!-- ============================================================ -->
     
-    <!-- 0. All IT Items (Master Product Catalog) -->
+    <!-- 0. All IT Items -->
     <record id="action_inventory_it_all" model="ir.actions.act_window">
         <field name="name">All IT Items</field>
-        <field name="res_model">product.template</field>
-        <field name="view_mode">list,kanban,form</field>
-        <field name="search_view_id" ref="view_it_product_template_search"/>
-        <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_product_template_list')})
-        ]"/>
-        <field name="domain">[('it_domain', '=', 'it')]</field>
-        <field name="context">{'default_it_domain': 'it', 'search_default_it_domain': 1}</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'it')]</field>
+        <field name="context">{'default_asset_type': 'it', 'search_default_it_assets': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Manage All IT Inventory!</p>
+            <p class="o_view_nocontent_smiling_face">Manage All IT Items!</p>
             <p>Unified catalog for all IT assets, accessories, spare parts, tools, and consumables.</p>
         </field>
     </record>
@@ -169,19 +165,15 @@
     <!-- ACTIONS: DOMAIN OPERATION                                    -->
     <!-- ============================================================ -->
 
-    <!-- 0. All Operation Items (Master Product Catalog) -->
+    <!-- 0. All Operation Items -->
     <record id="action_inventory_operation_all" model="ir.actions.act_window">
         <field name="name">All Operation Items</field>
-        <field name="res_model">product.template</field>
-        <field name="view_mode">list,kanban,form</field>
-        <field name="search_view_id" ref="view_it_product_template_search"/>
-        <field name="view_ids" eval="[(5, 0, 0),
-            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_product_template_list')})
-        ]"/>
-        <field name="domain">[('it_domain', '=', 'operation')]</field>
-        <field name="context">{'default_it_domain': 'operation', 'search_default_operation_domain': 1}</field>
+        <field name="res_model">it_asset.asset</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('asset_type', '=', 'operation')]</field>
+        <field name="context">{'default_asset_type': 'operation', 'default_usage_type': 'unit', 'search_default_operation_assets': 1}</field>
         <field name="help" type="html">
-            <p class="o_view_nocontent_smiling_face">Manage All Operation Inventory!</p>
+            <p class="o_view_nocontent_smiling_face">Manage All Operation Items!</p>
             <p>Unified catalog for operational radios, telemetry, CCTV, antennas, cables, and parts.</p>
         </field>
     </record>
@@ -231,7 +223,7 @@
     <menuitem id="it_asset_menu_inventory" 
               name="Inventory" 
               parent="it_asset_menu_root" 
-              sequence="15"/>
+              sequence="10"/>
 
     <!-- GROUP 1: IT -->
     <menuitem id="it_inventory_group_it" 
@@ -240,7 +232,7 @@
               sequence="10"/>
 
     <menuitem id="it_inventory_menu_it_all" 
-              name="All Items" 
+              name="All" 
               parent="it_inventory_group_it" 
               action="action_inventory_it_all" 
               sequence="5"/>
@@ -282,7 +274,7 @@
               sequence="20"/>
 
     <menuitem id="it_inventory_menu_operation_all" 
-              name="All Items" 
+              name="All" 
               parent="it_inventory_group_operation" 
               action="action_inventory_operation_all" 
               sequence="5"/>

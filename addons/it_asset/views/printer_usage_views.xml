@@ -54,7 +54,7 @@
 
     <menuitem id="it_asset_menu_printer_usage"
               name="Printer Usage"
-              parent="it_asset_menu_it_group"
+              parent="it_asset_menu_management"
               action="action_it_asset_printer_usage"
-              sequence="25"/>
+              sequence="30"/>
 </odoo>

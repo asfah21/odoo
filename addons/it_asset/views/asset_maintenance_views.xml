@@ -21,10 +21,9 @@
         <field name="view_mode">list,form</field>
     </record>
 
-    <!-- Pindah ke bawah dropdown parent -->
     <menuitem id="it_asset_menu_maintenances" 
               name="Maintenances" 
-              parent="it_asset_menu_it_group" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_maintenance" 
               sequence="20"/>
 </odoo>

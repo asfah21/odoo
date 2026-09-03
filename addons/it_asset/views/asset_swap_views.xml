@@ -26,7 +26,7 @@
 
     <menuitem id="it_asset_menu_swap_history" 
               name="Swap History" 
-              parent="it_asset_menu_operational_group" 
+              parent="it_asset_menu_management" 
               action="action_it_asset_swap" 
-              sequence="20"/>
+              sequence="40"/>
 </odoo>
