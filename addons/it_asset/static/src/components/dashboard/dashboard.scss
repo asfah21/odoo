@@ -185,136 +185,110 @@
         padding-bottom: 0.5rem;
     }
 
-    /* Modern & Beautiful Cards */
-    .modern-card {
-        background: white;
-        border: none;
+    /* ============================================================ */
+    /* ENTERPRISE KPI CARDS                                         */
+    /* ============================================================ */
+    .kpi-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        padding: 1.25rem 1.35rem;
+        box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
-        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
 
         &:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            border-color: #cbd5e1;
+            box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
         }
 
-        .card-body {
-            padding: 1.25rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Vertical Accent Bar on Right Edge - Now fixed with position:relative */
-        &::after {
-            content: "";
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 6px;
-            height: 100%;
-            border-radius: 0 12px 12px 0;
-        }
-
-        .icon-circle {
-            width: 44px;
-            height: 44px;
-            border-radius: 50%;
+        .kpi-card-header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            margin-bottom: 0.875rem;
-        }
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
 
-        &.card-purple {
-            &::after {
-                background: #7c3aed;
+            .kpi-label {
+                font-size: 0.813rem;
+                font-weight: 600;
+                color: #64748b;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
 
-            .icon-circle {
-                background: #f3e8ff;
-                color: #7c3aed;
-            }
-        }
+            .kpi-icon-badge {
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.95rem;
 
-        &.card-indigo {
-            &::after {
-                background: #4f46e5;
-            }
-
-            .icon-circle {
-                background: #e0e7ff;
-                color: #4f46e5;
-            }
-        }
-
-        &.card-blue {
-            &::after {
-                background: #0284c7;
-            }
-
-            .icon-circle {
-                background: #e0f2fe;
-                color: #0284c7;
-            }
-        }
-
-        &.card-green {
-            &::after {
-                background: #16a34a;
-            }
-
-            .icon-circle {
-                background: #dcfce7;
-                color: #16a34a;
+                &.kpi-indigo {
+                    background: #eef2ff;
+                    color: #4f46e5;
+                }
+                &.kpi-emerald {
+                    background: #ecfdf5;
+                    color: #059669;
+                }
+                &.kpi-blue {
+                    background: #eff6ff;
+                    color: #2563eb;
+                }
+                &.kpi-amber {
+                    background: #fffbeb;
+                    color: #d97706;
+                }
             }
         }
 
-        &.card-amber {
-            &::after {
-                background: #d97706;
-            }
-
-            .icon-circle {
-                background: #fef3c7;
-                color: #d97706;
-            }
-        }
-
-        &.card-grey {
-            &::after {
-                background: #475569; // Slate 600
-            }
-
-            .icon-circle {
-                background: #f1f5f9; // Slate 50
-                color: #475569;
-            }
-        }
-
-        &.card-red {
-            &::after {
-                background: #ef4444;
-            }
-
-            .icon-circle {
-                background: #fee2e2;
-                color: #ef4444;
-            }
-        }
-
-        .stat-label {
-            font-size: 0.813rem;
-            font-weight: 600;
-            color: #71717a;
-            margin-bottom: 0.125rem;
-        }
-
-        .stat-value {
-            font-size: 1.5rem;
+        .kpi-value {
+            font-size: 2rem;
             font-weight: 700;
-            color: #18181b;
+            color: #0f172a;
+            line-height: 1.1;
+            margin-bottom: 0.65rem;
+            font-feature-settings: "tnum";
+        }
+
+        .kpi-footer {
+            display: flex;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #64748b;
+
+            .kpi-badge {
+                font-weight: 700;
+                padding: 0.15rem 0.45rem;
+                border-radius: 4px;
+                font-size: 0.7rem;
+
+                &.kpi-badge-emerald {
+                    background: #dcfce7;
+                    color: #15803d;
+                }
+                &.kpi-badge-blue {
+                    background: #dbeafe;
+                    color: #1d4ed8;
+                }
+                &.kpi-badge-amber {
+                    background: #fef3c7;
+                    color: #b45309;
+                }
+            }
+
+            .kpi-hint {
+                color: #64748b;
+                font-weight: 500;
+            }
         }
     }
 

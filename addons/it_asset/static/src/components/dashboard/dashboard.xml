@@ -70,65 +70,83 @@
             <div class="dashboard-content">
                 
                 <!-- Summary Section -->
-                <!-- <div class="section-header">INVENTORY STATUS</div> -->
+                <!-- Modern KPI Cards Row (4 Columns Grid) -->
                 <div class="row g-3 mb-4">
-                    <!-- IT Assets -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-purple" t-on-click="() => this.openView('all')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-laptop"></i></div>
-                                <div class="stat-label">IT Assets</div>
-                                <div class="stat-value" t-esc="state.stats.total_it"/>
+                    <!-- Total Assets -->
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="kpi-card" t-on-click="() => this.openView('all')">
+                            <div class="kpi-card-header">
+                                <span class="kpi-label">Total Assets</span>
+                                <div class="kpi-icon-badge kpi-indigo">
+                                    <i class="fa fa-cubes"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-value" t-esc="state.stats.total_it"/>
+                            <div class="kpi-footer">
+                                <span class="kpi-hint"><i class="fa fa-laptop me-1 text-muted"></i>All registered IT items</span>
                             </div>
                         </div>
                     </div>
                     <!-- Available -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-green" t-on-click="() => this.openView('available')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-check-circle"></i></div>
-                                <div class="stat-label">Available</div>
-                                <div class="stat-value" t-esc="state.stats.available"/>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="kpi-card" t-on-click="() => this.openView('available')">
+                            <div class="kpi-card-header">
+                                <span class="kpi-label">Available</span>
+                                <div class="kpi-icon-badge kpi-emerald">
+                                    <i class="fa fa-check-circle"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-value" t-esc="state.stats.available"/>
+                            <div class="kpi-footer">
+                                <span class="kpi-badge kpi-badge-emerald me-2">
+                                    <t t-if="state.stats.total_it">
+                                        <t t-esc="Math.round((state.stats.available / state.stats.total_it) * 100)"/>%
+                                    </t>
+                                    <t t-else="">0%</t>
+                                </span>
+                                <span class="kpi-hint">Ready for deployment</span>
                             </div>
                         </div>
                     </div>
                     <!-- In Use -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-blue" t-on-click="() => this.openView('in_use')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-user"></i></div>
-                                <div class="stat-label">In Use</div>
-                                <div class="stat-value" t-esc="state.stats.assigned"/>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="kpi-card" t-on-click="() => this.openView('in_use')">
+                            <div class="kpi-card-header">
+                                <span class="kpi-label">In Use</span>
+                                <div class="kpi-icon-badge kpi-blue">
+                                    <i class="fa fa-user-check"></i>
+                                </div>
+                            </div>
+                            <div class="kpi-value" t-esc="state.stats.assigned"/>
+                            <div class="kpi-footer">
+                                <span class="kpi-badge kpi-badge-blue me-2">
+                                    <t t-if="state.stats.total_it">
+                                        <t t-esc="Math.round((state.stats.assigned / state.stats.total_it) * 100)"/>%
+                                    </t>
+                                    <t t-else="">0%</t>
+                                </span>
+                                <span class="kpi-hint">Assigned to users</span>
                             </div>
                         </div>
                     </div>
                     <!-- Out of Service -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-amber" t-on-click="() => this.openView('unavailable')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-ban text-danger"></i></div>
-                                <div class="stat-label">Out of Service</div>
-                                <div class="stat-value" t-esc="state.stats.unavailable_broken"/>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <div class="kpi-card" t-on-click="() => this.openView('unavailable')">
+                            <div class="kpi-card-header">
+                                <span class="kpi-label">Out of Service</span>
+                                <div class="kpi-icon-badge kpi-amber">
+                                    <i class="fa fa-wrench"></i>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <!-- Retired -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-grey" t-on-click="() => this.openView('retired')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-archive"></i></div>
-                                <div class="stat-label">Retired</div>
-                                <div class="stat-value" t-esc="state.stats.retired"/>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- Maintenance Logs -->
-                    <div class="col-6 col-md-4 col-xl">
-                        <div class="modern-card card-red" t-on-click="() => this.openView('maintenance_logs')">
-                            <div class="card-body">
-                                <div class="icon-circle shadow-sm"><i class="fa fa-wrench"></i></div>
-                                <div class="stat-label">Maintenance Logs</div>
-                                <div class="stat-value" t-esc="state.stats.maintenance_count"/>
+                            <div class="kpi-value" t-esc="state.stats.unavailable_broken"/>
+                            <div class="kpi-footer">
+                                <span class="kpi-badge kpi-badge-amber me-2">
+                                    <t t-if="state.stats.total_it">
+                                        <t t-esc="Math.round((state.stats.unavailable_broken / state.stats.total_it) * 100)"/>%
+                                    </t>
+                                    <t t-else="">0%</t>
+                                </span>
+                                <span class="kpi-hint">In maintenance / repair</span>
                             </div>
                         </div>
                     </div>

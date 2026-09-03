@@ -133,45 +133,51 @@ export class ITAssetDashboard extends Component {
         await this.loadDashboardData();
     }
 
-    openView(state, assetType = 'it') {
-        let domain = [['asset_type', '=', assetType]];
-        let typeLabel = assetType === 'it' ? 'IT' : 'Operation';
-        let name = `All ${typeLabel} Assets`;
+    openView(state, assetType = null) {
+        // Build domain — when assetType is null (KPI card clicks), show all assets
+        let domain = assetType ? [['asset_type', '=', assetType]] : [];
+        let typeLabel = assetType === 'it' ? 'IT' : assetType === 'operation' ? 'Operation' : '';
+        let name = typeLabel ? `All ${typeLabel} Assets` : 'All Assets';
 
         if (this.selectedCategories.length > 0 && assetType === 'it') {
             domain.push(['category_id', 'in', this.selectedCategories]);
         }
 
-        if (state === 'unavailable') {
-            if (assetType === 'it') {
-                domain.push(['state', '=', 'maintenance']);
-                name = `Out of Service IT Assets`;
+        if (state === 'all') {
+            // no extra filter — show everything
+        } else if (state === 'available') {
+            domain.push(['state', '=', 'available']);
+            name = typeLabel ? `Available ${typeLabel} Assets` : 'Available Assets';
+        } else if (state === 'in_use') {
+            domain.push(['state', '=', 'in_use']);
+            name = typeLabel ? `In Use ${typeLabel} Assets` : 'In Use Assets';
+        } else if (state === 'unavailable') {
+            if (assetType === 'operation') {
+                domain.push(['state', 'in', ['maintenance', 'retired']]);
+                name = 'Out of Service Operation Assets';
             } else {
                 domain.push(['state', 'in', ['maintenance', 'retired']]);
-                name = `Out of Service Operation Assets (Maintenance/Retired)`;
+                name = typeLabel ? `Out of Service ${typeLabel} Assets` : 'Out of Service Assets';
             }
         } else if (state === 'retired') {
             domain.push(['state', '=', 'retired']);
-            name = `Retired ${typeLabel} Assets`;
+            name = typeLabel ? `Retired ${typeLabel} Assets` : 'Retired Assets';
         } else if (state === 'maintenance_logs') {
             this.action.doAction({
                 type: 'ir.actions.act_window',
-                name: `${typeLabel} Management: Maintenance History`,
+                name: typeLabel ? `${typeLabel} Maintenance History` : 'Maintenance History',
                 res_model: 'it_asset.maintenance',
                 views: [[false, 'list'], [false, 'form']],
-                domain: [['asset_id.asset_type', '=', assetType]],
+                domain: assetType ? [['asset_id.asset_type', '=', assetType]] : [],
                 target: 'current',
             });
             return;
-        } else if (state === 'maintenance' && assetType === 'operation') {
-            domain.push(['state', 'in', ['maintenance', 'retired']]);
-            name = `Out of Service Operation Assets`;
         } else if (state !== 'all') {
             const domainState = state === 'assigned' ? 'in_use' : state;
             domain.push(['state', '=', domainState]);
-            let formattedState = state.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            if (state === 'maintenance') formattedState = "Out of Service";
-            name = `${formattedState} ${typeLabel} Assets`;
+            let formattedState = state.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            if (state === 'maintenance') formattedState = 'Out of Service';
+            name = typeLabel ? `${formattedState} ${typeLabel} Assets` : `${formattedState} Assets`;
         }
 
         this.action.doAction({

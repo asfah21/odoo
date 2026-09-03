@@ -88,6 +88,11 @@
         <field name="name">All IT Items</field>
         <field name="res_model">it_asset.asset</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_it_asset_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_asset_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_it_asset_form')})
+        ]"/>
         <field name="domain">[('asset_type', '=', 'it')]</field>
         <field name="context">{'default_asset_type': 'it', 'search_default_it_assets': 1}</field>
         <field name="help" type="html">
@@ -170,6 +175,11 @@
         <field name="name">All Operation Items</field>
         <field name="res_model">it_asset.asset</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_it_asset_search"/>
+        <field name="view_ids" eval="[(5, 0, 0),
+            (0, 0, {'view_mode': 'list', 'view_id': ref('view_it_asset_list')}),
+            (0, 0, {'view_mode': 'form', 'view_id': ref('view_it_asset_form')})
+        ]"/>
         <field name="domain">[('asset_type', '=', 'operation')]</field>
         <field name="context">{'default_asset_type': 'operation', 'default_usage_type': 'unit', 'search_default_operation_assets': 1}</field>
         <field name="help" type="html">
