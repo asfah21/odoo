@@ -271,7 +271,7 @@
                 <field name="name"/>
                 <field name="employee_id"/>
                 <field name="request_date"/>
-                <field name="state" widget="badge" decoration-info="state == 'submitted'" decoration-success="state == 'approved'" decoration-warning="state == 'draft'"/>
+                <field name="state" widget="badge" decoration-info="state == 'submitted'" decoration-success="state == 'fulfilled'" decoration-primary="state == 'approved'" decoration-warning="state in ['draft', 'partially_fulfilled']" decoration-danger="state == 'rejected'"/>
                 <field name="notes"/>
             </list>
         </field>
@@ -285,10 +285,10 @@
                 <header>
                     <button name="action_submit" string="Submit" type="object" class="oe_highlight" invisible="state != 'draft'"/>
                     <button name="action_approve" string="Approve" type="object" class="oe_highlight" invisible="state != 'submitted'"/>
-                    <button name="action_fulfill" string="Mark Fulfilled" type="object" class="oe_highlight" invisible="state != 'approved'"/>
+                    <button name="action_fulfill" string="Fulfill Items" type="object" class="oe_highlight" invisible="state not in ['approved', 'partially_fulfilled']"/>
                     <button name="action_reject" string="Reject" type="object" invisible="state not in ['submitted', 'approved']"/>
                     <button name="export_material_request_excel" string="Export Excel" type="object" class="btn-success" icon="fa-file-excel-o" invisible="state == 'draft'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,fulfilled"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,submitted,approved,partially_fulfilled,fulfilled"/>
                 </header>
                 <sheet>
                     <div class="oe_title">
@@ -306,9 +306,11 @@
                     </group>
                     <group string="Approval">
                         <group>
-                            <field name="known_by_id" placeholder="Diketahui Oleh"/>
+                            <field name="checked_by_id" placeholder="Diperiksa Oleh"/>
+                            <field name="verified_by_id" placeholder="Diverifikasi Oleh"/>
                         </group>
                         <group>
+                            <field name="known_by_id" placeholder="Diketahui Oleh"/>
                             <field name="approved_by_id" placeholder="Disetujui Oleh"/>
                         </group>
                     </group>
@@ -318,7 +320,10 @@
                                 <list editable="bottom">
                                     <field name="name"/>
                                     <field name="description"/>
-                                    <field name="quantity"/>
+                                    <field name="quantity" string="Requested"/>
+                                    <field name="qty_fulfilled" string="Fulfilled" readonly="1"/>
+                                    <field name="qty_remaining" string="Remaining" readonly="1"/>
+                                    <field name="fulfillment_status" widget="badge" decoration-success="fulfillment_status == 'fulfilled'" decoration-warning="fulfillment_status == 'partial'" decoration-muted="fulfillment_status == 'pending'"/>
                                     <field name="uom"/>                                    
                                     <field name="purpose"/>
                                     <field name="reason"/>

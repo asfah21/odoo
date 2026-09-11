@@ -15,3 +15,5 @@ access_it_asset_swap,it_asset.swap,model_it_asset_swap,base.group_user,1,1,1,1
 access_it_asset_handover_accessory,it_asset.handover.accessory,model_it_asset_handover_accessory,base.group_user,1,1,1,1
 access_it_asset_material_request,it_asset.material_request,model_it_asset_material_request,base.group_user,1,1,1,1
 access_it_asset_material_request_line,it_asset.material_request.line,model_it_asset_material_request_line,base.group_user,1,1,1,1
+access_it_asset_material_request_fulfill_wizard,it_asset.material_request.fulfill.wizard,model_it_asset_material_request_fulfill_wizard,base.group_user,1,1,1,1
+access_it_asset_material_request_fulfill_wizard_line,it_asset.material_request.fulfill.wizard.line,model_it_asset_material_request_fulfill_wizard_line,base.group_user,1,1,1,1

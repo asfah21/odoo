@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_it_asset_material_request_fulfill_wizard_form" model="ir.ui.view">
+        <field name="name">it.asset.material_request.fulfill.wizard.form</field>
+        <field name="model">it_asset.material_request.fulfill.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Fulfill Material Request">
+                <p class="text-muted mb-3">
+                    Tentukan jumlah unit/barang yang diserahkan/dipenuhi saat ini. Item yang terpenuhi sebagian akan mengubah status menjadi <b>Partially Fulfilled</b>, dan jika seluruh item terpenuhi status akan menjadi <b>Fulfilled</b>.
+                </p>
+                <group>
+                    <field name="request_id" readonly="1" options="{'no_open': True}"/>
+                </group>
+                <field name="line_ids">
+                    <list editable="bottom" create="false" delete="false">
+                        <field name="name"/>
+                        <field name="qty_requested" readonly="1"/>
+                        <field name="qty_previously_fulfilled" readonly="1"/>
+                        <field name="qty_remaining" readonly="1"/>
+                        <field name="qty_to_fulfill" class="fw-bold text-primary"/>
+                        <field name="uom" readonly="1"/>
+                    </list>
+                </field>
+                <footer>
+                    <button name="action_confirm" string="Konfirmasi Pemenuhan" type="object" class="btn-primary"/>
+                    <button string="Batal" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

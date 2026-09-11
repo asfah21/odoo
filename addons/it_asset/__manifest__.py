@@ -23,6 +23,7 @@
         'views/printer_usage_views.xml',
         'views/item_handover_views.xml',
         'views/asset_form_views.xml',
+        'views/material_request_fulfill_wizard_views.xml',
         'views/excel_export_views.xml',
         'views/brand_promotion_views.xml',
         'security/item_handover_access.xml',

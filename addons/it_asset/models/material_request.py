@@ -18,12 +18,15 @@ class ITAssetMaterialRequest(models.Model):
     ], string='Priority', default='p2')
     reason = fields.Text(string='Reason')
     notes = fields.Text(string='Notes')
+    checked_by_id = fields.Many2one('hr.employee', string='Diperiksa Oleh')
+    verified_by_id = fields.Many2one('hr.employee', string='Diverifikasi Oleh')
     known_by_id = fields.Many2one('hr.employee', string='Diketahui Oleh')
     approved_by_id = fields.Many2one('hr.employee', string='Disetujui Oleh')
     state = fields.Selection([
         ('draft', 'Draft'),
         ('submitted', 'Submitted'),
         ('approved', 'Approved'),
+        ('partially_fulfilled', 'Partially Fulfilled'),
         ('fulfilled', 'Fulfilled'),
         ('rejected', 'Rejected')
     ], string='Status', default='draft', tracking=True)
@@ -47,7 +50,30 @@ class ITAssetMaterialRequest(models.Model):
         self.write({'state': 'rejected'})
 
     def action_fulfill(self):
-        self.write({'state': 'fulfilled'})
+        self.ensure_one()
+        return {
+            'name': _('Fulfill Material Request'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'it_asset.material_request.fulfill.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_request_id': self.id,
+            },
+        }
+
+    def _check_fulfillment_status(self):
+        for rec in self:
+            if not rec.line_ids:
+                continue
+            total_qty = sum(rec.line_ids.mapped('quantity'))
+            total_fulfilled = sum(rec.line_ids.mapped('qty_fulfilled'))
+            if total_fulfilled >= total_qty and total_qty > 0:
+                rec.write({'state': 'fulfilled'})
+            elif total_fulfilled > 0:
+                rec.write({'state': 'partially_fulfilled'})
+            elif rec.state in ('partially_fulfilled', 'fulfilled'):
+                rec.write({'state': 'approved'})
 
     def export_material_request_excel(self):
         """Export Excel untuk Material Request"""
@@ -62,8 +88,27 @@ class ITAssetMaterialRequestLine(models.Model):
     request_id = fields.Many2one('it_asset.material_request', string='Request', required=True, ondelete='cascade')
     name = fields.Char(string='Item Name', required=True)
     description = fields.Char(string='Description')
-    quantity = fields.Float(string='Quantity', default=1.0, required=True)
+    quantity = fields.Float(string='Requested Qty', default=1.0, required=True)
+    qty_fulfilled = fields.Float(string='Fulfilled Qty', default=0.0, copy=False)
+    qty_remaining = fields.Float(string='Remaining Qty', compute='_compute_qty_fulfillment', store=True)
+    fulfillment_status = fields.Selection([
+        ('pending', 'Pending'),
+        ('partial', 'Partial'),
+        ('fulfilled', 'Fulfilled'),
+    ], string='Status', compute='_compute_qty_fulfillment', store=True)
     uom = fields.Char(string='Unit of Measure', default='Unit')    
     purpose = fields.Char(string='Untuk Kebutuhan')
     reason = fields.Char(string='Keterangan')
     notes = fields.Text(string='Notes')
+
+    @api.depends('quantity', 'qty_fulfilled')
+    def _compute_qty_fulfillment(self):
+        for line in self:
+            remaining = max(0.0, line.quantity - line.qty_fulfilled)
+            line.qty_remaining = remaining
+            if line.qty_fulfilled <= 0:
+                line.fulfillment_status = 'pending'
+            elif line.qty_fulfilled < line.quantity:
+                line.fulfillment_status = 'partial'
+            else:
+                line.fulfillment_status = 'fulfilled'

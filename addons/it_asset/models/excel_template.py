@@ -623,7 +623,9 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'I6': request.department_id.name if request.department_id else '',
             'AS7': tgl.strftime('%d/%m/%Y') if tgl else '',
             'F34': tgl.strftime('%d/%m/%Y') if tgl else '',
-            'AB32': request.known_by_id.name if request.known_by_id else '',
+            'O32': request.checked_by_id.name if request.checked_by_id else '',
+            'AB32': request.verified_by_id.name if request.verified_by_id else '',
+            'AO32': request.known_by_id.name if request.known_by_id else '',
             'BB32': request.approved_by_id.name if request.approved_by_id else '',
             'C21': request.notes if request.notes else '',
         }
