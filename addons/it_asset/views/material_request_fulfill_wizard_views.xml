@@ -6,14 +6,15 @@
         <field name="arch" type="xml">
             <form string="Fulfill Material Request">
                 <p class="text-muted mb-3">
-                    Tentukan jumlah unit/barang yang diserahkan/dipenuhi saat ini. Item yang terpenuhi sebagian akan mengubah status menjadi <b>Partially Fulfilled</b>, dan jika seluruh item terpenuhi status akan menjadi <b>Fulfilled</b>.
+                    Specify the quantity of items to fulfill now. Partially fulfilled items will update the status to <b>Partially Fulfilled</b>, and when all items are completely fulfilled the status will be <b>Fulfilled</b>.
                 </p>
                 <group>
                     <field name="request_id" readonly="1" options="{'no_open': True}"/>
                 </group>
                 <field name="line_ids">
                     <list editable="bottom" create="false" delete="false">
-                        <field name="name"/>
+                        <field name="line_id" column_invisible="True"/>
+                        <field name="name" readonly="1"/>
                         <field name="qty_requested" readonly="1"/>
                         <field name="qty_previously_fulfilled" readonly="1"/>
                         <field name="qty_remaining" readonly="1"/>
@@ -22,8 +23,8 @@
                     </list>
                 </field>
                 <footer>
-                    <button name="action_confirm" string="Konfirmasi Pemenuhan" type="object" class="btn-primary"/>
-                    <button string="Batal" class="btn-secondary" special="cancel"/>
+                    <button name="action_confirm" string="Confirm Fulfillment" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>
         </field>

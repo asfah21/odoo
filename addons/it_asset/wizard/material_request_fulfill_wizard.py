@@ -45,30 +45,31 @@ class ITAssetMaterialRequestFulfillWizard(models.TransientModel):
         self.ensure_one()
         request = self.request_id
         if not self.line_ids:
-            raise UserError(_("Tidak ada item yang perlu dipenuhi."))
+            raise UserError(_("No items to fulfill."))
 
         fulfilled_details = []
         has_any_fulfillment = False
 
         for wizard_line in self.line_ids:
             if wizard_line.qty_to_fulfill < 0:
-                raise UserError(_("Jumlah pemenuhan untuk '%s' tidak boleh negatif.") % wizard_line.name)
+                raise UserError(_("Fulfillment quantity for '%s' cannot be negative.") % wizard_line.name)
             if wizard_line.qty_to_fulfill > wizard_line.qty_remaining:
                 raise UserError(
-                    _("Jumlah pemenuhan untuk '%s' (%.2f) melebihi sisa permintaan (%.2f).")
+                    _("Fulfillment quantity for '%s' (%.2f) exceeds remaining quantity (%.2f).")
                     % (wizard_line.name, wizard_line.qty_to_fulfill, wizard_line.qty_remaining)
                 )
             if wizard_line.qty_to_fulfill > 0:
                 has_any_fulfillment = True
                 orig_line = wizard_line.line_id
-                orig_line.qty_fulfilled += wizard_line.qty_to_fulfill
+                if orig_line:
+                    orig_line.qty_fulfilled += wizard_line.qty_to_fulfill
                 uom_str = f" {wizard_line.uom}" if wizard_line.uom else ""
                 fulfilled_details.append(
                     f"<li><b>{wizard_line.name}</b>: {wizard_line.qty_to_fulfill:g}{uom_str}</li>"
                 )
 
         if not has_any_fulfillment:
-            raise UserError(_("Harap masukkan setidaknya satu item dengan jumlah pemenuhan lebih dari 0."))
+            raise UserError(_("Please specify a fulfillment quantity greater than 0 for at least one item."))
 
         # Update document state
         request._check_fulfillment_status()
@@ -76,7 +77,7 @@ class ITAssetMaterialRequestFulfillWizard(models.TransientModel):
         # Log to chatter
         state_label = dict(request._fields['state'].selection).get(request.state, request.state)
         body = _(
-            "<p><b>Pemenuhan Barang:</b></p><ul>%s</ul><p>Status permintaan diperbarui menjadi: <b>%s</b></p>"
+            "<p><b>Items Fulfilled:</b></p><ul>%s</ul><p>Document status updated to: <b>%s</b></p>"
         ) % ("".join(fulfilled_details), state_label)
         request.message_post(body=body)
 
@@ -95,8 +96,7 @@ class ITAssetMaterialRequestFulfillWizardLine(models.TransientModel):
     line_id = fields.Many2one(
         'it_asset.material_request.line',
         string='Request Line',
-        required=True,
-        readonly=True
+        ondelete='cascade'
     )
     name = fields.Char(string='Item Name', readonly=True)
     uom = fields.Char(string='Unit of Measure', readonly=True)
