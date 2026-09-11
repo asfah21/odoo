@@ -1,3 +1,4 @@
+from markupsafe import Markup
 from odoo import models, fields, api, _
 from odoo.exceptions import UserError
 
@@ -80,10 +81,22 @@ class ITAssetMaterialRequestFulfillWizard(models.TransientModel):
 
         # Log to chatter
         state_label = dict(request._fields['state'].selection).get(request.state, request.state)
-        body = _(
+        items_html = Markup("").join([
+            Markup("<li><b>%s</b>: %s%s</li>") % (
+                (w_line.line_id and w_line.line_id.name) or w_line.name or _("Item"),
+                f"{w_line.qty_to_fulfill:g}",
+                f" {w_line.line_id.uom or w_line.uom or ''}" if (w_line.line_id and w_line.line_id.uom) or w_line.uom else ""
+            )
+            for w_line in self.line_ids if w_line.qty_to_fulfill > 0
+        ])
+        body = Markup(
             "<p><b>Items Fulfilled:</b></p><ul>%s</ul><p>Document status updated to: <b>%s</b></p>"
-        ) % ("".join(fulfilled_details), state_label)
-        request.message_post(body=body)
+        ) % (items_html, state_label)
+        request.message_post(
+            body=body,
+            message_type='comment',
+            subtype_xmlid='mail.mt_note'
+        )
 
         return {'type': 'ir.actions.act_window_close'}
 
