@@ -14,12 +14,12 @@
                 <field name="line_ids">
                     <list editable="bottom" create="false" delete="false">
                         <field name="line_id" column_invisible="True"/>
-                        <field name="name" readonly="1"/>
-                        <field name="qty_requested" readonly="1"/>
-                        <field name="qty_previously_fulfilled" readonly="1"/>
-                        <field name="qty_remaining" readonly="1"/>
-                        <field name="qty_to_fulfill" class="fw-bold text-primary"/>
-                        <field name="uom" readonly="1"/>
+                        <field name="name" string="Item Name" readonly="1" force_save="1"/>
+                        <field name="qty_requested" string="Requested" readonly="1" force_save="1"/>
+                        <field name="qty_previously_fulfilled" string="Fulfilled" readonly="1" force_save="1"/>
+                        <field name="qty_remaining" string="Remaining" readonly="1" force_save="1"/>
+                        <field name="qty_to_fulfill" string="Fulfill Now" class="fw-bold text-primary"/>
+                        <field name="uom" string="UoM" readonly="1" force_save="1"/>
                     </list>
                 </field>
                 <footer>

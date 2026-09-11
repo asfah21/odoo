@@ -51,21 +51,25 @@ class ITAssetMaterialRequestFulfillWizard(models.TransientModel):
         has_any_fulfillment = False
 
         for wizard_line in self.line_ids:
+            orig_line = wizard_line.line_id
+            item_name = (orig_line and orig_line.name) or wizard_line.name or _("Item")
+            actual_remaining = max(0.0, orig_line.quantity - orig_line.qty_fulfilled) if orig_line else wizard_line.qty_remaining
+
             if wizard_line.qty_to_fulfill < 0:
-                raise UserError(_("Fulfillment quantity for '%s' cannot be negative.") % wizard_line.name)
-            if wizard_line.qty_to_fulfill > wizard_line.qty_remaining:
+                raise UserError(_("Fulfillment quantity for '%s' cannot be negative.") % item_name)
+            if wizard_line.qty_to_fulfill > actual_remaining:
                 raise UserError(
                     _("Fulfillment quantity for '%s' (%.2f) exceeds remaining quantity (%.2f).")
-                    % (wizard_line.name, wizard_line.qty_to_fulfill, wizard_line.qty_remaining)
+                    % (item_name, wizard_line.qty_to_fulfill, actual_remaining)
                 )
             if wizard_line.qty_to_fulfill > 0:
                 has_any_fulfillment = True
-                orig_line = wizard_line.line_id
                 if orig_line:
                     orig_line.qty_fulfilled += wizard_line.qty_to_fulfill
-                uom_str = f" {wizard_line.uom}" if wizard_line.uom else ""
+                uom_name = (orig_line and orig_line.uom) or wizard_line.uom or ""
+                uom_str = f" {uom_name}" if uom_name else ""
                 fulfilled_details.append(
-                    f"<li><b>{wizard_line.name}</b>: {wizard_line.qty_to_fulfill:g}{uom_str}</li>"
+                    f"<li><b>{item_name}</b>: {wizard_line.qty_to_fulfill:g}{uom_str}</li>"
                 )
 
         if not has_any_fulfillment:

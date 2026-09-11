@@ -51,15 +51,33 @@ class ITAssetMaterialRequest(models.Model):
 
     def action_fulfill(self):
         self.ensure_one()
+        wizard_lines = []
+        for line in self.line_ids:
+            remaining = max(0.0, line.quantity - line.qty_fulfilled)
+            if remaining > 0:
+                wizard_lines.append((0, 0, {
+                    'line_id': line.id,
+                    'name': line.name,
+                    'uom': line.uom,
+                    'qty_requested': line.quantity,
+                    'qty_previously_fulfilled': line.qty_fulfilled,
+                    'qty_remaining': remaining,
+                    'qty_to_fulfill': remaining,
+                }))
+        if not wizard_lines:
+            raise UserError(_("All items in this request have already been fulfilled."))
+
+        wizard = self.env['it_asset.material_request.fulfill.wizard'].create({
+            'request_id': self.id,
+            'line_ids': wizard_lines,
+        })
         return {
             'name': _('Fulfill Material Request'),
             'type': 'ir.actions.act_window',
             'res_model': 'it_asset.material_request.fulfill.wizard',
+            'res_id': wizard.id,
             'view_mode': 'form',
             'target': 'new',
-            'context': {
-                'default_request_id': self.id,
-            },
         }
 
     def _check_fulfillment_status(self):
