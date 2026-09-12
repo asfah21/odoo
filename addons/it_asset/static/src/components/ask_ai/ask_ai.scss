@@ -574,9 +574,38 @@
         }
     }
 
+    // ---------- Quick replies (tombol pilihan dari backend) ----------
+    .ask-quick {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        padding: 0 0.35rem 0.55rem 0.35rem;
+    }
+
+    .ask-quick-btn {
+        border: 1px solid #c7d2fe;
+        background: #eef2ff;
+        color: #4338ca;
+        border-radius: 20px;
+        padding: 0.32rem 0.8rem;
+        font-size: 0.76rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        &:hover {
+            background: #6366f1;
+            border-color: #6366f1;
+            color: #fff;
+        }
+    }
+
     // ---------- Composer ----------
-    .ask-composer-wrap {
-        flex-shrink: 0;
+    .ask-composer-wrap {        flex-shrink: 0;
         padding: 0.75rem 1.25rem 0.6rem 1.25rem;
         background: linear-gradient(to top, #f1f2f7 60%, transparent);
         max-width: 890px;

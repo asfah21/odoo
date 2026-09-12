@@ -56,6 +56,7 @@ INTENT_HELP = "help"
 INTENT_IDENTITY = "identity"
 INTENT_CREATOR = "creator"
 INTENT_UNIT_DETAIL = "unit_detail"
+INTENT_ASSET_TOP = "asset_top"
 INTENT_RECAP = "recap"
 INTENT_CHECK_STOCK = "check_stock"
 INTENT_ASSET_SEARCH = "asset_search"
@@ -71,7 +72,7 @@ INTENT_UNKNOWN = "unknown"
 
 ALL_INTENTS = [
     INTENT_GREETING, INTENT_THANKS, INTENT_GOODBYE, INTENT_HELP,
-    INTENT_IDENTITY, INTENT_CREATOR, INTENT_UNIT_DETAIL,
+    INTENT_IDENTITY, INTENT_CREATOR, INTENT_UNIT_DETAIL, INTENT_ASSET_TOP,
     INTENT_RECAP, INTENT_CHECK_STOCK, INTENT_ASSET_SEARCH, INTENT_ASSET_DETAIL,
     INTENT_ASSET_USER, INTENT_ASSET_HISTORY, INTENT_MAINTENANCE_LIST,
     INTENT_HANDOVER_LIST, INTENT_DAMAGE_LIST, INTENT_REQUEST_STATUS,
@@ -145,9 +146,11 @@ _SLANG_TABLE = {
     "krn": "karena", "jgn": "jangan", "bsa": "bisa", "emg": "memang",
     "skrg": "sekarang", "sy": "saya",
     "ga": "tidak", "gak": "tidak", "nggak": "tidak", "tdk": "tidak",
+    "yg": "yang",
     "sdh": "sudah", "udh": "sudah", "udah": "sudah", "blm": "belum",
     "dapet": "dapat", "sampe": "sampai", "nyampe": "sampai",
     "hlo": "halo", "hllo": "halo", "halllo": "halo",
+    "develo": "developer", "develop": "developer",
     "thx": "terima kasih", "makasi": "terima kasih",
     "makasih": "terima kasih", "mksh": "terima kasih", "tengkyu": "terima kasih",
     "met pagi": "selamat pagi", "met siang": "selamat siang",
@@ -160,6 +163,9 @@ _SLANG_TABLE = {
     "stok na": "stok nya", "abis": "habis", "sold out": "habis",
     "rdy": "ready", "redy": "ready", "brang": "barang",
     "prduk": "produk", "tnya": "tanya", "asett": "aset",
+    "free": "tersedia",
+    "availabe": "available", "avaiable": "available",
+    "avalable": "available", "availabel": "available",
     # ejaan consumable lapangan (OP-2 + IT-5)
     "daptor": "adaptor", "conector": "konektor", "connector": "konektor",
     "antene": "antena", "breket": "bracket", "bracketnya": "bracket nya",
@@ -388,6 +394,23 @@ _PERIOD_PATTERNS = [
     ("last_month", [r"\bbulan\s*(lalu|kemarin|kemaren)\b"]),
 ]
 
+_TOP_KIND_PATTERNS = [
+    ("moved", [r"\bpindah\b", r"\bmutasi\b", r"\bgonta\s*ganti\b"]),
+    ("damaged", [r"\brusak\b", r"\bbroken\b"]),
+    ("oldest", [r"\btua\b", r"\blama\b", r"\bawal\b", r"\bpertama\b"]),
+    ("newest", [r"\bbaru\b", r"\bakhir\b", r"\bmuda\b", r"\banyar\b"]),
+]
+
+
+def resolve_top_kind(text):
+    """'oldest' | 'newest' | 'moved' | 'damaged' | '' — jenis ranking."""
+    t = text or ""
+    for token, pats in _TOP_KIND_PATTERNS:
+        for p in pats:
+            if re.search(p, t, re.I):
+                return token
+    return ""
+
 
 def resolve_form_kind(text):
     t = text or ""
@@ -550,6 +573,10 @@ _RULES = [
     (re.compile(r"\b(rekap|ringkas(an)?|total\s+aset|jumlah\s+aset|statistik|dashboard)\b", re.I), INTENT_RECAP, 0.94),
     # --- stok ---
     (re.compile(r"\b(stok|stock|sisa|tersisa|menipis|habis|restock|kekurangan\s+stok|minimum|consumable)\b", re.I), INTENT_CHECK_STOCK, 0.94),
+    # --- superlatif (sebelum riwayat agar "riwayat paling banyak pindah"
+    # tidak jatuh ke riwayat generik) ---
+    (re.compile(r"\b(paling|terbanyak|tersering|paling\s+banyak|sering)\b.{0,20}\b(tua|lama|baru|pindah|mutasi|rusak|servis)\b", re.I), INTENT_ASSET_TOP, 0.90),
+    (re.compile(r"\b(tertua|terbaru|terlama|termuda)\b", re.I), INTENT_ASSET_TOP, 0.90),
     # --- riwayat servis = maintenance (spesifik menang atas umum) ---
     (re.compile(r"\briwayat\s+(servis|service|perbaikan|maintenance)\b", re.I), INTENT_MAINTENANCE_LIST, 0.94),
     (re.compile(r"\bpernah\b.{0,30}\b(di?pegang|dipakai|dimiliki)\b", re.I), INTENT_ASSET_HISTORY, 0.92),
@@ -601,8 +628,8 @@ _RULES = [
     (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
     (re.compile(r"\b(radio\s*ht|radio\s*rig|ht|rig|handy\s*talky)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
-    # --- prefix tag tanpa angka (itct -> daftar CCTV) ---
-    (re.compile(r"\b(itlt|itct|prn)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    # --- prefix tag tanpa angka (itct/itrg/itht -> daftar kategorinya) ---
+    (re.compile(r"\b(itlt|itct|itrg|itht|itpr|prn)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
 ]
 
 
@@ -667,6 +694,8 @@ EXEMPLARS = [
     ("creator", "kamu dibuat siapa"), ("creator", "info pembuat bot ini"),
     ("unit_detail", "merek unit itu apa"), ("unit_detail", "spesifikasi fleet tersebut"),
     ("unit_detail", "status kendaraan tambang ini"), ("unit_detail", "radio apa saja di unit itu"),
+    ("asset_top", "daftar aset tertua"), ("asset_top", "unit paling anyar"),
+    ("asset_top", "aset yang kerap berpindah"), ("asset_top", "kerusakan paling sering"),
     ("recap", "rekap aset bulan ini"), ("recap", "ringkasan kondisi inventaris it"),
     ("recap", "total semua aset berapa"), ("recap", "jumlah aset tersedia dan dipakai"),
     ("recap", "statistik aset site wolo"), ("recap", "rekapitulasi aset dan stok"),
@@ -966,12 +995,20 @@ _CATEGORY_CANONICAL = {
     "ht": "radio",
 }
 
-# Prefix tag dari data asli (ITLT-007 = laptop, ITCT-032 = CCTV, PRN-01 =
-# printer): token prefix tanpa angka ikut menentukan kategori.
+# Prefix tag dari data asli (ITLT = laptop, ITCT = CCTV, ITRG = radio rig,
+# ITHT = radio HT, PRN = printer): token prefix tanpa angka ikut menentukan
+# kategori (+ jenis radio).
 _TAG_PREFIX_CATEGORY = {
     "ITLT": "laptop",
     "ITCT": "cctv",
+    "ITRG": "Radio Rig",
+    "ITHT": "radio",
+    "ITPR": "printer",
     "PRN": "printer",
+}
+_TAG_PREFIX_KIND = {
+    "ITRG": "rig",
+    "ITHT": "ht",
 }
 
 STATE_KEYWORDS = {
@@ -1020,7 +1057,7 @@ def extract_entities(raw_text):
     """Mengembalikan (entities, constraints) — dua kanal terpisah (cermin WACS).
 
     entities: asset_refs, category, radio_kind, asset_type, form_kind,
-    form_status, period, employee_name, item, state, condition.
+    form_status, period, top_kind, employee_name, item, state, condition.
     constraints: low_only (bool).
     """
     text = raw_text or ""
@@ -1043,7 +1080,7 @@ def extract_entities(raw_text):
                 category = _CATEGORY_CANONICAL.get(cat, cat)
                 break
         if not category:
-            # prefix tag tanpa angka ("itct" -> cctv)
+            # prefix tag tanpa angka ("itct" -> cctv, "itrg" -> rig)
             for tok in toks:
                 up = tok.upper()
                 if up in _TAG_PREFIX_CATEGORY and not any(
@@ -1052,10 +1089,17 @@ def extract_entities(raw_text):
                     break
 
     radio_kind = resolve_radio_kind(text)
+    if not radio_kind:
+        for tok in toks:
+            up = tok.upper()
+            if up in _TAG_PREFIX_KIND and not any(ch.isdigit() for ch in tok):
+                radio_kind = _TAG_PREFIX_KIND[up]
+                break
     asset_type = resolve_asset_type(text)
     form_kind = resolve_form_kind(text)
     form_status = resolve_form_status(text)
     period = resolve_period(text)
+    top_kind = resolve_top_kind(text)
 
     employee_name = ""
     m = _RE_EMPLOYEE_AFTER.search(text)
@@ -1089,7 +1133,7 @@ def extract_entities(raw_text):
     return ({"asset_refs": asset_refs, "category": category,
              "radio_kind": radio_kind, "asset_type": asset_type,
              "form_kind": form_kind, "form_status": form_status,
-             "period": period,
+             "period": period, "top_kind": top_kind,
              "employee_name": employee_name, "item": item,
              "state": state, "condition": condition},
             constraints)
@@ -1202,6 +1246,7 @@ def clarification_reply(intent, entities):
         INTENT_ASSET_HISTORY: "kode tag / nama asetnya",
         INTENT_ASSET_SEARCH: "kategorinya (mis. laptop, printer, radio) atau kondisinya",
         INTENT_UNIT_DETAIL: "kode unitnya (mis. DT-02) atau infonya — merek, status, aset terpasang",
+        INTENT_ASSET_TOP: "kriterianya (mis. paling tua, paling baru, paling sering pindah/rusak)",
         INTENT_HANDOVER_LIST: "periode atau statusnya (mis. handover bulan ini, bast yang belum signed)",
         INTENT_REQUEST_STATUS: "jenis dan statusnya (mis. material request yang belum fulfilled)",
         INTENT_DAMAGE_LIST: "statusnya (mis. damage yang belum resolved)",
@@ -1354,6 +1399,12 @@ _SELF_TEST_CASES = [
     ("permintaan akun saya", "request_status"),
     ("damage yang sudah resolved", "damage_list"),
     ("barang hilang", "damage_list"),
+    # Ranking (goals2.md §13)
+    ("aset yg paling tua", "asset_top"),
+    ("aset yang paling banyak pindah", "asset_top"),
+    ("riwayat aset it yg paling banyak pindah", "asset_top"),
+    ("laptop paling baru", "asset_top"),
+    ("aset paling sering rusak", "asset_top"),
     # Consumable lapangan: kata barang -> cek stok (goals2.md §13)
     ("konektor?", "check_stock"), ("daptor bnc", "check_stock"),
     ("sisa stok radio rig", "check_stock"), ("antena masih ada?", "check_stock"),

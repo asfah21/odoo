@@ -290,7 +290,8 @@ class ITAskAI(models.AbstractModel):
         if method == "ood_rule":
             reason = classification.get("ood_reason", "")
             out = self._out(text, nlu.INTENT_UNKNOWN, conf, "ood_scope_filter",
-                            nlu.scope_reply(text, reason), "ood_scope_filter")
+                            nlu.scope_reply(text, reason), "ood_scope_filter",
+                            suggestions=self._suggest_for(intent))
             out["ood_reason"] = reason
             self._record_feedback(text, out)
             return out
@@ -321,18 +322,21 @@ class ITAskAI(models.AbstractModel):
                 # jangan langsung lempar ke staff.
                 out = self._out(text, intent, conf, method,
                                 nlu.clarification_reply(intent, entities),
-                                "clarification")
+                                "clarification",
+                                suggestions=self._suggest_for(intent))
             else:
                 out = self._out(text, intent, conf, method,
                                 nlu.handover_reply(text), "handover_to_staff",
-                                handoff=True)
+                                handoff=True,
+                                suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
         if route == nlu.ROUTE_CLARIFY:
             entities, _constraints = self._merged_entities(text)
             out = self._out(text, intent, conf, method,
                             nlu.clarification_reply(intent, entities),
-                            "clarification")
+                            "clarification",
+                            suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
 
@@ -340,7 +344,8 @@ class ITAskAI(models.AbstractModel):
         handler = self._TOOLS.get(intent)
         if not handler:
             out = self._out(text, nlu.INTENT_UNKNOWN, 0.0, method,
-                            nlu.scope_reply(text, ""), "unknown_fallback")
+                            nlu.scope_reply(text, ""), "unknown_fallback",
+                            suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
         try:
@@ -350,7 +355,8 @@ class ITAskAI(models.AbstractModel):
             out = self._out(text, intent, conf, method,
                             "Maaf, saya gagal membaca data untuk itu. "
                             "Coba lagi atau persempit kata kuncinya.",
-                            "tool_error")
+                            "tool_error",
+                            suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
 
@@ -358,19 +364,22 @@ class ITAskAI(models.AbstractModel):
             entities, _constraints = self._merged_entities(text)
             out = self._out(text, intent, conf, method,
                             nlu.clarification_reply(intent, entities),
-                            "clarification")
+                            "clarification",
+                            suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
         if result.get("miss"):  # data tidak ditemukan (cermin storeMiss WACS)
             out = self._out(text, intent, conf, method,
                             nlu.data_miss_reply(text)
-                            + (result.get("hint") or ""), "data_miss")
+                            + (result.get("hint") or ""), "data_miss",
+                            suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
 
         out = self._out(text, intent, conf, method, result["html"],
                         result.get("tool", intent),
-                        action=result.get("action"))
+                        action=result.get("action"),
+                        suggestions=result.get("suggestions"))
         self._record_feedback(text, out)  # no-op bila terjawab yakin
         return out
 
@@ -514,13 +523,42 @@ class ITAskAI(models.AbstractModel):
         return entities, constraints
 
     def _out(self, text, intent, conf, method, html, tool,
-             action=None, handoff=False):
+             action=None, handoff=False, suggestions=None):
         out = {"html": html, "intent": intent,
                "confidence": round(float(conf), 3), "method": method,
                "tool_executed": tool, "handoff": handoff}
         if action:
             out["action"] = action
+        if suggestions:
+            out["suggestions"] = list(suggestions)[:6]
         return out
+
+    @staticmethod
+    def _suggest_for(intent):
+        """Tombol pilihan cepat sesuai topik (max 3-4)."""
+        if intent == nlu.INTENT_CHECK_STOCK:
+            return ["stok menipis", "stok radio ht", "rekap aset"]
+        if intent in (nlu.INTENT_ASSET_DETAIL, nlu.INTENT_ASSET_USER,
+                      nlu.INTENT_ASSET_HISTORY, nlu.INTENT_ASSET_TOP):
+            return ["siapa pakai ITLT-007", "riwayat DT-02", "rekap aset"]
+        if intent == nlu.INTENT_UNIT_DETAIL:
+            return ["DT-02", "rekap aset", "bantuan"]
+        if intent in (nlu.INTENT_HANDOVER_LIST, nlu.INTENT_REQUEST_STATUS,
+                      nlu.INTENT_DAMAGE_LIST, nlu.INTENT_MAINTENANCE_LIST):
+            return ["handover bulan ini", "rekap aset", "bantuan"]
+        return ["rekap aset", "stok radio ht", "bantuan"]
+
+    @staticmethod
+    def _suggest_tags(rows, extra=None):
+        out = []
+        for a in rows[:4]:
+            tag = a.get("asset_tag") or a.get("name") or ""
+            if tag and tag not in out:
+                out.append(tag)
+        for s in extra or []:
+            if s not in out:
+                out.append(s)
+        return out[:6]
 
     def _record_feedback(self, text, out):
         """Antrekan kurasi: hanya pesan tak-yakin (cermin WACS §17)."""
@@ -1122,14 +1160,16 @@ class ITAskAI(models.AbstractModel):
                  "<div>🚦 <b>Status</b> — balas <i>“status”</i></div>"
                  "<div>📻 <b>Aset terpasang</b> — balas <i>“aset”</i> / <i>“radio”</i></div>"
                  "<div>📜 <b>Riwayat</b> — balas <i>“riwayat”</i></div>"
-                 "</div>Balas salah satunya, atau ketik <i>“semua”</i> untuk "
-                 "kartu lengkap.") % (
+                "</div>Balas salah satunya, atau ketik <i>“semua”</i> untuk "
+                "kartu lengkap.") % (
                     _esc(name),
                     _esc(_m2o(unit.get("category_id")) or "-")),
                 "tool": "unit_detail",
                 "pending_action": nlu.INTENT_UNIT_DETAIL,
                 "pending_ids": [unit["id"]],
-                "pending_label": unit.get("name") or ""}
+                "pending_label": unit.get("name") or "",
+                "suggestions": ["merek", "status", "aset", "riwayat",
+                                "semua"]}
 
     def _tool_unit_detail(self, text):
         entities, _c = self._merged_entities(text)
@@ -1161,7 +1201,9 @@ class ITAskAI(models.AbstractModel):
                         "tool": "unit_detail",
                         "pending_action": nlu.INTENT_UNIT_DETAIL,
                         "pending_ids": ids,
-                        "pending_label": kw}
+                        "pending_label": kw,
+                        "suggestions": [u.get("name") or "" for u in units[:4]
+                                        if u.get("name")] + ["semua"]}
             unit = units[0]
             assets = self._installed_assets(unit["id"])
             if self._is_bare_unit_query(text, kw):
@@ -1308,6 +1350,15 @@ class ITAskAI(models.AbstractModel):
                         % _esc(kw)}
             # Bukan kategori aset -> fallback lama (keyword ke data aset).
             return self._tool_asset_stock(text, entities, kw)
+        # Tanpa keyword tapi ada topik sesi ("stok nya sisa?" setelah bahas
+        # HT) -> stok kategori itu, bukan ringkasan umum. low_only tetap umum.
+        if not constraints["low_only"]:
+            cat = (entities.get("category") or "")
+            kind = (entities.get("radio_kind") or "")
+            if cat in self._ASSET_STOCK_CATEGORIES or kind:
+                label = (cat + (" " + kind if kind and kind not in
+                                cat.lower() else "")).strip() or "aset"
+                return self._tool_asset_stock(text, entities, label or kw)
         rows = C.search_read([], _CONSUMABLE_FIELDS, limit=500,
                              order="name asc")
         if not rows:
@@ -1645,7 +1696,8 @@ class ITAskAI(models.AbstractModel):
                     "tool": "asset_detail",
                     "pending_action": nlu.INTENT_ASSET_DETAIL,
                     "pending_ids": ids,
-                    "pending_label": kw}
+                    "pending_label": kw,
+                    "suggestions": self._suggest_tags(found, ["semua"])}
         a = found[0]
         assigns = self.env["it_asset.assignment"].search_read(
             [("asset_id", "=", a["id"])], _ASSIGN_FIELDS, limit=5,
@@ -1793,7 +1845,8 @@ class ITAskAI(models.AbstractModel):
                         "tool": "asset_user",
                         "pending_action": nlu.INTENT_ASSET_USER,
                         "pending_ids": ids,
-                        "pending_label": kw}
+                        "pending_label": kw,
+                        "suggestions": self._suggest_tags(found, ["semua"])}
             a = A.search_read(domain, _ASSET_FIELDS, limit=1)[0]
             return {"html": self._single_user_html(a),
                     "tool": "asset_user"}
@@ -1840,7 +1893,9 @@ class ITAskAI(models.AbstractModel):
                         "tool": "asset_user",
                         "pending_action": nlu.INTENT_ASSET_USER,
                         "pending_ids": ids,
-                        "pending_label": " • ".join(labels)}
+                        "pending_label": " • ".join(labels),
+                        "suggestions": self._suggest_tags(
+                            rows, ["semua"] if total > 8 else [])}
             # total == 0 -> jatuh ke item fallback di bawah
         if entities["item"] and len(entities["item"]) >= 3:
             rows = A.search_read(self._asset_domain_for(entities["item"]),
@@ -1874,7 +1929,8 @@ class ITAskAI(models.AbstractModel):
                         "tool": "asset_history",
                         "pending_action": nlu.INTENT_ASSET_HISTORY,
                         "pending_ids": ids,
-                        "pending_label": kw}
+                        "pending_label": kw,
+                        "suggestions": self._suggest_tags(found, ["semua"])}
             a = self.env["it_asset.asset"].search_read(
                 domain, ["id", "name", "asset_tag"], limit=1)[0]
             rows = Assign.search_read(
@@ -1918,6 +1974,106 @@ class ITAskAI(models.AbstractModel):
                      "<div class='ai-foot'>Ketik <i>“riwayat [tag aset]”</i> "
                      "untuk riwayat per aset.</div>")
         return {"html": "".join(parts), "tool": "asset_history"}
+
+    @staticmethod
+    def _age_label(create_date):
+        try:
+            day = str(create_date or "")[:10]
+            y, m, d = int(day[0:4]), int(day[5:7]), int(day[8:10])
+            delta = (_datetime.date.today() - _datetime.date(y, m, d)).days
+        except (TypeError, ValueError):
+            return "-"
+        if delta >= 730:
+            return "%d thn" % (delta // 365)
+        if delta >= 60:
+            return "%d bln" % (delta // 30)
+        return "%d hari" % max(delta, 0)
+
+    def _top_base_domain(self, entities):
+        """Filter kategori/domain untuk ranking (ikut topik sesi bila ada)."""
+        domain = []
+        cat = (entities.get("category") or "")
+        if cat:
+            domain.append(("category_id.name", "ilike", cat))
+        at = (entities.get("asset_type") or "")
+        if at in ("it", "operation"):
+            domain.append(("asset_type", "=", at))
+        kind = (entities.get("radio_kind") or "")
+        if kind == "rig":
+            domain.extend(["|", ("name", "ilike", "rig"),
+                           ("product_id.name", "ilike", "rig")])
+        elif kind == "ht":
+            domain.extend(["|", ("name", "ilike", "HT"),
+                           ("product_id.name", "ilike", "HT")])
+        return domain
+
+    def _tool_asset_top(self, text):
+        """Ranking: paling tua/baru (create_date), tersering pindah (assignment),
+        tersering rusak (damage). Hormati filter kategori/domain sesi."""
+        entities, _c = self._merged_entities(text)
+        kind = entities.get("top_kind") or ""
+        if kind not in ("oldest", "newest", "moved", "damaged"):
+            return None
+        A = self.env["it_asset.asset"]
+        base = self._top_base_domain(entities)
+        if kind in ("oldest", "newest"):
+            order = "create_date asc" if kind == "oldest" else "create_date desc"
+            total = A.search_count(base)
+            if not total:
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Belum ada aset cocok "
+                                "filter.</div>"}
+            rows = A.search_read(base, _ASSET_FIELDS + ["create_date"],
+                                 limit=10, order=order)
+            title = ("⏳ Aset paling tua" if kind == "oldest"
+                     else "✨ Aset paling baru")
+            foot = "<div class='ai-foot'>" + "<br/>".join(
+                "%s — %s (%s)" % (
+                    _esc(a.get("asset_tag") or "-"),
+                    _esc(str(a.get("create_date") or "-")[:10]),
+                    self._age_label(a.get("create_date")))
+                for a in rows[:5]) + "</div>"
+            return {"html": self._asset_table(
+                        "%s (<b>%d</b>):" % (title, total), rows) + foot,
+                    "tool": "asset_top"}
+        # moved / damaged via read_group hitung per aset
+        model = ("it_asset.assignment" if kind == "moved"
+                 else "it_asset.damage_report")
+        aids = A.search(base, limit=2000).ids if base else []
+        gdom = [("asset_id", "in", aids)] if base else []
+        if base and not aids:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Belum ada aset cocok "
+                            "filter.</div>"}
+        try:
+            groups = self.env[model].read_group(
+                gdom, ["asset_id"], ["asset_id"],
+                orderby="asset_id_count desc", limit=10)
+        except Exception as exc:
+            _logger.warning("Ask AI top-group gagal: %s", exc)
+            return None
+        groups = [g for g in groups if g.get("asset_id")]
+        if not groups:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Belum ada data %s tercatat.</div>"
+                            % ("perpindahan" if kind == "moved"
+                               else "kerusakan")}
+        ids = [g["asset_id"][0] for g in groups]
+        counts = {g["asset_id"][0]: g.get("asset_id_count", 0) for g in groups}
+        rows = A.search_read([("id", "in", ids)], _ASSET_FIELDS)
+        by_id = {a["id"]: a for a in rows}
+        ordered = [by_id[i] for i in ids if i in by_id]
+        unit = "x pindah" if kind == "moved" else "x rusak"
+        title = ("🔁 Paling sering pindah" if kind == "moved"
+                 else "🔥 Paling sering rusak")
+        foot = "<div class='ai-foot'>" + "<br/>".join(
+            "%s — %d %s" % (
+                _esc((by_id[i].get("asset_tag")) or "-"),
+                counts.get(i, 0), unit)
+            for i in ids if i in by_id) + "</div>"
+        return {"html": self._asset_table(
+                    "%s:" % title, ordered) + foot,
+                "tool": "asset_top"}
 
     def _tool_maintenance_list(self, _text):
         rows = self.env["it_asset.maintenance"].search_read(
@@ -2228,6 +2384,7 @@ class ITAskAI(models.AbstractModel):
         nlu.INTENT_ASSET_USER: _tool_asset_user,
         nlu.INTENT_ASSET_HISTORY: _tool_asset_history,
         nlu.INTENT_MAINTENANCE_LIST: _tool_maintenance_list,
+        nlu.INTENT_ASSET_TOP: _tool_asset_top,
         nlu.INTENT_HANDOVER_LIST: _tool_handover_list,
         nlu.INTENT_DAMAGE_LIST: _tool_damage_list,
         nlu.INTENT_REQUEST_STATUS: _tool_request_status,

@@ -33,6 +33,7 @@ export class ITAskAI extends Component {
             search: "",
             showSidebar: false,
             sessions: [],
+            quickReplies: [],
             messages: [
                 {
                     id: "w" + Date.now(),
@@ -191,6 +192,13 @@ export class ITAskAI extends Component {
         }
         this.sendMessage();
     }
+    useQuickReply(text) {
+        if (this.state.isTyping) {
+            return;
+        }
+        this.state.input = text;
+        this.sendMessage();
+    }
     async sendMessage() {
         const text = (this.state.input || "").trim();
         if (!text || this.state.isTyping) {
@@ -199,6 +207,7 @@ export class ITAskAI extends Component {
         if (!this.state.activeSessionId) {
             await this.newChat();
         }
+        this.state.quickReplies = [];
         this.state.messages.push({
             id: "u" + Date.now(),
             role: "user",
@@ -233,6 +242,7 @@ export class ITAskAI extends Component {
                 time: this._now(),
                 action: (res && res.action) || null,
             });
+            this.state.quickReplies = (res && res.suggestions) || [];
             this._moveActiveFirst();
         } catch (e) {
             this.state.messages.push({
@@ -245,6 +255,7 @@ export class ITAskAI extends Component {
                 time: this._now(),
                 action: null,
             });
+            this.state.quickReplies = [];
         }
         this.state.isTyping = false;
         this._scrollToBottom();
@@ -293,11 +304,13 @@ export class ITAskAI extends Component {
         if (this.inputRef.el) {
             this.inputRef.el.focus();
         }
+        this.state.quickReplies = [];
     }
     async selectSession(session) {
         if (!session || this.state.isTyping) {
             return;
         }
+        this.state.quickReplies = [];
         this.state.sessions.forEach((s) => (s.active = s.id === session.id));
         this.state.activeSessionId = session.id;
         this.state.showSidebar = false;

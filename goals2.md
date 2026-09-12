@@ -167,6 +167,7 @@ User lapangan mengetik cepat dan tidak hafal format resmi. Ask AI **wajib paham*
 
 - **Konfirmasi saat ambigu**: kalau hasil lebih dari 1 (pengguna/detail/riwayat), AI balik tanya — tampilkan daftar tag + nama, minta balas **nomor aset/SN spesifik** atau ketik **“semua”**. Berlaku umum untuk semua tool berbasis ref. Contoh: `radio rig siapa yang pakai?` → jawab daftar + `Mau detail salah satunya? Balas nomor aset/SN-nya` (+ `semua` bila >8).
 - **Ingat pilihan**: kandidat disimpan di sesi (`pending_action`/`pending_ids`/`pending_label` di `it_asset.ask_ai.session`); pesan berikutnya `semua`/`ya` → tampilkan semua, tag cocok → eksekusi satu itu, pertanyaan baru → pending dibersihkan otomatis.
+- **Tombol pilihan cepat**: setiap jawaban tak-yakin menyertakan `suggestions` yang dirender sebagai tombol klik (klarifikasi, konfirmasi kandidat/tag, `semua`, merek/status/aset/riwayat unit, sampai fallback populer). Klik = kirim pesan itu.
 - **Tak yakin → tanya balik dulu**: skor di bawah floor + ada sinyal inventaris (ref/kategori/status/form/… via `has_meaningful_signal`) → klarifikasi terarah, BUKAN langsung handover. Handover ke staff hanya bila benar-benar tidak paham sama sekali (gibberish/curhat/OOD murni).
 - **Ingatan topik antar-pesan**: kategori/domain terakhir tersimpan di sesi (`last_category`/`last_asset_type`/`last_radio_kind`, kedaluwarsa 60 menit) — `yang rusak?` setelah `stok cctv` dibaca sebagai CCTV rusak. Topik baru (ref/kategori disebut) selalu menang.
 - **Identitas**: `kamu siapa?` / `fungsimu apa?` → jawab GSI IT Assistant + fungsinya (intent `identity`); `siapa yang buat?` / `developernya siapa?` → jawab **Azvan, IT Department PT GSI (Site Wolo)** (intent `creator`). Keduanya canned deterministik (fast-path + jaring pengaman tool).
@@ -178,6 +179,9 @@ User lapangan mengetik cepat dan tidak hafal format resmi. Ask AI **wajib paham*
 - **Form request**: baca material + asset + account request sekaligus — filter jenis (`material`/`asset_request`/`account`), status (`fulfilled` vs `belum` = draft/submitted/approved/partially, plus status spesifik), dan periode. Tiap jenis diringkas `X fulfilled • Y belum`. Contoh: `pengajuan material yang belum`, `asset request approved`.
 - **Form damage**: filter status (resolved/confirmed/draft/belum/sudah), jenis (fisik/sistem/hilang), periode, dan aset. Tanpa filter + data kosong → tetap kabar-baik (bukan miss).
 - **Aturan status**: kata `belum/pending/menunggu` selalu menang atas kata spesifik (`belum fulfilled` → open, bukan fulfilled).
+- **Ranking aset (intent `asset_top`)**: `paling tua`/`terbaru` (urut `create_date` + umur), `paling banyak pindah` (hitung assignment per aset), `paling sering rusak` (hitung damage per aset) — hormati filter kategori/domain sesi.
+- **Toleransi typo lapangan**: `availabe`/`avaiable`→`available`, `free`→`tersedia`, `yg`→`yang`, `develo`→`developer`; `siapa yg buat` dan `radio rig ada brp yg free` paham.
+- **Stok generik ikut topik**: `stok nya sisa?` setelah bahas HT = stok HT (bukan ringkasan umum); `low_only` (`menipis`) tetap umum.
 
 ## 14. Sumber Kebenaran Domain + Anti Bot Kaku
 
