@@ -308,9 +308,17 @@ class ITAskAI(models.AbstractModel):
 
         route = nlu.route(classification)
         if route == nlu.ROUTE_HANDOVER:
-            out = self._out(text, intent, conf, method,
-                            nlu.handover_reply(text), "handover_to_staff",
-                            handoff=True)
+            entities, _constraints = self._merged_entities(text)
+            if nlu.has_meaningful_signal(entities, text):
+                # Tak yakin TAPI paham topiknya -> tanya balik spesifik dulu,
+                # jangan langsung lempar ke staff.
+                out = self._out(text, intent, conf, method,
+                                nlu.clarification_reply(intent, entities),
+                                "clarification")
+            else:
+                out = self._out(text, intent, conf, method,
+                                nlu.handover_reply(text), "handover_to_staff",
+                                handoff=True)
             self._record_feedback(text, out)
             return out
         if route == nlu.ROUTE_CLARIFY:
@@ -1166,25 +1174,89 @@ class ITAskAI(models.AbstractModel):
                broken, degraded, good, low))
         return {"html": html, "tool": "recap"}
 
+    def _consumable_search(self, kw):
+        """Cari consumable: frasa dulu, lalu AND-kata, lalu OR-kata.
+
+        Presisi dulu (biar 'adaptor bnc' tak langsung miss), recall
+        belakangan (biar tetap ketemu walau kata tak berurutan).
+        """
+        C = self.env["it_asset.consumable"]
+        phrase = (kw or "").strip()
+        if not phrase:
+            return []
+        tried = [["|", ("name", "ilike", phrase),
+                  ("product_id.name", "ilike", phrase)]]
+        words = [w for w in phrase.split() if len(w) > 1]
+        if len(words) > 1:
+            ands = []
+            for w in words:
+                ands.extend(["|", ("name", "ilike", w),
+                             ("product_id.name", "ilike", w)])
+            tried.append(ands)
+            ors = []
+            for w in words:
+                ors.extend([("name", "ilike", w),
+                            ("product_id.name", "ilike", w)])
+            tried.append(_or_domain(ors))
+        for dom in tried:
+            rows = C.search_read(dom, _CONSUMABLE_FIELDS, limit=20,
+                                 order="name asc")
+            if rows:
+                return rows
+        return []
+
+    # Kata generik kategori/jenis: bila item masih punya kata produk lain
+    # ("mic" pada "mic radio"), itu barang spesifik -> consumable dulu.
+    _CATEGORY_NOISE_WORDS = frozenset([
+        "radio", "rig", "ht", "handy", "talky", "laptop", "printer",
+        "komputer", "monitor", "mouse", "keyboard", "server", "cctv",
+        "it", "operasional",
+    ])
+
+    @staticmethod
+    def _is_generic_asset_stock(entities, kw):
+        """True bila 'stok X' murni menanyakan kategori aset (tanpa kata produk)."""
+        cat = (entities.get("category") or "").lower()
+        if cat not in ITAskAI._ASSET_STOCK_CATEGORIES:
+            return False
+        catwords = set(cat.split())
+        for tok in (kw or "").lower().split():
+            if len(tok) < 2:
+                continue
+            if tok in catwords or tok in ITAskAI._CATEGORY_NOISE_WORDS:
+                continue
+            return False
+        return True
+
     def _tool_check_stock(self, text):
         entities, constraints = self._merged_entities(text)
         kw = entities["item"]
         C = self.env["it_asset.consumable"]
         if kw:
-            rows = C.search_read(
-                ["|", ("name", "ilike", kw), ("product_id.name", "ilike", kw)],
-                _CONSUMABLE_FIELDS, limit=20, order="name asc")
-            if not rows:
-                # Bukan consumable -> mungkin barang berupa aset
-                # ("berapa stok radio ht" = HT yang tersedia/belum assign).
-                return self._tool_asset_stock(text, entities, kw)
-            return {"html": self._stock_table(
-                "Stok untuk “<b>%s</b>” (%d item):" % (_esc(kw), len(rows)),
-                rows), "tool": "check_stock",
-                "action": self._list_action(
-                    "Consumables", "it_asset.consumable",
-                    ["|", ("name", "ilike", kw),
-                     ("product_id.name", "ilike", kw)])}
+            # Barang berupa aset (radio/laptop/...) -> stok = unit tersedia,
+            # JANGAN consumable ("mic radio rig" bukan "radio rig").
+            # Tapi kalau ada kata produk spesifik ("mic"), consumable dulu.
+            if self._is_generic_asset_stock(entities, kw):
+                res = self._tool_asset_stock(text, entities, kw)
+                if not res.get("miss"):
+                    return res
+            rows = self._consumable_search(kw)
+            if rows:
+                return {"html": self._stock_table(
+                    "Stok untuk “<b>%s</b>” (%d item):" % (_esc(kw), len(rows)),
+                    rows), "tool": "check_stock",
+                    "action": self._list_action(
+                        "Consumables", "it_asset.consumable",
+                        ["|", ("name", "ilike", kw),
+                         ("product_id.name", "ilike", kw)])}
+            if self._is_generic_asset_stock(entities, kw):
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Tidak ada stok maupun "
+                                "aset “<b>%s</b>” tercatat. Coba kata lain "
+                                "atau ketik <i>“rekap aset”</i>.</div>"
+                        % _esc(kw)}
+            # Bukan kategori aset -> fallback lama (keyword ke data aset).
+            return self._tool_asset_stock(text, entities, kw)
         rows = C.search_read([], _CONSUMABLE_FIELDS, limit=500,
                              order="name asc")
         if not rows:

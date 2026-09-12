@@ -160,6 +160,10 @@ _SLANG_TABLE = {
     "stok na": "stok nya", "abis": "habis", "sold out": "habis",
     "rdy": "ready", "redy": "ready", "brang": "barang",
     "prduk": "produk", "tnya": "tanya", "asett": "aset",
+    # ejaan consumable lapangan (OP-2 + IT-5)
+    "daptor": "adaptor", "conector": "konektor", "connector": "konektor",
+    "antene": "antena", "breket": "bracket", "bracketnya": "bracket nya",
+    "sikring": "sekring", "solasi": "isolasi", "koaksial": "coaxial",
     # ejaan aset IT
     "lptop": "laptop", "leptop": "laptop", "print": "printer",
     "pritner": "printer", "printernya": "printer nya",
@@ -590,7 +594,10 @@ _RULES = [
     (re.compile(r"\b(account\s*request|permintaan\s*akun|pengajuan\s*akun|minta\s*akun)\b", re.I), INTENT_REQUEST_STATUS, 0.90),
     # --- pencarian / daftar aset (kondisi, status, kategori + fleet V2) ---
     (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
-    # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / ex / lv / wt / dozer / grader / fleet / unit) ---
+    # --- kata consumable/material berdiri sendiri -> cek stok (OP-2 + IT-5).
+    # Ditaruh setelah aturan aset agar "mouse rusak"/"radio ht" tetap ke aset.
+    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc)\b", re.I), INTENT_CHECK_STOCK, 0.88),
+    # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / lv / wt / dozer / grader / fleet / unit) ---
     (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
     (re.compile(r"\b(radio\s*ht|radio\s*rig|ht|rig|handy\s*talky)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
@@ -1209,6 +1216,34 @@ def route(classification, configured=0.0):
     return ROUTE_EXECUTE
 
 
+# Kata yang menandakan user bicara soal inventaris walau intent tak yakin.
+# Dipakai backend: handover buta -> klarifikasi terarah bila sinyal ini ada.
+_MEANINGFUL_SIGNALS = (
+    set(CATEGORY_GAZETTEER) | set(_FLEET_ALIASES) | {
+        "stok", "aset", "asset", "unit", "detail", "riwayat", "request",
+        "handover", "bast", "fstb", "damage", "rusak", "maintenance",
+        "servis", "terpasang", "pengguna", "pakai", "laporan", "pengajuan",
+        "spesifikasi", "spek", "kategori", "tipe", "serial", "tag",
+    }
+)
+
+
+def has_meaningful_signal(entities, raw_text=""):
+    """True bila ada entitas terisi ATAU kata inventaris di teks.
+
+    Backend memakainya agar kasus tak-yakin tidak langsung dilempar ke
+    staff, melainkan ditanya balik secara spesifik dulu.
+    """
+    if entities:
+        for key in ("asset_refs", "category", "radio_kind", "asset_type",
+                    "form_kind", "form_status", "period", "state",
+                    "condition", "employee_name"):
+            if entities.get(key):
+                return True
+    toks = set(normalize_id(raw_text or "").split())
+    return bool(toks & _MEANINGFUL_SIGNALS)
+
+
 CAPTURE_UNKNOWN = "unknown"
 CAPTURE_HANDOVER = "handover"
 CAPTURE_OOD_SCOPE = "ood_scope_filter"
@@ -1301,6 +1336,9 @@ _SELF_TEST_CASES = [
     ("permintaan akun saya", "request_status"),
     ("damage yang sudah resolved", "damage_list"),
     ("barang hilang", "damage_list"),
+    # Consumable lapangan: kata barang -> cek stok (goals2.md §13)
+    ("konektor?", "check_stock"), ("daptor bnc", "check_stock"),
+    ("sisa stok radio rig", "check_stock"), ("antena masih ada?", "check_stock"),
     # OOD → unknown
     ("cuaca hari ini bagaimana", "unknown"), ("12 + 34 berapa", "unknown"),
     ("jam berapa sekarang", "unknown"), ("kamu manusia atau robot", "unknown"),
