@@ -593,14 +593,16 @@ _RULES = [
     (re.compile(r"\b(asset\s*request|permintaan\s*aset|pengajuan\s*aset)\b", re.I), INTENT_REQUEST_STATUS, 0.90),
     (re.compile(r"\b(account\s*request|permintaan\s*akun|pengajuan\s*akun|minta\s*akun)\b", re.I), INTENT_REQUEST_STATUS, 0.90),
     # --- pencarian / daftar aset (kondisi, status, kategori + fleet V2) ---
-    (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
+    (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|cctv|desktop|gps|tablet|headset|proyektor|projector|router|switch|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
     # --- kata consumable/material berdiri sendiri -> cek stok (OP-2 + IT-5).
     # Ditaruh setelah aturan aset agar "mouse rusak"/"radio ht" tetap ke aset.
-    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc)\b", re.I), INTENT_CHECK_STOCK, 0.88),
+    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc|toner|tinta|kertas)\b", re.I), INTENT_CHECK_STOCK, 0.88),
     # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / lv / wt / dozer / grader / fleet / unit) ---
     (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
     (re.compile(r"\b(radio\s*ht|radio\s*rig|ht|rig|handy\s*talky)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    # --- prefix tag tanpa angka (itct -> daftar CCTV) ---
+    (re.compile(r"\b(itlt|itct|prn)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
 ]
 
 
@@ -964,6 +966,14 @@ _CATEGORY_CANONICAL = {
     "ht": "radio",
 }
 
+# Prefix tag dari data asli (ITLT-007 = laptop, ITCT-032 = CCTV, PRN-01 =
+# printer): token prefix tanpa angka ikut menentukan kategori.
+_TAG_PREFIX_CATEGORY = {
+    "ITLT": "laptop",
+    "ITCT": "cctv",
+    "PRN": "printer",
+}
+
 STATE_KEYWORDS = {
     "available": ["tersedia", "available", "ready", "siap pakai", "siap dipakai",
                   "belum dipakai", "nganggur", "kosong"],
@@ -1032,6 +1042,14 @@ def extract_entities(raw_text):
             if cat in norm:
                 category = _CATEGORY_CANONICAL.get(cat, cat)
                 break
+        if not category:
+            # prefix tag tanpa angka ("itct" -> cctv)
+            for tok in toks:
+                up = tok.upper()
+                if up in _TAG_PREFIX_CATEGORY and not any(
+                        ch.isdigit() for ch in tok):
+                    category = _TAG_PREFIX_CATEGORY[up]
+                    break
 
     radio_kind = resolve_radio_kind(text)
     asset_type = resolve_asset_type(text)
@@ -1339,6 +1357,10 @@ _SELF_TEST_CASES = [
     # Consumable lapangan: kata barang -> cek stok (goals2.md §13)
     ("konektor?", "check_stock"), ("daptor bnc", "check_stock"),
     ("sisa stok radio rig", "check_stock"), ("antena masih ada?", "check_stock"),
+    # Kategori polos + prefix tag (data asli: ITCT-032 = CCTV)
+    ("cctv", "asset_search"), ("list cctv", "asset_search"),
+    ("cctv atau itct", "asset_search"), ("itct", "asset_search"),
+    ("desktop", "asset_search"),
     # OOD → unknown
     ("cuaca hari ini bagaimana", "unknown"), ("12 + 34 berapa", "unknown"),
     ("jam berapa sekarang", "unknown"), ("kamu manusia atau robot", "unknown"),

@@ -298,13 +298,20 @@ class ITAskAI(models.AbstractModel):
         # Entitas LLM (bila ada) hanya dipakai bila grounded — substring
         # dari teks user (cermin WACS: extractor pemilik kanal entitas,
         # model tak boleh mengarang nilai).
-        llm_ctx = None
+        ctx_update = {}
         if method == "llm":
-            llm_ctx = {
+            ctx_update["ask_ai_llm"] = {
                 "entities": classification.get("llm_entities") or {},
                 "constraints": classification.get("llm_constraints") or {},
             }
-        runner = self.with_context(ask_ai_llm=llm_ctx) if llm_ctx else self
+        try:
+            sctx = self._get_session_ctx(session_id)
+        except Exception as exc:
+            _logger.warning("Ask AI session-ctx gagal dibaca: %s", exc)
+            sctx = {}
+        if sctx:
+            ctx_update["ask_ai_ctx"] = sctx
+        runner = self.with_context(**ctx_update) if ctx_update else self
 
         route = nlu.route(classification)
         if route == nlu.ROUTE_HANDOVER:
@@ -475,6 +482,14 @@ class ITAskAI(models.AbstractModel):
         ``entity.Extract`` pemilik kanal, ``Decision`` hanya constraints
         tertutup; nilai model diadopsi hanya bila         tertulis di pertanyaan)."""
         entities, constraints = nlu.extract_entities(text)
+        # Ingatan topik sesi: "yang rusak?" setelah "stok cctv" = CCTV rusak.
+        # Hanya bila pesan ini tanpa ref & tanpa kategori (topik baru menang).
+        sctx = self.env.context.get("ask_ai_ctx") or {}
+        if sctx and not entities.get("asset_refs") \
+                and not entities.get("category"):
+            for key in ("category", "asset_type", "radio_kind"):
+                if not entities.get(key) and sctx.get(key):
+                    entities[key] = sctx[key]
         llm = self.env.context.get("ask_ai_llm") or {}
         l_ent = llm.get("entities") or {}
         if not entities["asset_refs"] and (l_ent.get("asset_ref") or "").strip():
@@ -599,8 +614,44 @@ class ITAskAI(models.AbstractModel):
             session.write({"pending_action": False,
                            "pending_ids": False,
                            "pending_label": False})
+        # Ingatan topik: simpan kategori/domain terakhir (untuk pesan berikut).
+        try:
+            cur, _c = nlu.extract_entities(text)
+        except Exception:
+            cur = {}
+        ctx_vals = {}
+        for key, field in (("category", "last_category"),
+                           ("asset_type", "last_asset_type"),
+                           ("radio_kind", "last_radio_kind")):
+            if cur.get(key):
+                ctx_vals[field] = cur[key]
+        if ctx_vals:
+            ctx_vals["last_ctx_at"] = fields.Datetime.now()
+            session.write(ctx_vals)
         session._touch()
         return session.id
+
+    def _get_session_ctx(self, session_id):
+        """Ingatan topik sesi (kedaluwarsa 60 menit) untuk _merged_entities."""
+        if not session_id or not isinstance(session_id, int):
+            return {}
+        session = self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+        if not session or not session.last_ctx_at:
+            return {}
+        try:
+            age = (_datetime.datetime.now() - session.last_ctx_at)
+            age = age.total_seconds()
+        except Exception:
+            return {}
+        if age > 3600:
+            return {}
+        return {k: v for k, v in {
+            "category": session.last_category,
+            "asset_type": session.last_asset_type,
+            "radio_kind": session.last_radio_kind,
+        }.items() if v}
 
     @api.model
     def session_list(self, limit=30):

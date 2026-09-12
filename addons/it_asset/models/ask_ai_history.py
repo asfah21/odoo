@@ -39,6 +39,12 @@ class ITAskAISession(models.Model):
     pending_action = fields.Char(string="Aksi Tertunda", readonly=True)
     pending_ids = fields.Char(string="ID Aset Tertunda (csv)", readonly=True)
     pending_label = fields.Char(string="Label Tertunda", readonly=True)
+    # Ingatan topik: kategori/domain terakhir agar "yang rusak?" setelah
+    # "stok cctv" dibaca sebagai CCTV rusak. Kedaluwarsa 60 menit.
+    last_category = fields.Char(string="Kategori Terakhir", readonly=True)
+    last_asset_type = fields.Char(string="Domain Terakhir", readonly=True)
+    last_radio_kind = fields.Char(string="Jenis Radio Terakhir", readonly=True)
+    last_ctx_at = fields.Datetime(string="Konteks Diperbarui", readonly=True)
 
     @api.depends("message_ids")
     def _compute_message_count(self):
