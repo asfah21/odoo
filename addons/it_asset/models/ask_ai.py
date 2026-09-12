@@ -69,6 +69,23 @@ _STATE_LABEL = {"available": "Tersedia", "in_use": "Dipakai",
                 "maintenance": "Out of Service", "retired": "Retired"}
 _COND_LABEL = {"good": "Good", "degraded": "Degraded", "broken": "Broken"}
 
+# V2 (goals2.md §9): kategori fleet/unit — dicari ke it_asset.unit, bukan
+# category_id aset (yang hanya berisi Laptop/Desktop/Printer/Radio Rig).
+_FLEET_CATEGORIES = {"excavator", "dump truck", "water truck",
+                     "light vehicle", "dozer", "grader", "fleet", "unit"}
+_UNIT_STATE_MAP = {"ready": "Ready", "standby": "Standby",
+                   "breakdown": "Breakdown"}
+
+
+def _or_domain(conds):
+    """Bangun domain OR Odoo dari list kondisi: ['|']*(n-1) + conds."""
+    conds = list(conds)
+    if not conds:
+        return []
+    if len(conds) == 1:
+        return conds
+    return ["|"] * (len(conds) - 1) + conds
+
 _SOCIAL_INTENTS = (nlu.INTENT_GREETING, nlu.INTENT_THANKS,
                    nlu.INTENT_GOODBYE, nlu.INTENT_HELP)
 
@@ -328,7 +345,14 @@ class ITAskAI(models.AbstractModel):
         l_ent = llm.get("entities") or {}
         if not entities["asset_refs"] and (l_ent.get("asset_ref") or "").strip():
             v = l_ent["asset_ref"].strip().upper()
-            if v in (text or "").upper() and any(ch.isdigit() for ch in v):
+            # V2: bandingkan versi stripped agar "DT-02" tetap grounded
+            # pada teks "dt 02" (tanpa menuntut format strip sama persis).
+            try:
+                v_stripped = nlu._stripped_ref(v)
+                t_stripped = nlu._stripped_ref(text)
+            except AttributeError:
+                v_stripped, t_stripped = v, (text or "").upper()
+            if v_stripped and v_stripped in t_stripped and any(ch.isdigit() for ch in v):
                 entities["asset_refs"] = [v]
         for key, slot in (("item", "item"), ("employee", "employee_name"),
                           ("category", "category")):
@@ -553,6 +577,10 @@ class ITAskAI(models.AbstractModel):
 
     def _tool_asset_search(self, text):
         entities, _c = self._merged_entities(text)
+        # V2: kategori fleet -> cari ke it_asset.unit (bukan category_id aset).
+        cat = (entities.get("category") or "").lower()
+        if cat in _FLEET_CATEGORIES:
+            return self._tool_unit_search(text, entities)
         domain = []
         labels = []
         if entities["state"]:
@@ -585,10 +613,122 @@ class ITAskAI(models.AbstractModel):
             "action": self._list_action("Assets", "it_asset.asset", domain)}
 
     def _asset_domain_for(self, keyword):
-        return ["|", "|", "|", ("name", "ilike", keyword),
-                ("asset_tag", "ilike", keyword),
-                ("lot_id.name", "ilike", keyword),
-                ("employee_id.name", "ilike", keyword)]
+        """Domain OR antar-varian fuzzy (V2 goals2.md §9).
+
+        'DT-02' juga dicari sebagai 'DT02'/'DT 02'/'DT.02'/'DT-2' agar
+        'dt 02' ketemu 'DT-02' di DB. Unit ikut dicari via unit_id.name.
+        """
+        try:
+            variants = nlu.ref_variants(keyword)
+        except AttributeError:
+            variants = [keyword]
+        if not variants:
+            variants = [keyword]
+        # batasi agar domain tidak meledak (varian sudah dedup di NLU)
+        variants = variants[:12]
+        conds = []
+        for v in variants:
+            if not v or len(v) < 2:
+                continue
+            conds.extend([
+                ("name", "ilike", v),
+                ("asset_tag", "ilike", v),
+                ("lot_id.name", "ilike", v),
+                ("employee_id.name", "ilike", v),
+                ("unit_id.name", "ilike", v),
+            ])
+        if not conds:
+            kw = keyword or ""
+            conds = [("name", "ilike", kw), ("asset_tag", "ilike", kw)]
+        return _or_domain(conds)
+
+    def _unit_domain_for(self, keyword):
+        try:
+            variants = nlu.ref_variants(keyword)
+        except AttributeError:
+            variants = [keyword]
+        if not variants:
+            variants = [keyword]
+        variants = variants[:12]
+        conds = []
+        for v in variants:
+            if not v or len(v) < 2:
+                continue
+            conds.extend([
+                ("name", "ilike", v),
+                ("category_id.name", "ilike", v),
+            ])
+        return _or_domain(conds) if conds else []
+
+    def _tool_unit_search(self, text, entities):
+        """Cari fleet/unit (V2): 'exca' -> Excavator, 'dt 02' -> DT-02."""
+        U = self.env["it_asset.unit"]
+        low = (text or "").lower()
+        unit_state = ""
+        for st in ("breakdown", "standby", "ready"):
+            if st in low:
+                unit_state = st
+                break
+        # Jika ada ref spesifik (DT-02), cari unit itu dulu.
+        refs = entities.get("asset_refs") or []
+        if refs:
+            kw = refs[0]
+            units = U.search_read(self._unit_domain_for(kw),
+                                  ["name", "category_id", "state", "brand",
+                                   "model"], limit=10, order="name asc")
+            if units:
+                return {"html": self._unit_table(
+                    "🚜 Unit <b>%s</b> (%d):" % (_esc(kw), len(units)),
+                    units), "tool": "asset_search",
+                    "action": self._list_action(
+                        "Units", "it_asset.unit",
+                        self._unit_domain_for(kw))}
+            # jatuh ke bawah: mungkin maksudnya aset yang terpasang di unit itu
+            A = self.env["it_asset.asset"]
+            rows = A.search_read(self._asset_domain_for(kw), _ASSET_FIELDS,
+                                 limit=15, order="id desc")
+            if rows:
+                return {"html": self._asset_table(
+                    "🔎 Aset terpasang pada unit mirip “<b>%s</b>”:" % _esc(kw),
+                    rows), "tool": "asset_search"}
+        cat = (entities.get("category") or "")
+        domain = []
+        if cat and cat.lower() not in ("fleet", "unit"):
+            domain.append(("category_id.name", "ilike", cat))
+        if unit_state:
+            domain.append(("state", "=", unit_state))
+        if not domain:
+            return None
+        total = U.search_count(domain)
+        if not total:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Belum ada unit cocok. "
+                            "Coba <i>“rekap aset”</i>.</div>"}
+        rows = U.search_read(domain, ["name", "category_id", "state",
+                                      "brand", "model"], limit=15,
+                             order="name asc")
+        label = "kategori “%s”" % cat if cat else "unit"
+        if unit_state:
+            label += " • %s" % _UNIT_STATE_MAP.get(unit_state, unit_state)
+        return {"html": self._unit_table(
+            "🚜 <b>%d</b> unit — %s:" % (total, _esc(label)), rows),
+            "tool": "asset_search",
+            "action": self._list_action("Units", "it_asset.unit", domain)}
+
+    def _unit_table(self, title, rows):
+        parts = [title, "<div class='ai-table-wrap'><table class='ai-table'>"
+                        "<thead><tr><th>Unit</th><th>Kategori</th>"
+                        "<th>Status</th></tr></thead><tbody>"]
+        for u in rows:
+            parts.append(
+                "<tr><td><b>%s</b><div class='ai-sub'>%s %s</div></td>"
+                "<td>%s</td><td><span class='ai-badge info'>%s</span></td></tr>"
+                % (_esc(u.get("name") or "-"),
+                   _esc(u.get("brand") or ""), _esc(u.get("model") or ""),
+                   _esc(_m2o(u.get("category_id")) or "-"),
+                   _esc(_UNIT_STATE_MAP.get(u.get("state"), u.get("state") or "-"))))
+        parts.append("</tbody></table></div>")
+        return "".join(parts)
 
     def _tool_asset_detail(self, text):
         entities, _c = self._merged_entities(text)
@@ -605,8 +745,22 @@ class ITAskAI(models.AbstractModel):
         found = A.search_read(self._asset_domain_for(kw), _ASSET_FIELDS,
                               limit=10, order="id desc")
         if not found:
+            # V2: kalau kode mirip fleet (DT-02) tapi bukan aset, coba unit.
+            try:
+                units = self.env["it_asset.unit"].search_read(
+                    self._unit_domain_for(kw),
+                    ["name", "category_id", "state", "brand", "model"],
+                    limit=5, order="name asc")
+            except Exception:
+                units = []
+            if units:
+                return {"html": self._unit_table(
+                    "🚜 Unit mirip “<b>%s</b>”:" % _esc(kw), units)
+                    + "<div class='ai-foot'>Belum ada aset terpasang yang "
+                      "cocok — ini data unitnya.</div>", "tool": "asset_detail"}
             return {"miss": True,
-                    "hint": "<div class='ai-foot'>Periksa kode tag/serialnya, "
+                    "hint": "<div class='ai-foot'>Periksa kode tag/serialnya "
+                            "(mis. <i>ITLT-002</i>, <i>DT-02</i>), "
                             "atau ketik <i>“rekap aset”</i>.</div>"}
         if len(found) > 1:
             total = A.search_count(self._asset_domain_for(kw))

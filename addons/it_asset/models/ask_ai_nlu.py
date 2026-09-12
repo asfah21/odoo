@@ -203,6 +203,101 @@ _NON_IT_TOPIC_STEMS = [
     "makan", "transport", "bensin", "solar", "promo", "diskon",
 ]
 _RE_ASSET_TAG = re.compile(r"\b([A-Z]{2,}[A-Z0-9]*-?[0-9][A-Z0-9/-]*)\b")
+# V2 (goals2.md §9): kode berantakan ala lapangan — spasi/titik/strip/underscore
+# sama saja: "DT 02", "DT.02", "DT_02", "DT-02", "ITLT 002".
+# Regex split ini menangkap PREFIX + pemisah + ANGKA, mis. "ITLT 002" -> ITLT-002.
+_RE_SPLIT_REF = re.compile(r"\b([A-Z]{2,})\s*[.\-_\s]+\s*(0*[0-9][A-Z0-9]*)\b")
+# Alias lapangan -> kategori kanonik (master_data.xml: Dump Truck, Water Truck,
+# Excavator, Light Vehicle (LV); Type Barang.md: DT/EX/LV/WT + dozer/grader).
+_FLEET_ALIASES = {
+    "exca": "excavator", "excavator": "excavator", "beko": "excavator",
+    "dt": "dump truck", "dump truck": "dump truck", "dumptruck": "dump truck",
+    "wt": "water truck", "water truck": "water truck", "watertruck": "water truck",
+    "lv": "light vehicle", "light vehicle": "light vehicle",
+    "dozer": "dozer", "grader": "grader",
+}
+_FLEET_PREFIXES = ("DT", "EX", "LV", "WT", "ITLT", "LT", "PRN")
+
+
+def _stripped_ref(ref):
+    """Kanonik perbandingan: buang semua non-alnum, uppercase. 'DT-02'->'DT02'."""
+    return re.sub(r"[^A-Z0-9]", "", (ref or "").upper())
+
+
+def canonical_asset_ref(prefix, num):
+    """'dt'+'02' -> 'DT-02'. Num dipertahankan apa adanya (nol depan ikut)."""
+    return "%s-%s" % ((prefix or "").upper(), (num or "").upper())
+
+
+def ref_variants(ref):
+    """Kembalikan varian pencarian untuk satu ref kanonik/strip.
+
+    Mis. 'DT-02' -> ['DT-02','DT02','DT 02','DT.02','DT-2','DT-02','DT-002',...].
+    Dipakai backend untuk OR ilike agar 'dt 02' ketemu 'DT-02' di DB.
+    """
+    up = (ref or "").upper().strip()
+    m = re.match(r"^([A-Z]{2,})[^A-Z0-9]*([0-9]+)([A-Z0-9/-]*)$", up)
+    if not m:
+        return [up] if up else []
+    prefix, digits, tail = m.group(1), m.group(2), (m.group(3) or "")
+    try:
+        n = int(re.match(r"[0-9]+", digits).group(0))
+    except (AttributeError, ValueError):
+        n = None
+    nums = {digits}
+    if n is not None:
+        nums.add(str(n))
+        nums.add("%02d" % n)
+        nums.add("%03d" % n)
+    outs = []
+    for num in sorted(nums):
+        full = num + tail
+        for form in ("%s-%s" % (prefix, full), "%s%s" % (prefix, full),
+                     "%s %s" % (prefix, full), "%s.%s" % (prefix, full)):
+            if form not in outs:
+                outs.append(form)
+    if up not in outs:
+        outs.insert(0, up)
+    return outs
+
+
+def _iter_refs_in(text):
+    """Yield ref kanonik dari teks (rapat + split), dedup by stripped form."""
+    up = (text or "").upper()
+    seen = set()
+    for match in _RE_ASSET_TAG.finditer(up):
+        ref = match.group(1)
+        if not any(ch.isdigit() for ch in ref):
+            continue
+        key = _stripped_ref(ref)
+        if key and key not in seen:
+            seen.add(key)
+            yield ref
+    for match in _RE_SPLIT_REF.finditer(up):
+        prefix, num = match.group(1), match.group(2)
+        if not any(ch.isdigit() for ch in num):
+            continue
+        ref = canonical_asset_ref(prefix, num)
+        key = _stripped_ref(ref)
+        if key and key not in seen:
+            seen.add(key)
+            yield ref
+
+
+def _has_any_ref(text):
+    for _r in _iter_refs_in(text):
+        return True
+    return False
+
+
+def resolve_fleet_alias(text):
+    """Kembalikan kategori kanonik bila teks memuat alias fleet ('exca'->'excavator')."""
+    norm = normalize_id(text)
+    # frasa panjang dulu agar 'dump truck' menang atas 'dt' lepas
+    for alias in sorted(_FLEET_ALIASES, key=lambda k: (-len(k), k)):
+        if re.search(r"\b" + re.escape(alias) + r"\b", norm):
+            return _FLEET_ALIASES[alias]
+    return ""
 _RE_STOCK_WORD = re.compile(r"\b(stok|ready|tersedia|sisa|tersisa|menipis|habis|restock|minimum|consumable)\b", re.I)
 _RE_RECAP_WORD = re.compile(r"\b(rekap|ringkas|total aset|jumlah aset|statistik)\b", re.I)
 _RE_HISTORY_WORD = re.compile(r"\b(riwayat|histor[yi]|history)\b", re.I)
@@ -219,8 +314,9 @@ def asset_query_override(raw_text):
     """
     if _names_non_it_topic(raw_text):
         return None
-    if _RE_ASSET_TAG.search(raw_text.upper()):
-        # Kode seperti LT-012 / PRN-01 selalu merujuk aset spesifik.
+    if _has_any_ref(raw_text):
+        # Kode seperti LT-012 / PRN-01 / ITLT-002 / DT-02 selalu merujuk aset
+        # spesifik — termasuk varian berantakan "itlt02", "DT 02", "dt.02".
         if _RE_HISTORY_WORD.search(raw_text):
             return INTENT_ASSET_HISTORY
         if re.search(r"\b(siapa|pakai|pengguna|pemakai|milik|punya)\b", raw_text, re.I):
@@ -321,8 +417,11 @@ _RULES = [
     (re.compile(r"\b(riwayat|histor[yi]|history|track\s+record)\b", re.I), INTENT_ASSET_HISTORY, 0.94),
     # --- pengguna ---
     (re.compile(r"\b(siapa\s+(yang\s+)?(pakai|memakai|pegang)|dipakai\s+(oleh|siapa)|pengguna|pemakai|dipegang|milik|punya|asetnya|user\s+nya)\b", re.I), INTENT_ASSET_USER, 0.94),
-    # --- kode tag aset mentah ---
+    # --- kode tag aset mentah (rapat: LT-012 / ITLT02) ---
     (re.compile(r"\b[A-Z]{2,}[A-Z0-9]*-?[0-9][A-Z0-9/-]*\b"), INTENT_ASSET_DETAIL, 0.92),
+    # --- V2: kode split berantakan (DT 02 / DT.02 / ITLT 002 / DT_02) ---
+    (re.compile(r"\b[A-Z]{2,}\s*[.\-_]\s*[0-9]", re.I), INTENT_ASSET_DETAIL, 0.92),
+    (re.compile(r"\b[A-Z]{2,}\s+[0-9]", re.I), INTENT_ASSET_DETAIL, 0.92),
     # --- detail / kondisi spesifik ---
     (re.compile(r"\b(detail|spesifikasi|spek|cari(kan)?|informasi|kondisi)\b.{0,30}\b(aset|asset|laptop|printer|radio|komputer|serial|tag)\b", re.I), INTENT_ASSET_DETAIL, 0.93),
     (re.compile(r"\b(aset|asset|laptop|printer|radio|komputer|serial|tag)\b.{0,30}\b(detail|spesifikasi|spek|kondisi|dimana|di mana)\b", re.I), INTENT_ASSET_DETAIL, 0.93),
@@ -336,8 +435,10 @@ _RULES = [
     # --- request ---
     (re.compile(r"\b(request|permintaan|pengajuan|material\s+request|asset\s+request)\b.{0,30}\b(status|terakhir|pending|disetujui|ditolak|daftar|list)\b", re.I), INTENT_REQUEST_STATUS, 0.93),
     (re.compile(r"\b(status|daftar|list)\b.{0,30}\b(request|permintaan|pengajuan)\b", re.I), INTENT_REQUEST_STATUS, 0.93),
-    # --- pencarian / daftar aset (kondisi, status, kategori) ---
+    # --- pencarian / daftar aset (kondisi, status, kategori + fleet V2) ---
     (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
+    # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / ex / lv / wt / dozer / grader / fleet / unit) ---
+    (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
 ]
 
 
@@ -666,6 +767,9 @@ CATEGORY_GAZETTEER = [
     "komputer", "server", "router", "switch", "kabel", "proyektor",
     "projector", "cctv", "gps", "handy talky", "ht", "headset", "tablet",
     "toner", "tinta", "kertas", "flashdisk", "hardisk", "ssd", "ram",
+    # V2 fleet/unit (master_data.xml + Type Barang.md OP-3)
+    "excavator", "dump truck", "water truck", "light vehicle",
+    "dozer", "grader", "fleet", "unit",
 ]
 
 STATE_KEYWORDS = {
@@ -718,16 +822,19 @@ def extract_entities(raw_text):
     toks = norm.split()
 
     asset_refs = []
-    for match in _RE_ASSET_TAG.finditer(text.upper()):
-        ref = match.group(1)
-        if any(ch.isdigit() for ch in ref) and ref not in asset_refs:
+    for ref in _iter_refs_in(text):
+        if ref not in asset_refs:
             asset_refs.append(ref)
 
     category = ""
-    for cat in CATEGORY_GAZETTEER:
-        if cat in norm:
-            category = "pc" if cat == "komputer" else cat
-            break
+    alias_cat = resolve_fleet_alias(text)
+    if alias_cat:
+        category = alias_cat
+    else:
+        for cat in CATEGORY_GAZETTEER:
+            if cat in norm:
+                category = "pc" if cat == "komputer" else cat
+                break
 
     employee_name = ""
     m = _RE_EMPLOYEE_AFTER.search(text)
@@ -954,6 +1061,13 @@ _SELF_TEST_CASES = [
     ("damage report belum resolved", "damage_list"), ("laporan kerusakan minggu ini", "damage_list"),
     ("status request saya", "request_status"), ("material request sudah approve belum", "request_status"),
     ("hubungi teknisi", "human_agent"), ("minta nomor staff it", "human_agent"),
+    # V2 fuzzy ref (goals2.md §9) — ukur, bukan latih (jangan salin ke EXEMPLARS)
+    ("carikan itlt-002", "asset_detail"), ("carikan itlt02", "asset_detail"),
+    ("carikan ITLT 002", "asset_detail"), ("itlt02", "asset_detail"),
+    ("dt 02", "asset_detail"), ("dt.02", "asset_detail"),
+    ("dt02", "asset_detail"), ("DT-02", "asset_detail"),
+    ("riwayat dt 02", "asset_history"), ("siapa pakai itlt02", "asset_user"),
+    ("exca", "asset_search"), ("cari exca yang breakdown", "asset_search"),
     # OOD → unknown
     ("cuaca hari ini bagaimana", "unknown"), ("12 + 34 berapa", "unknown"),
     ("jam berapa sekarang", "unknown"), ("kamu siapa", "unknown"),
