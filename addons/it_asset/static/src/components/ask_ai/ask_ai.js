@@ -7,7 +7,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onMounted, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onPatched, useRef, useState } from "@odoo/owl";
 
 export class ITAskAI extends Component {
     setup() {
@@ -49,11 +49,33 @@ export class ITAskAI extends Component {
         });
 
         onMounted(() => {
+            this._renderBubbles();
             this._scrollToBottom(true);
             if (this.inputRef.el) {
                 this.inputRef.el.focus();
             }
         });
+        // Render ulang isi bubble setiap ada pesan baru. Injeksi langsung via
+        // innerHTML (bukan t-out) agar HTML jawaban backend SELALU tampil
+        // sebagai tabel/kartu, bukan teks mentah.
+        onPatched(() => this._renderBubbles());
+    }
+
+    _renderBubbles() {
+        const root = this.chatBodyRef.el;
+        if (!root) {
+            return;
+        }
+        const byId = new Map(
+            this.state.messages.map((m) => [String(m.id), m.content || ""])
+        );
+        for (const el of root.querySelectorAll(".ask-bubble-text[data-mid]")) {
+            const html = byId.get(el.dataset.mid);
+            if (html !== undefined && el.__askHtml !== html) {
+                el.innerHTML = html;
+                el.__askHtml = html;
+            }
+        }
     }
 
     // ---------- helpers (rendering saja, tanpa logika bisnis) ----------

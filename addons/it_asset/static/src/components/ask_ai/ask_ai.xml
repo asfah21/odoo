@@ -108,7 +108,7 @@
                                 <t t-if="m.role === 'user'">
                                     <div class="ask-msg-row ask-msg-user">
                                         <div class="ask-bubble ask-bubble-user">
-                                            <div class="ask-bubble-text" t-out="m.content"/>
+                                            <div class="ask-bubble-text" t-att-data-mid="m.id"/>
                                             <div class="ask-bubble-meta">
                                                 <span t-esc="m.time"/> <i class="fa fa-check ms-1"/>
                                             </div>
@@ -127,7 +127,7 @@
                                             <div class="ask-bubble-name">GSI IT Assistant
                                                 <span class="ask-badge-ai">AI</span>
                                             </div>
-                                            <div class="ask-bubble-text" t-out="m.content"/>
+                                            <div class="ask-bubble-text" t-att-data-mid="m.id"/>
                                             <t t-if="m.action">
                                                 <button class="btn btn-sm btn-outline-primary ask-view-action" t-on-click="() => this.openMsgAction(m)">
                                                     <i class="fa fa-external-link me-1"/> Lihat di modul
