@@ -2,174 +2,119 @@
 <templates xml:space="preserve">
     <t t-name="it_asset.AskAI">
         <div class="o_action_manager o_content o_it_ask_ai">
-            <!-- Top control panel ala Odoo -->
-            <div class="ask-topbar shadow-sm">
-                <div class="ask-topbar-left">
-                    <button class="btn btn-light border btn-sidebar-toggle d-lg-none me-2" t-on-click="toggleSidebar">
-                        <i class="fa fa-bars"/>
-                    </button>
-                    <div class="ask-brand">
-                        <div class="ask-brand-logo">
-                            <i class="fa fa-magic"/>
-                        </div>
-                        <div>
-                            <div class="ask-brand-title">Ask AI</div>
-                            <div class="ask-brand-sub">
-                                <span class="dot-online"/>
-                                GSI IT Assistant — online
-                            </div>
-                        </div>
+            <!-- Topbar ramping -->
+            <div class="ask-topbar">
+                <div class="ask-brand">
+                    <div class="ask-brand-logo">
+                        <i class="fa fa-magic"/>
+                    </div>
+                    <div>
+                        <div class="ask-brand-title">Ask AI</div>
+                        <div class="ask-brand-sub">GSI IT Assistant</div>
                     </div>
                 </div>
                 <div class="ask-topbar-right">
-                    <span class="ask-model-badge d-none d-md-inline-flex">
-                        <i class="fa fa-database me-1"/> Live Data IT
+                    <span class="ask-retention d-none d-md-inline">
+                        <i class="fa fa-clock-o me-1"/> Terhapus otomatis 10 hari
                     </span>
-                    <button class="btn btn-light border btn-sm" t-on-click="clearChat" title="Bersihkan percakapan">
-                        <i class="fa fa-trash-o me-1"/> <span class="d-none d-sm-inline">Clear</span>
-                    </button>
-                    <button class="btn btn-primary btn-sm" t-on-click="newChat">
-                        <i class="fa fa-plus me-1"/> New Chat
+                    <button class="btn btn-primary btn-sm" t-on-click="() => this.newChat()">
+                        <i class="fa fa-plus me-1"/> Chat Baru
                     </button>
                 </div>
             </div>
 
             <div class="ask-layout">
-                <!-- ============ SIDEBAR ============ -->
-                <aside t-attf-class="ask-sidebar shadow-sm {{ state.showSidebar ? 'mobile-open' : '' }}">
-                    <div class="ask-sidebar-search">
-                        <i class="fa fa-search"/>
-                        <input type="text" placeholder="Cari percakapan..."
-                            t-att-value="state.search"
-                            t-on-input="(ev) => this.state.search = ev.target.value"/>
-                    </div>
-                    <div class="ask-sidebar-label">Riwayat Percakapan</div>
+                <!-- Sidebar riwayat -->
+                <aside class="ask-sidebar">
+                    <div class="ask-sidebar-label">Riwayat</div>
                     <div class="ask-history">
-                        <t t-foreach="filteredSessions" t-as="s" t-key="s.id">
-                            <div t-attf-class="ask-history-item {{ s.active ? 'active' : '' }}"
+                        <t t-foreach="state.sessions" t-as="s" t-key="s.id">
+                            <div t-attf-class="ask-history-item {{ s.id === state.activeSessionId ? 'active' : '' }}"
                                 t-on-click="() => this.selectSession(s)">
-                                <div class="ask-history-icon">
-                                    <i class="fa fa-comment-o"/>
-                                </div>
-                                <div class="flex-grow-1 overflow-hidden">
-                                    <div class="ask-history-title text-truncate" t-esc="s.title"/>
-                                    <div class="ask-history-date" t-esc="s.date"/>
-                                </div>
-                                <i t-if="s.active" class="fa fa-chevron-right text-primary small"/>
+                                <i class="fa fa-comment-o"/>
+                                <span class="ask-history-title text-truncate" t-esc="s.name"/>
+                                <button class="ask-history-del" title="Hapus"
+                                    t-on-click="(ev) => this.deleteSession(s, ev)">
+                                    <i class="fa fa-times"/>
+                                </button>
                             </div>
                         </t>
-                        <t t-if="!filteredSessions.length">
-                            <div class="text-center text-muted small py-4">
-                                <i class="fa fa-inbox fa-2x d-block mb-2 opacity-50"/>
-                                Tidak ada percakapan ditemukan.
-                            </div>
+                        <t t-if="!state.sessions.length &amp;&amp; !state.loadingHistory">
+                            <div class="ask-empty">Belum ada riwayat.</div>
                         </t>
                     </div>
-                    <div class="ask-sidebar-footer">
-                        <div class="ask-tip">
-                            <i class="fa fa-lightbulb-o me-2 text-warning"/>
-                            <span>Tips: sebut tag/nama aset. Cth: “riwayat LT-012”, “stok toner”, “rekap aset”.</span>
-                        </div>
-                    </div>
+                    <div class="ask-sidebar-footer">Riwayat lebih dari 10 hari terhapus otomatis.</div>
                 </aside>
-                <div t-if="state.showSidebar" class="ask-sidebar-backdrop d-lg-none" t-on-click="toggleSidebar"/>
 
-                <!-- ============ MAIN CHAT ============ -->
+                <!-- Chat utama -->
                 <main class="ask-main">
                     <div class="ask-chat-body" t-ref="chatBody">
                         <div class="ask-chat-inner">
-                            <!-- Welcome hero (tampil saat chat masih pendek) -->
-                            <t t-if="state.messages.length &lt;= 2">
+                            <t t-if="state.loadingHistory">
+                                <div class="ask-loading">
+                                    <i class="fa fa-spinner fa-spin me-2"/> Memuat riwayat…
+                                </div>
+                            </t>
+
+                            <!-- Sapaan ringkas + 3 saran -->
+                            <t t-if="!state.loadingHistory &amp;&amp; state.messages.length &lt;= 1">
                                 <div class="ask-hero">
-                                    <div class="ask-hero-avatar">
-                                        <i class="fa fa-magic"/>
-                                    </div>
-                                    <h2>Selamat datang di <span class="text-gradient">Ask AI</span></h2>
-                                    <p>Asisten IT PT GSI — Site Wolo. Terhubung ke data live: stok, aset, pengguna, kondisi &amp; riwayat.</p>
-                                    <div class="ask-suggest-grid">
-                                        <t t-foreach="state.suggestions" t-as="sg" t-key="sg.title">
-                                            <div class="ask-suggest-card" t-on-click="() => this.useSuggestion(sg.prompt)">
-                                                <div class="ask-suggest-icon">
-                                                    <i t-attf-class="fa {{ sg.icon }}"/>
-                                                </div>
-                                                <div>
-                                                    <div class="ask-suggest-title" t-esc="sg.title"/>
-                                                    <div class="ask-suggest-desc" t-esc="sg.desc"/>
-                                                </div>
-                                                <i class="fa fa-arrow-right ask-suggest-arrow"/>
-                                            </div>
+                                    <h2>Mau cek apa hari ini?</h2>
+                                    <p>Terhubung ke data live IT: stok, aset, pengguna &amp; riwayat.</p>
+                                    <div class="ask-chips">
+                                        <t t-foreach="state.suggestions" t-as="sg" t-key="sg.label">
+                                            <button class="ask-chip" t-on-click="() => this.useSuggestion(sg.prompt)">
+                                                <i t-attf-class="fa {{ sg.icon }} me-1"/>
+                                                <t t-esc="sg.label"/>
+                                            </button>
                                         </t>
                                     </div>
                                 </div>
                             </t>
 
-                            <!-- Messages -->
+                            <!-- Pesan -->
                             <t t-foreach="state.messages" t-as="m" t-key="m.id">
                                 <t t-if="m.role === 'user'">
                                     <div class="ask-msg-row ask-msg-user">
                                         <div class="ask-bubble ask-bubble-user">
                                             <div class="ask-bubble-text" t-att-data-mid="m.id"/>
-                                            <div class="ask-bubble-meta">
-                                                <span t-esc="m.time"/> <i class="fa fa-check ms-1"/>
-                                            </div>
-                                        </div>
-                                        <div class="ask-avatar ask-avatar-user">
-                                            <i class="fa fa-user"/>
+                                            <div class="ask-bubble-meta"><span t-esc="m.time"/></div>
                                         </div>
                                     </div>
                                 </t>
                                 <t t-else="">
                                     <div class="ask-msg-row ask-msg-ai">
-                                        <div class="ask-avatar ask-avatar-ai">
-                                            <i class="fa fa-magic"/>
-                                        </div>
                                         <div class="ask-bubble ask-bubble-ai">
-                                            <div class="ask-bubble-name">GSI IT Assistant
-                                                <span class="ask-badge-ai">AI</span>
-                                            </div>
                                             <div class="ask-bubble-text" t-att-data-mid="m.id"/>
                                             <t t-if="m.action">
                                                 <button class="btn btn-sm btn-outline-primary ask-view-action" t-on-click="() => this.openMsgAction(m)">
                                                     <i class="fa fa-external-link me-1"/> Lihat di modul
                                                 </button>
                                             </t>
-                                            <div class="ask-bubble-meta">
-                                                <span t-esc="m.time"/>
-                                            </div>
+                                            <div class="ask-bubble-meta"><span t-esc="m.time"/></div>
                                         </div>
                                     </div>
                                 </t>
                             </t>
 
-                            <!-- Typing indicator -->
                             <t t-if="state.isTyping">
                                 <div class="ask-msg-row ask-msg-ai">
-                                    <div class="ask-avatar ask-avatar-ai">
-                                        <i class="fa fa-magic"/>
-                                    </div>
-                                    <div class="ask-bubble ask-bubble-ai ask-typing">
-                                        <div class="typing-dots">
-                                            <span/><span/><span/>
-                                        </div>
+                                    <div class="ask-bubble ask-bubble-ai">
+                                        <span class="typing-dots"><span/><span/><span/></span>
                                         <span class="small text-muted ms-2">AI sedang mengetik…</span>
                                     </div>
                                 </div>
                             </t>
-
-                            <div style="height: 12px;"/>
                         </div>
                     </div>
 
-                    <!-- Input area -->
+                    <!-- Composer -->
                     <div class="ask-composer-wrap">
-                        <div class="ask-composer shadow">
-                            <button class="btn ask-icon-btn" title="Lampirkan file (segera hadir)" disabled="disabled">
-                                <i class="fa fa-paperclip"/>
-                            </button>
+                        <div class="ask-composer">
                             <textarea t-ref="chatInput"
                                 class="ask-input"
                                 rows="1"
-                                placeholder="Cth: stok toner? rekap aset? siapa pakai LT-012? (Enter kirim)"
+                                placeholder="Tulis pertanyaan… (Enter kirim)"
                                 t-att-value="state.input"
                                 t-on-input="onInput"
                                 t-on-keydown="onKeydown"/>
@@ -179,10 +124,6 @@
                                 title="Kirim">
                                 <i t-attf-class="fa {{ state.isTyping ? 'fa-spinner fa-spin' : 'fa-paper-plane' }}"/>
                             </button>
-                        </div>
-                        <div class="ask-composer-hint">
-                            <span><kbd>Enter</kbd> kirim &#160;•&#160; <kbd>Shift</kbd> + <kbd>Enter</kbd> baris baru</span>
-                            <span class="d-none d-md-inline text-muted">AI dapat membuat kesalahan — verifikasi info penting.</span>
                         </div>
                     </div>
                 </main>

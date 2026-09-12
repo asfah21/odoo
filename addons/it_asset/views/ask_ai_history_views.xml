@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Riwayat sesi chat Ask AI (tanpa menu, seperti feedback: dibuka lewat
+         pencarian global). Retensi otomatis 10 hari via cron harian. -->
+    <record id="view_it_ask_ai_session_list" model="ir.ui.view">
+        <field name="name">it.ask.ai.session.list</field>
+        <field name="model">it_asset.ask_ai.session</field>
+        <field name="arch" type="xml">
+            <list string="Ask AI Sessions" default_order="last_seen desc">
+                <field name="name"/>
+                <field name="user_id"/>
+                <field name="message_count"/>
+                <field name="last_seen"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_ask_ai_session_form" model="ir.ui.view">
+        <field name="name">it.ask.ai.session.form</field>
+        <field name="model">it_asset.ask_ai.session</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                        <field name="user_id"/>
+                        <field name="last_seen"/>
+                        <field name="message_count"/>
+                    </group>
+                    <field name="message_ids" readonly="1">
+                        <list>
+                            <field name="role"/>
+                            <field name="body_html"/>
+                            <field name="intent"/>
+                            <field name="create_date"/>
+                        </list>
+                    </field>
+                    <div class="alert alert-info mt-3" role="alert">
+                        Sesi yang tidak aktif lebih dari 10 hari terhapus otomatis (cron harian).
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_it_ask_ai_session" model="ir.actions.act_window">
+        <field name="name">Ask AI Sessions</field>
+        <field name="res_model">it_asset.ask_ai.session</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Belum ada riwayat chat.</p>
+            <p>Riwayat terisi otomatis dari menu Ask AI dan terhapus otomatis setelah 10 hari tidak aktif.</p>
+        </field>
+    </record>
+</odoo>

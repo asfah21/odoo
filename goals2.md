@@ -145,3 +145,9 @@ User lapangan mengetik cepat dan tidak hafal format resmi. Ask AI **wajib paham*
 - **Tanpa kata kunci pun paham**: pesan super singkat seperti `itlt02` atau `dt 02` langsung dianggap `asset_detail` (bukan `unknown`).
 - **Tetap grounded**: kalau kode sudah dikanonikalisasi tapi tidak ada di DB → jawab `data_miss` jujur + saran format, jangan mengarang.
 - **Acuan implementasi**: kanonikalisasi di `ask_ai_nlu.py` (`normalize_id` + varian ref), pencarian pakai OR antar-varian + `unit_id.name` di `_asset_domain_for` (`ask_ai.py`).
+
+## 10. UI Simple + Riwayat Terhapus Otomatis 10 Hari
+
+- **UI simple namun elegan**: topbar ramping (brand + badge retensi + tombol Chat Baru), sidebar hanya daftar riwayat + tombol hapus per sesi (tanpa search box, tanpa tips box), hero ringkas + 3 chip saran, composer tanpa tombol lampiran. Satu aksen indigo flat (`#4f46e5`), style jawaban data (`.ai-*`) dipertahankan.
+- **Riwayat di backend, bukan memori**: sesi + pesan tersimpan di `it_asset.ask_ai.session` / `it_asset.ask_ai.message` (`addons/it_asset/models/ask_ai_history.py`). Setiap `answer()` otomatis menyimpan pasangan pesan user+AI dan mengembalikan `session_id` (kompatibel mundur dengan pemanggil lama).
+- **Retensi 10 hari**: cron harian `Ask AI: hapus riwayat chat > 10 hari` (`data/ask_ai_cron.xml`) menghapus sesi yang `last_seen`-nya lebih tua dari N hari (default 10, diatur via System Parameter `it_asset.ask_ai.history_retention_days`); pesan ikut terhapus via ondelete cascade. Batas ini juga tertulis di UI (badge topbar + footer sidebar).

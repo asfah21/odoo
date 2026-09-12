@@ -127,7 +127,23 @@ class ITAskAI(models.AbstractModel):
     # entrypoint (dipanggil JS via orm.call)
     # ------------------------------------------------------------------
     @api.model
-    def answer(self, question):
+    def answer(self, question, session_id=None):
+        """Jawab satu pertanyaan + simpan otomatis ke riwayat (retensi 10 hari).
+
+        Kompatibel mundur: JS lama yang memanggil ``answer([text])`` tetap
+        jalan (sesi baru dibuat otomatis). Mengembalikan dict siap-render
+        ``{html, intent, confidence, method, action?, session_id}``.
+        """
+        out = self._answer_inner(question)
+        try:
+            out["session_id"] = self._history_save(
+                question, out, session_id=session_id)
+        except Exception as exc:  # riwayat tak boleh merusak jawaban
+            _logger.warning("Ask AI history gagal disimpan: %s", exc)
+            out["session_id"] = session_id
+        return out
+
+    def _answer_inner(self, question):
         """Jawab satu pertanyaan. Selalu kembalikan dict siap-render.
 
         Bentuk: ``{html, intent, confidence, method, action?}`` dengan
@@ -400,6 +416,95 @@ class ITAskAI(models.AbstractModel):
                 Feedback.create(vals)
         except Exception as exc:  # feedback tak boleh merusak jawaban
             _logger.warning("Ask AI feedback gagal direkam: %s", exc)
+
+    # ------------------------------------------------------------------
+    # riwayat chat (retensi otomatis 10 hari via cron, lihat ask_ai_history)
+    # ------------------------------------------------------------------
+    def _history_save(self, question, out, session_id=None):
+        """Simpan pasangan pesan user+AI ke sesi milik user. Kembalikan id sesi."""
+        text = (question or "").strip()
+        if not text:
+            return session_id
+        Session = self.env["it_asset.ask_ai.session"]
+        Message = self.env["it_asset.ask_ai.message"]
+        session = None
+        if session_id:
+            session = Session.search(
+                [("id", "=", session_id),
+                 ("user_id", "=", self.env.user.id)], limit=1)
+        if not session:
+            session = Session.create({
+                "name": text[:38] if len(text) > 0 else "Percakapan baru",
+                "user_id": self.env.user.id,
+            })
+        elif session.name in (False, "", "Percakapan baru"):
+            session.write({"name": text[:38]})
+        Message.create({
+            "session_id": session.id,
+            "user_id": self.env.user.id,
+            "role": "user",
+            "body_html": _esc(text).replace("\n", "<br/>"),
+        })
+        Message.create({
+            "session_id": session.id,
+            "user_id": self.env.user.id,
+            "role": "ai",
+            "body_html": out.get("html") or "",
+            "intent": out.get("intent") or "",
+            "confidence": out.get("confidence") or 0.0,
+        })
+        session._touch()
+        return session.id
+
+    @api.model
+    def session_list(self, limit=30):
+        """Daftar sesi milik user (terbaru dulu) untuk sidebar."""
+        rows = self.env["it_asset.ask_ai.session"].search_read(
+            [("user_id", "=", self.env.user.id)],
+            ["name", "last_seen", "message_count"],
+            limit=min(max(int(limit or 30), 1), 100),
+            order="last_seen desc, id desc")
+        return rows
+
+    @api.model
+    def session_get(self, session_id):
+        """Isi satu sesi (pesan berurutan) — hanya milik user."""
+        session = self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+        if not session:
+            return {"name": "", "messages": []}
+        msgs = self.env["it_asset.ask_ai.message"].search_read(
+            [("session_id", "=", session.id)],
+            ["role", "body_html", "intent", "confidence", "create_date"],
+            limit=200, order="id asc")
+        return {"name": session.name, "messages": msgs}
+
+    @api.model
+    def session_create(self, name=None):
+        session = self.env["it_asset.ask_ai.session"].create({
+            "name": (name or "Percakapan baru")[:80],
+            "user_id": self.env.user.id,
+        })
+        return {"id": session.id, "name": session.name}
+
+    @api.model
+    def session_rename(self, session_id, name):
+        session = self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+        if session and (name or "").strip():
+            session.write({"name": name.strip()[:80]})
+        return bool(session)
+
+    @api.model
+    def session_delete(self, session_id):
+        session = self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+        if session:
+            session.unlink()
+        return True
 
     # ------------------------------------------------------------------
     # helpers HTML (grounded: semua nilai dari evidence ORM, di-escape)
