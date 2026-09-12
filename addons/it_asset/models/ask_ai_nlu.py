@@ -53,6 +53,9 @@ INTENT_GREETING = "greeting"
 INTENT_THANKS = "thanks"
 INTENT_GOODBYE = "goodbye"
 INTENT_HELP = "help"
+INTENT_IDENTITY = "identity"
+INTENT_CREATOR = "creator"
+INTENT_UNIT_DETAIL = "unit_detail"
 INTENT_RECAP = "recap"
 INTENT_CHECK_STOCK = "check_stock"
 INTENT_ASSET_SEARCH = "asset_search"
@@ -68,6 +71,7 @@ INTENT_UNKNOWN = "unknown"
 
 ALL_INTENTS = [
     INTENT_GREETING, INTENT_THANKS, INTENT_GOODBYE, INTENT_HELP,
+    INTENT_IDENTITY, INTENT_CREATOR, INTENT_UNIT_DETAIL,
     INTENT_RECAP, INTENT_CHECK_STOCK, INTENT_ASSET_SEARCH, INTENT_ASSET_DETAIL,
     INTENT_ASSET_USER, INTENT_ASSET_HISTORY, INTENT_MAINTENANCE_LIST,
     INTENT_HANDOVER_LIST, INTENT_DAMAGE_LIST, INTENT_REQUEST_STATUS,
@@ -86,6 +90,8 @@ INTENT_CATEGORY = {
     INTENT_THANKS: CAT_GENERAL,
     INTENT_GOODBYE: CAT_GENERAL,
     INTENT_HELP: CAT_GENERAL,
+    INTENT_IDENTITY: CAT_GENERAL,
+    INTENT_CREATOR: CAT_GENERAL,
 }
 
 DEFAULT_CONF_FACTUAL = 0.90
@@ -141,19 +147,25 @@ _SLANG_TABLE = {
     "ga": "tidak", "gak": "tidak", "nggak": "tidak", "tdk": "tidak",
     "sdh": "sudah", "udh": "sudah", "udah": "sudah", "blm": "belum",
     "dapet": "dapat", "sampe": "sampai", "nyampe": "sampai",
-    "hlo": "halo", "thx": "terima kasih", "makasi": "terima kasih",
+    "hlo": "halo", "hllo": "halo", "halllo": "halo",
+    "thx": "terima kasih", "makasi": "terima kasih",
     "makasih": "terima kasih", "mksh": "terima kasih", "tengkyu": "terima kasih",
     "met pagi": "selamat pagi", "met siang": "selamat siang",
     "met sore": "selamat sore", "met malem": "selamat malam",
+    # kata kerja tanya ala chat
+    "liat": "lihat", "kasi": "kasih", "kasitau": "kasih tahu",
+    "coba": "tolong", "adakah": "apakah ada",
     # ejaan stok / barang
-    "stock": "stok", "stocknya": "stok nya", "stoknya": "stok nya",
+    "stock": "stok", "stokc": "stok", "stocknya": "stok nya", "stoknya": "stok nya",
     "stok na": "stok nya", "abis": "habis", "sold out": "habis",
     "rdy": "ready", "redy": "ready", "brang": "barang",
-    "prduk": "produk", "tnya": "tanya",
+    "prduk": "produk", "tnya": "tanya", "asett": "aset",
     # ejaan aset IT
     "lptop": "laptop", "leptop": "laptop", "print": "printer",
-    "printernya": "printer nya", "kmputer": "komputer", "komptr": "komputer",
-    "mnitor": "monitor", "mose": "mouse", "kyboard": "keyboard",
+    "pritner": "printer", "printernya": "printer nya",
+    "kmputer": "komputer", "komptr": "komputer",
+    "mnitor": "monitor", "monitr": "monitor", "mose": "mouse",
+    "kyboard": "keyboard", "keybord": "keyboard",
     "srial": "serial", "seryal": "serial",
 }
 
@@ -216,9 +228,6 @@ _FLEET_ALIASES = {
     "lv": "light vehicle", "light vehicle": "light vehicle",
     "dozer": "dozer", "grader": "grader",
 }
-_FLEET_PREFIXES = ("DT", "EX", "LV", "WT", "ITLT", "LT", "PRN")
-
-
 def _stripped_ref(ref):
     """Kanonik perbandingan: buang semua non-alnum, uppercase. 'DT-02'->'DT02'."""
     return re.sub(r"[^A-Z0-9]", "", (ref or "").upper())
@@ -298,13 +307,134 @@ def resolve_fleet_alias(text):
         if re.search(r"\b" + re.escape(alias) + r"\b", norm):
             return _FLEET_ALIASES[alias]
     return ""
+
+
+# HT vs Rig: keduanya berkategori "Radio Rig" di master_data, dibedakan lewat
+# nama/model (backend: filter name/product ilike). Rig dicek dulu.
+_RE_RADIO_RIG = re.compile(r"\b(radio\s+rig|rig)\b", re.I)
+_RE_RADIO_HT = re.compile(r"\b(radio\s+ht|ht|handy\s+talky|handy)\b", re.I)
+
+
+def resolve_radio_kind(text):
+    """'rig' | 'ht' | '' — jenis radio genggam vs rig."""
+    t = text or ""
+    if _RE_RADIO_RIG.search(t):
+        return "rig"
+    if _RE_RADIO_HT.search(t):
+        return "ht"
+    return ""
+
+
+# IT vs Operasional (it_asset.asset.asset_type). "it" hanya dihitung bila
+# digandeng kata benda ("aset it") agar "itu/sulit" tak ikut kena.
+_RE_ASSET_TYPE_OP = re.compile(
+    r"\b(operasional|operational|operation|operasi)\b", re.I)
+_RE_ASSET_TYPE_IT = re.compile(
+    r"\b(aset|asset|barang|unit|alat|tipe|type)\s+it\b", re.I)
+
+
+def resolve_asset_type(text):
+    """'it' | 'operation' | '' — domain pengelolaan aset."""
+    t = text or ""
+    if _RE_ASSET_TYPE_OP.search(t):
+        return "operation"
+    if _RE_ASSET_TYPE_IT.search(t):
+        return "it"
+    return ""
 _RE_STOCK_WORD = re.compile(r"\b(stok|ready|tersedia|sisa|tersisa|menipis|habis|restock|minimum|consumable)\b", re.I)
 _RE_RECAP_WORD = re.compile(r"\b(rekap|ringkas|total aset|jumlah aset|statistik)\b", re.I)
 _RE_HISTORY_WORD = re.compile(r"\b(riwayat|histor[yi]|history)\b", re.I)
 
 
+# Form: jenis, status, periode (goals2.md §13). Status "belum ..." selalu
+# menang atas kata spesifik ("belum fulfilled" -> open, bukan fulfilled).
+_FORM_KIND_PATTERNS = [
+    ("handover", [r"\bserah\s*terima\b", r"\bhandover\b", r"\bbast\b", r"\bfstb\b"]),
+    ("material", [r"\bmaterial\s*request\b", r"\bpengajuan\s+(barang|material)\b",
+                  r"\bpermintaan\s+(barang|material)\b"]),
+    ("asset_request", [r"\basset\s*request\b", r"\bpermintaan\s*aset\b",
+                       r"\bpengajuan\s*aset\b"]),
+    ("account", [r"\baccount\s*request\b", r"\bpermintaan\s*akun\b",
+                 r"\bpengajuan\s*akun\b", r"\bminta\s*akun\b"]),
+]
+
+_FORM_STATUS_OPEN = [r"\bbelum\b", r"\bpending\b", r"\bmenunggu\b",
+                     r"\bproses\b", r"\bgantung\b"]
+_FORM_STATUS_SPECIFIC = [
+    ("rejected", [r"\bditolak\b", r"\brejected\b", r"\btolak\b"]),
+    ("approved", [r"\bdisetujui\b", r"\bapproved\b", r"\bsetuju\b",
+                  r"\bacc\b"]),
+    ("submitted", [r"\bdiajukan\b", r"\bsubmitted\b", r"\bdikirim\b"]),
+    ("signed", [r"\bsigned\b", r"\bditandatangani\b", r"\bttd\b",
+                r"\btanda\s*tangan\b"]),
+    ("confirmed", [r"\bconfirmed\b", r"\bdikonfirmasi\b",
+                   r"\bkonfirmasi\b"]),
+    ("resolved", [r"\bresolved\b"]),
+    ("fulfilled", [r"\bfulfilled\b", r"\bterpenuhi\b", r"\bfulfill\b"]),
+    ("draft", [r"\bdraft\b", r"\bkonsep\b"]),
+]
+_FORM_STATUS_DONE = [r"\bsudah\b", r"\bselesai\b", r"\bdone\b",
+                     r"\btuntas\b", r"\bberes\b"]
+
+_PERIOD_PATTERNS = [
+    ("today", [r"\bhari\s*ini\b"]),
+    ("yesterday", [r"\bkemarin\b", r"\bkemaren\b"]),
+    ("this_week", [r"\bminggu\s*ini\b", r"\bpekan\s*ini\b"]),
+    ("this_month", [r"\bbulan\s*ini\b"]),
+    ("last_month", [r"\bbulan\s*(lalu|kemarin|kemaren)\b"]),
+]
+
+
+def resolve_form_kind(text):
+    t = text or ""
+    for kind, pats in _FORM_KIND_PATTERNS:
+        for p in pats:
+            if re.search(p, t, re.I):
+                return kind
+    return ""
+
+
+def resolve_form_status(text):
+    """draft/submitted/approved/fulfilled/rejected/signed/confirmed/resolved,
+    atau grup 'open' (belum) / 'done' (sudah)."""
+    t = text or ""
+    for p in _FORM_STATUS_OPEN:
+        if re.search(p, t, re.I):
+            return "open"
+    for token, pats in _FORM_STATUS_SPECIFIC:
+        for p in pats:
+            if re.search(p, t, re.I):
+                return token
+    for p in _FORM_STATUS_DONE:
+        if re.search(p, t, re.I):
+            return "done"
+    return ""
+
+
+def resolve_period(text):
+    t = text or ""
+    for token, pats in _PERIOD_PATTERNS:
+        for p in pats:
+            if re.search(p, t, re.I):
+                return token
+    return ""
+
+
 def _names_non_it_topic(raw_text):
     return _has_stem(tokens_of(raw_text), _NON_IT_TOPIC_STEMS)
+
+
+# Prefix fleet sesuai master it_asset.unit.category project
+# (Dump Truck, Water Truck, Excavator, Light Vehicle). Fleet = operasional,
+# bukan IT. IT vs Operasional sendiri DITENTUKAN field DB asset_type
+# (it/operation), bukan tebakan kode — kode hanya untuk ekstraksi ref.
+FLEET_PREFIXES = ("DT", "EX", "LV", "WT")
+_FLEET_RE = re.compile(r"^(%s)\D*\d" % "|".join(FLEET_PREFIXES))
+
+
+def _is_fleet_ref(ref):
+    """True bila kode aset/unit berawalan fleet (DT/EX/LV/WT)."""
+    return bool(_FLEET_RE.match((ref or "").upper()))
 
 
 def asset_query_override(raw_text):
@@ -315,12 +445,15 @@ def asset_query_override(raw_text):
     if _names_non_it_topic(raw_text):
         return None
     if _has_any_ref(raw_text):
-        # Kode seperti LT-012 / PRN-01 / ITLT-002 / DT-02 selalu merujuk aset
+        # Kode seperti ITLT-007 / PRN-01 / ITLT-002 / DT-02 selalu merujuk aset
         # spesifik — termasuk varian berantakan "itlt02", "DT 02", "dt.02".
         if _RE_HISTORY_WORD.search(raw_text):
             return INTENT_ASSET_HISTORY
         if re.search(r"\b(siapa|pakai|pengguna|pemakai|milik|punya)\b", raw_text, re.I):
             return INTENT_ASSET_USER
+        for ref in _iter_refs_in(raw_text):
+            if _is_fleet_ref(ref):
+                return INTENT_UNIT_DETAIL
         return INTENT_ASSET_DETAIL
     if _RE_STOCK_WORD.search(raw_text):
         return INTENT_CHECK_STOCK
@@ -404,6 +537,9 @@ _RULES = [
     # --- terima kasih & pamit ---
     (re.compile(r"\b(terima\s*kasih|makasih|thanks|matur nuwun|suwun)\b", re.I), INTENT_THANKS, 0.96),
     (re.compile(r"\b(selamat tinggal|bye|sampai jumpa|dadah)\b", re.I), INTENT_GOODBYE, 0.95),
+    # --- identitas & pembuat (sebelum help/OOD agar "kamu siapa" terjawab) ---
+    (re.compile(r"\b(kamu\s+siapa|siapa\s+(kamu|anda)|nama\s*kamu|namamu|fungsi\s*mu|fungsimu|apa\s*fungsimu|tugas\s*mu|tugasmu|peran\s*mu)\b", re.I), INTENT_IDENTITY, 0.95),
+    (re.compile(r"\b(siapa\s+yang\s+(buat|membuat|bikin|menciptakan|mengembangkan)|dibuat\s+(oleh\s+)?siapa|pembuat(nya)?|developer(nya)?|pencipta)\b", re.I), INTENT_CREATOR, 0.95),
     # --- bantuan ---
     (re.compile(r"\b(bisa\s+apa|bantuan|contoh\s+pertanyaan|cara\s+pakai|help|menu\s+apa)\b", re.I), INTENT_HELP, 0.94),
     # --- rekap ---
@@ -417,8 +553,18 @@ _RULES = [
     (re.compile(r"\b(riwayat|histor[yi]|history|track\s+record)\b", re.I), INTENT_ASSET_HISTORY, 0.94),
     # --- pengguna ---
     (re.compile(r"\b(siapa\s+(yang\s+)?(pakai|memakai|pegang)|dipakai\s+(oleh|siapa)|pengguna|pemakai|dipegang|milik|punya|asetnya|user\s+nya)\b", re.I), INTENT_ASSET_USER, 0.94),
-    # --- kode tag aset mentah (rapat: LT-012 / ITLT02) ---
+    # --- domain IT vs Operasional (setelah pengguna agar "siapa pakai aset
+    # operasional" tetap ke asset_user) ---
+    (re.compile(r"\b(aset|asset|barang)\s+it\b|\boperasional\b|\boperational\b|\boperation\b|\boperasi\b", re.I), INTENT_ASSET_SEARCH, 0.90),
+    # --- unit/fleet: kode DT/EX/LV/WT selalu soal unit (paling dulu, bahkan
+    # sebelum aturan tag umum yang case-sensitive) ---
+    (re.compile(r"\b(DT|EX|LV|WT)\s*[.\-_]\s*[0-9]", re.I), INTENT_UNIT_DETAIL, 0.92),
+    (re.compile(r"\b(DT|EX|LV|WT)\s+[0-9]", re.I), INTENT_UNIT_DETAIL, 0.92),
+    (re.compile(r"\b(DT|EX|LV|WT)0*[0-9]", re.I), INTENT_UNIT_DETAIL, 0.90),
+    # --- kode tag aset mentah (rapat: ITLT-007 / ITLT02) ---
     (re.compile(r"\b[A-Z]{2,}[A-Z0-9]*-?[0-9][A-Z0-9/-]*\b"), INTENT_ASSET_DETAIL, 0.92),
+    # --- info unit: merek/status/aset terpasang ---
+    (re.compile(r"\b(merek|merk|brand|model\s+unit|modelnya|status\s+unit|aset\s+terpasang|radio\s+terpasang|terpasang|dipasang|unit\s+(ini|tersebut))\b", re.I), INTENT_UNIT_DETAIL, 0.90),
     # --- V2: kode split berantakan (DT 02 / DT.02 / ITLT 002 / DT_02) ---
     (re.compile(r"\b[A-Z]{2,}\s*[.\-_]\s*[0-9]", re.I), INTENT_ASSET_DETAIL, 0.92),
     (re.compile(r"\b[A-Z]{2,}\s+[0-9]", re.I), INTENT_ASSET_DETAIL, 0.92),
@@ -426,8 +572,11 @@ _RULES = [
     (re.compile(r"\b(detail|spesifikasi|spek|cari(kan)?|informasi|kondisi)\b.{0,30}\b(aset|asset|laptop|printer|radio|komputer|serial|tag)\b", re.I), INTENT_ASSET_DETAIL, 0.93),
     (re.compile(r"\b(aset|asset|laptop|printer|radio|komputer|serial|tag)\b.{0,30}\b(detail|spesifikasi|spek|kondisi|dimana|di mana)\b", re.I), INTENT_ASSET_DETAIL, 0.93),
     (re.compile(r"\bkondisi\b", re.I), INTENT_ASSET_DETAIL, 0.90),
+    # --- kata info: tipe/kategori -> daftar; spek -> detail per aset ---
+    (re.compile(r"\b(tipe|type|jenis|kategori|category)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    (re.compile(r"\b(spek|spesifikasi)\b", re.I), INTENT_ASSET_DETAIL, 0.88),
     # --- damage report ---
-    (re.compile(r"\b(damage(\s*report)?|laporan\s+kerusakan|berita\s+acara|form\s+kerusakan)\b", re.I), INTENT_DAMAGE_LIST, 0.93),
+    (re.compile(r"\b(damage(\s*report)?|laporan\s+kerusakan|berita\s+acara|form\s+kerusakan|barang\s+hilang|hilang)\b", re.I), INTENT_DAMAGE_LIST, 0.93),
     # --- maintenance ---
     (re.compile(r"\b(maintenance|perbaikan|servis|service|pernah\s+diservis|riwayat\s+servis|biaya\s+servis)\b", re.I), INTENT_MAINTENANCE_LIST, 0.93),
     # --- handover ---
@@ -435,10 +584,16 @@ _RULES = [
     # --- request ---
     (re.compile(r"\b(request|permintaan|pengajuan|material\s+request|asset\s+request)\b.{0,30}\b(status|terakhir|pending|disetujui|ditolak|daftar|list)\b", re.I), INTENT_REQUEST_STATUS, 0.93),
     (re.compile(r"\b(status|daftar|list)\b.{0,30}\b(request|permintaan|pengajuan)\b", re.I), INTENT_REQUEST_STATUS, 0.93),
+    # --- jenis form pengajuan (tanpa kata status pun jelas) ---
+    (re.compile(r"\b(material\s*request|pengajuan\s+(barang|material)|permintaan\s+(barang|material))\b", re.I), INTENT_REQUEST_STATUS, 0.90),
+    (re.compile(r"\b(asset\s*request|permintaan\s*aset|pengajuan\s*aset)\b", re.I), INTENT_REQUEST_STATUS, 0.90),
+    (re.compile(r"\b(account\s*request|permintaan\s*akun|pengajuan\s*akun|minta\s*akun)\b", re.I), INTENT_REQUEST_STATUS, 0.90),
     # --- pencarian / daftar aset (kondisi, status, kategori + fleet V2) ---
     (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
     # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / ex / lv / wt / dozer / grader / fleet / unit) ---
-    (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
+    (re.compile(r"\b(radio\s*ht|radio\s*rig|ht|rig|handy\s*talky)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
 ]
 
 
@@ -487,22 +642,32 @@ def _featurize(text):
 # mengukur generalisasi.
 EXEMPLARS = [
     ("greeting", "halo kak"), ("greeting", "hai selamat pagi"),
+    ("greeting", "halo min selamat pagi"),
     ("greeting", "assalamualaikum"), ("greeting", "halo apa kabar"),
     ("greeting", "selamat siang min"), ("greeting", "tes halo"),
     ("thanks", "terima kasih banyak"), ("thanks", "makasih infonya"),
+    ("thanks", "oke makasih"),
     ("thanks", "ok terima kasih kak"), ("thanks", "suwun"),
     ("goodbye", "oke sampai jumpa"), ("goodbye", "dadah terima kasih"),
     ("goodbye", "bye kak"), ("goodbye", "cukup sekian dulu"),
     ("help", "kamu bisa bantu apa"), ("help", "contoh pertanyaan yang bisa ditanyakan"),
     ("help", "gimana cara pakai ask ai"), ("help", "fitur apa saja yang ada"),
+    ("identity", "siapa namamu"), ("identity", "apa tugasmu"),
+    ("identity", "kamu itu apa"), ("identity", "jelaskan peranmu"),
+    ("creator", "siapa developer aplikasi ini"), ("creator", "siapa yang menciptakan kamu"),
+    ("creator", "kamu dibuat siapa"), ("creator", "info pembuat bot ini"),
+    ("unit_detail", "merek unit itu apa"), ("unit_detail", "spesifikasi fleet tersebut"),
+    ("unit_detail", "status kendaraan tambang ini"), ("unit_detail", "radio apa saja di unit itu"),
     ("recap", "rekap aset bulan ini"), ("recap", "ringkasan kondisi inventaris it"),
     ("recap", "total semua aset berapa"), ("recap", "jumlah aset tersedia dan dipakai"),
     ("recap", "statistik aset site wolo"), ("recap", "rekapitulasi aset dan stok"),
-    ("check_stock", "stok toner masih ada"), ("check_stock", "sisa kabel lan berapa"),
+    ("check_stock", "stok radio ht berapa"), ("check_stock", "sisa kabel lan berapa"),
+    ("check_stock", "liat sisa kabel dong"), ("check_stock", "kasih tahu radio ht yang masih ada"),
     ("check_stock", "stok mouse habis atau masih"), ("check_stock", "cek stok tinta printer"),
     ("check_stock", "stok consumable yang menipis"), ("check_stock", "barang apa yang perlu restock"),
     ("check_stock", "sisa kertas a4 di gudang"), ("check_stock", "stok keyboard tersisa berapa"),
     ("asset_search", "tampilkan laptop yang tersedia"), ("asset_search", "daftar printer yang rusak"),
+    ("asset_search", "kasi info laptop yg tersedia"), ("asset_search", "coba tampilkan radio rusak"),
     ("asset_search", "aset broken apa saja"), ("asset_search", "radio yang sedang dipakai"),
     ("asset_search", "laptop degraded mana saja"), ("asset_search", "aset out of service ada berapa"),
     ("asset_search", "monitor yang belum dipakai"), ("asset_search", "daftar aset retired"),
@@ -510,9 +675,11 @@ EXEMPLARS = [
     ("asset_detail", "info serial number aset ini"), ("asset_detail", "kondisi asetnya bagaimana"),
     ("asset_detail", "cari aset dengan tag tersebut"), ("asset_detail", "dimana posisi aset itu"),
     ("asset_user", "siapa yang memakai laptop ini"), ("asset_user", "pengguna printer itu siapa"),
+    ("asset_user", "tolong cek siapa pemakai printer itu"),
     ("asset_user", "aset ini dipegang siapa"), ("asset_user", "laptopnya budi yang mana"),
     ("asset_user", "milik siapa radio tersebut"), ("asset_user", "user dari aset itu"),
     ("asset_history", "riwayat pemakaian laptop ini"), ("asset_history", "histori perpindahan aset tersebut"),
+    ("asset_history", "minta histori aset tersebut"),
     ("asset_history", "pernah dipegang siapa saja"), ("asset_history", "history penempatan radio itu"),
     ("asset_history", "catatan peminjaman printer tersebut"),
     ("maintenance_list", "riwayat perbaikan printer"), ("maintenance_list", "biaya servis laptop kemarin"),
@@ -520,11 +687,15 @@ EXEMPLARS = [
     ("maintenance_list", "daftar perbaikan aset bulan ini"),
     ("handover_list", "daftar serah terima barang"), ("handover_list", "handover terakhir ke siapa"),
     ("handover_list", "dokumen fstb bulan lalu"), ("handover_list", "bast yang sudah ditandatangani"),
+    ("handover_list", "bast kemarin untuk siapa"), ("handover_list", "serah terima minggu ini"),
     ("damage_list", "laporan kerusakan aset"), ("damage_list", "damage report yang belum resolved"),
     ("damage_list", "daftar barang hilang"), ("damage_list", "kerusakan yang dilaporkan minggu ini"),
+    ("damage_list", "kerusakan yang sudah selesai"), ("damage_list", "laporan hilang bulan ini"),
     ("request_status", "status pengajuan barang saya"), ("request_status", "material request sudah disetujui belum"),
     ("request_status", "daftar permintaan aset"), ("request_status", "pengajuan laptop sampai mana"),
     ("request_status", "request yang masih pending"),
+    ("request_status", "pengajuan material yang sudah terpenuhi"), ("request_status", "material request belum diproses"),
+    ("request_status", "permintaan aset yang disetujui"), ("request_status", "status permintaan akun saya"),
     ("human_agent", "tolong hubungkan ke teknisi"), ("human_agent", "saya mau bicara dengan admin it"),
     ("human_agent", "minta nomor staff it"), ("human_agent", "butuh bantuan langsung dari orang it"),
 ]
@@ -683,10 +854,12 @@ _DECISION_ENTITY_KEYS = ("asset_ref", "item", "employee", "category")
 _DECISION_CONSTRAINT_KEYS = ("low_only",)
 
 _DECISION_FEW_SHOTS = [
-    ("stok toner masih ada?", "check_stock", 0.9),
+    ("stok radio ht berapa?", "check_stock", 0.9),
     ("rekap aset bulan ini", "recap", 0.9),
-    ("siapa yang pakai LT-012", "asset_user", 0.9),
+    ("siapa yang pakai ITLT-007", "asset_user", 0.9),
     ("riwayat printer PRN-01", "asset_history", 0.9),
+    ("kamu siapa", "identity", 0.9),
+    ("siapa yang buat kamu", "creator", 0.9),
 ]
 
 
@@ -763,7 +936,8 @@ def llm_decide(raw_text, transport=None):
 # ============================================================================
 
 CATEGORY_GAZETTEER = [
-    "laptop", "printer", "radio", "monitor", "mouse", "keyboard", "pc",
+    "laptop", "desktop", "printer", "radio rig", "radio ht", "radio",
+    "rig", "monitor", "mouse", "keyboard", "pc",
     "komputer", "server", "router", "switch", "kabel", "proyektor",
     "projector", "cctv", "gps", "handy talky", "ht", "headset", "tablet",
     "toner", "tinta", "kertas", "flashdisk", "hardisk", "ssd", "ram",
@@ -771,6 +945,17 @@ CATEGORY_GAZETTEER = [
     "excavator", "dump truck", "water truck", "light vehicle",
     "dozer", "grader", "fleet", "unit",
 ]
+
+# Kanonik kategori: kunci harus persis cocok ("rig"->"Radio Rig" agar ilike
+# DB ketemu; "ht"/"handy talky"->"radio" + radio_kind untuk filter nama).
+_CATEGORY_CANONICAL = {
+    "komputer": "pc",
+    "radio rig": "Radio Rig",
+    "rig": "Radio Rig",
+    "radio ht": "radio",
+    "handy talky": "radio",
+    "ht": "radio",
+}
 
 STATE_KEYWORDS = {
     "available": ["tersedia", "available", "ready", "siap pakai", "siap dipakai",
@@ -802,6 +987,9 @@ _ITEM_STOPWORDS = {
     "siapa", "dimana", "mana", "cari", "ini", "itu", "tersebut", "saya",
     "kak", "min", "mas", "mbak", "pak", "bu", "pakai", "memakai", "pegang",
     "dipegang",
+    # kata kerja tanya & benda umum jangan jadi keyword barang
+    "cari", "carikan", "lihat", "liat", "tampilkan", "tampil",
+    "tunjukkan", "tunjukin", "kasih", "kasi", "aset", "asset",
     # kata constraints jangan jadi keyword barang (kalau ikut, search miss)
     "menipis", "habis", "restock", "minimum", "rendah", "kosong", "dibawah",
 }
@@ -814,7 +1002,8 @@ _RE_EMPLOYEE_AFTER = re.compile(
 def extract_entities(raw_text):
     """Mengembalikan (entities, constraints) — dua kanal terpisah (cermin WACS).
 
-    entities: asset_refs, category, employee_name, item, state, condition.
+    entities: asset_refs, category, radio_kind, asset_type, form_kind,
+    form_status, period, employee_name, item, state, condition.
     constraints: low_only (bool).
     """
     text = raw_text or ""
@@ -831,10 +1020,17 @@ def extract_entities(raw_text):
     if alias_cat:
         category = alias_cat
     else:
-        for cat in CATEGORY_GAZETTEER:
+        # frasa terpanjang dulu agar "radio rig" menang atas "radio"
+        for cat in sorted(CATEGORY_GAZETTEER, key=len, reverse=True):
             if cat in norm:
-                category = "pc" if cat == "komputer" else cat
+                category = _CATEGORY_CANONICAL.get(cat, cat)
                 break
+
+    radio_kind = resolve_radio_kind(text)
+    asset_type = resolve_asset_type(text)
+    form_kind = resolve_form_kind(text)
+    form_status = resolve_form_status(text)
+    period = resolve_period(text)
 
     employee_name = ""
     m = _RE_EMPLOYEE_AFTER.search(text)
@@ -866,6 +1062,9 @@ def extract_entities(raw_text):
 
     constraints = {"low_only": any(s in norm for s in LOW_ONLY_STEMS)}
     return ({"asset_refs": asset_refs, "category": category,
+             "radio_kind": radio_kind, "asset_type": asset_type,
+             "form_kind": form_kind, "form_status": form_status,
+             "period": period,
              "employee_name": employee_name, "item": item,
              "state": state, "condition": condition},
             constraints)
@@ -959,6 +1158,16 @@ def handover_reply(message):
     return _HANDOVER_POOL[_pick_variant(message, len(_HANDOVER_POOL))]
 
 
+_CLARIFICATION_TEMPLATES = [
+    "Bisa diperjelas %s? 🙏<br/>Contoh: <i>“stok radio ht”</i>, "
+    "<i>“siapa yang pakai ITLT-007?”</i>, <i>“riwayat printer PRN-01”</i>.",
+    "Hmm, kurang spesifik nih 😅 — %s yang mana ya?<br/>Contoh: "
+    "<i>“stok radio ht”</i>, <i>“siapa yang pakai ITLT-007?”</i>.",
+    "Biar tepat sasaran, sebutkan %s 🙏<br/>Contoh: "
+    "<i>“rekap aset”</i>, <i>“riwayat printer PRN-01”</i>.",
+]
+
+
 def clarification_reply(intent, entities):
     """Klarifikasi menyebut topik yang dipahami (label aman), bukan echo mentah."""
     hints = {
@@ -967,13 +1176,15 @@ def clarification_reply(intent, entities):
         INTENT_ASSET_USER: "kode tag / nama asetnya",
         INTENT_ASSET_HISTORY: "kode tag / nama asetnya",
         INTENT_ASSET_SEARCH: "kategorinya (mis. laptop, printer, radio) atau kondisinya",
+        INTENT_UNIT_DETAIL: "kode unitnya (mis. DT-02) atau infonya — merek, status, aset terpasang",
+        INTENT_HANDOVER_LIST: "periode atau statusnya (mis. handover bulan ini, bast yang belum signed)",
+        INTENT_REQUEST_STATUS: "jenis dan statusnya (mis. material request yang belum fulfilled)",
+        INTENT_DAMAGE_LIST: "statusnya (mis. damage yang belum resolved)",
     }
     need = hints.get(intent, "detail pertanyaannya")
-    return (
-        "Bisa diperjelas %s? 🙏<br/>Contoh: <i>“stok toner”</i>, "
-        "<i>“siapa yang pakai LT-012?”</i>, <i>“riwayat printer PRN-01”</i>."
-        % need
-    )
+    tpl = _CLARIFICATION_TEMPLATES[
+        _pick_variant(intent + "|" + need, len(_CLARIFICATION_TEMPLATES))]
+    return tpl % need
 
 
 # ============================================================================
@@ -1044,17 +1255,20 @@ _SELF_TEST_CASES = [
     ("makasih banyak", "thanks"), ("terima kasih infonya", "thanks"),
     ("dadah", "goodbye"), ("sampai jumpa", "goodbye"),
     ("kamu bisa apa", "help"), ("contoh pertanyaan", "help"), ("gimana cara pakai", "help"),
+    ("kamu siapa", "identity"), ("fungsimu apa", "identity"), ("apa tugasmu", "identity"),
+    ("siapa yang buat kamu", "creator"), ("siapa developernya", "creator"),
+    ("siapa pembuat aplikasi ini", "creator"),
     ("rekap aset", "recap"), ("jumlah aset berapa", "recap"), ("ringkasan inventaris", "recap"),
-    ("stok toner berapa", "check_stock"), ("sisa kabel lan", "check_stock"),
+    ("stok radio ht berapa", "check_stock"), ("berapa stok radio ht", "check_stock"), ("sisa kabel lan", "check_stock"),
     ("stok menipis apa saja", "check_stock"), ("stock mouse habis kah", "check_stock"),
     ("brp sisa tinta", "check_stock"), ("stoknya masih ada gak", "check_stock"),
     ("laptop tersedia apa saja", "asset_search"), ("aset rusak ada berapa", "asset_search"),
     ("radio yang dipakai", "asset_search"), ("printer broken", "asset_search"),
-    ("detail LT-012", "asset_detail"), ("kondisi PRN-01", "asset_detail"),
-    ("spesifikasi aset itu", "asset_detail"), ("LT-007", "asset_detail"),
-    ("siapa yang pakai LT-012", "asset_user"), ("pengguna printer itu siapa", "asset_user"),
+    ("detail ITLT-007", "asset_detail"), ("kondisi PRN-01", "asset_detail"),
+    ("spesifikasi aset itu", "asset_detail"), ("ITLT-007", "asset_detail"),
+    ("siapa yang pakai ITLT-007", "asset_user"), ("pengguna printer itu siapa", "asset_user"),
     ("asetnya budi apa saja", "asset_user"), ("laptop ini dipegang siapa", "asset_user"),
-    ("riwayat LT-012", "asset_history"), ("histori printer itu", "asset_history"),
+    ("riwayat ITLT-007", "asset_history"), ("histori printer itu", "asset_history"),
     ("pernah dipegang siapa saja", "asset_history"),
     ("riwayat servis printer", "maintenance_list"), ("biaya perbaikan laptop", "maintenance_list"),
     ("daftar handover terakhir", "handover_list"), ("fstb bulan lalu", "handover_list"),
@@ -1064,20 +1278,39 @@ _SELF_TEST_CASES = [
     # V2 fuzzy ref (goals2.md §9) — ukur, bukan latih (jangan salin ke EXEMPLARS)
     ("carikan itlt-002", "asset_detail"), ("carikan itlt02", "asset_detail"),
     ("carikan ITLT 002", "asset_detail"), ("itlt02", "asset_detail"),
-    ("dt 02", "asset_detail"), ("dt.02", "asset_detail"),
-    ("dt02", "asset_detail"), ("DT-02", "asset_detail"),
+    # Unit/fleet (goals2.md §13): kode DT/EX/LV/WT selalu soal unit
+    ("dt 02", "unit_detail"), ("dt.02", "unit_detail"),
+    ("dt02", "unit_detail"), ("DT-02", "unit_detail"), ("LV 2", "unit_detail"),
+    ("dt 02.07 itu merek apa", "unit_detail"), ("merek dt-02 apa", "unit_detail"),
+    ("status unit ex-05", "unit_detail"),
     ("riwayat dt 02", "asset_history"), ("siapa pakai itlt02", "asset_user"),
     ("exca", "asset_search"), ("cari exca yang breakdown", "asset_search"),
+    # Domain: HT vs Rig, IT vs Operasional, tipe/kategori/spek (goals2.md §11)
+    ("radio ht yang tersedia", "asset_search"), ("radio rig yang rusak", "asset_search"),
+    ("ht", "asset_search"), ("rig", "asset_search"),
+    ("aset it apa saja", "asset_search"), ("aset operasional yang dipakai", "asset_search"),
+    ("tampilkan aset operasional", "asset_search"),
+    ("tipe aset ini", "asset_search"), ("kategori laptop", "asset_search"),
+    ("desktop tersedia", "asset_search"), ("spek ITLT-007", "asset_detail"),
+    # Form: handover/request/damage + status/periode (goals2.md §13)
+    ("handover bulan ini", "handover_list"), ("bast kemarin", "handover_list"),
+    ("serah terima tanggal berapa", "handover_list"),
+    ("material request yang sudah fulfilled", "request_status"),
+    ("pengajuan material yang belum", "request_status"),
+    ("asset request approved", "request_status"),
+    ("permintaan akun saya", "request_status"),
+    ("damage yang sudah resolved", "damage_list"),
+    ("barang hilang", "damage_list"),
     # OOD → unknown
     ("cuaca hari ini bagaimana", "unknown"), ("12 + 34 berapa", "unknown"),
-    ("jam berapa sekarang", "unknown"), ("kamu siapa", "unknown"),
+    ("jam berapa sekarang", "unknown"), ("kamu manusia atau robot", "unknown"),
     ("resep rendang", "unknown"), ("siapa presiden pertama", "unknown"),
 ]
 
 _SELF_TEST_OOD_REASONS = {
     "cuaca hari ini bagaimana": OOD_WEATHER,
     "jam berapa sekarang": OOD_CLOCK,
-    "kamu siapa": OOD_IDENTITY,
+    "kamu manusia atau robot": OOD_IDENTITY,
     "resep rendang": OOD_TRIVIA,
 }
 
@@ -1119,7 +1352,7 @@ def _self_test_llm_path():
           ("OK" if not missing else "KURANG %s" % missing, len(ALL_INTENTS)))
 
     valid = parse_decision(
-        '{"intent": "check_stock", "entities": {"item": "toner"}, '
+        '{"intent": "check_stock", "entities": {"item": "kabel"}, '
         '"constraints": {"low_only": true}, "confidence": 0.9}')
     assert valid and valid["intent"] == "check_stock" \
         and valid["constraints"] == {"low_only": True}, valid
@@ -1136,7 +1369,7 @@ def _self_test_llm_path():
     old = LLM_ENABLED
     LLM_ENABLED = True
     try:
-        assert llm_decide("stok toner") is None  # tanpa transport → menyerah
+        assert llm_decide("stok kabel") is None  # tanpa transport → menyerah
         fake = lambda _s, _u: '{"intent": "recap", "confidence": 0.88}'
         got = llm_decide("rekap dong", transport=fake)
         assert got and got["intent"] == "recap", got

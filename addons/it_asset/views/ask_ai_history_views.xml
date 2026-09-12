@@ -27,6 +27,11 @@
                         <field name="last_seen"/>
                         <field name="message_count"/>
                     </group>
+                    <group string="Lanjutan Tertunda" invisible="pending_action == False">
+                        <field name="pending_action"/>
+                        <field name="pending_label"/>
+                        <field name="pending_ids"/>
+                    </group>
                     <field name="message_ids" readonly="1">
                         <list>
                             <field name="role"/>

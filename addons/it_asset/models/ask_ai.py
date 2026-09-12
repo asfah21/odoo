@@ -32,7 +32,9 @@ Prinsip yang dipertahankan dari WACS:
 import html as _html
 import json as _json
 import logging
+import re as _re
 import time as _time
+import datetime as _datetime
 import urllib.request as _urlrequest
 
 from odoo import api, fields, models
@@ -58,7 +60,7 @@ _LLM_DEFAULTS = {
 _ASSET_FIELDS = [
     "name", "asset_tag", "asset_type", "it_type", "category_id",
     "product_id", "lot_id", "employee_id", "unit_id", "state",
-    "condition", "usage_type",
+    "condition", "usage_type", "model", "specification",
 ]
 _CONSUMABLE_FIELDS = ["name", "product_id", "qty_available", "min_quantity", "uom_id"]
 _ASSIGN_FIELDS = ["asset_id", "employee_id", "assignment_date", "return_date", "state"]
@@ -68,6 +70,27 @@ _MAINT_FIELDS = ["asset_id", "maintenance_date", "maintenance_type",
 _STATE_LABEL = {"available": "Tersedia", "in_use": "Dipakai",
                 "maintenance": "Out of Service", "retired": "Retired"}
 _COND_LABEL = {"good": "Good", "degraded": "Degraded", "broken": "Broken"}
+_ASSET_TYPE_LABEL = {"it": "IT", "operation": "Operasional"}
+_IT_TYPE_LABEL = {"asset": "Asset", "accessory": "Accessory",
+                  "spare_part": "Spare Part", "tool": "Tool",
+                  "consumable": "Consumable"}
+_FORM_STATE_LABEL = {
+    "draft": "Draft", "submitted": "Diajukan", "approved": "Disetujui",
+    "partially_fulfilled": "Sebagian Terpenuhi", "fulfilled": "Fulfilled",
+    "rejected": "Ditolak", "signed": "Signed",
+    "confirmed": "Dikonfirmasi", "resolved": "Resolved",
+    "open": "Belum selesai", "done": "Sudah selesai",
+}
+_PERIOD_LABEL = {"today": "hari ini", "yesterday": "kemarin",
+                 "this_week": "minggu ini", "this_month": "bulan ini",
+                 "last_month": "bulan lalu"}
+_DAMAGE_TYPE_WORDS = {
+    "physical": ("fisik", "pecah", "hancur", "patah", "retak"),
+    "system": ("sistem", "software", "aplikasi", "lemot", "error"),
+    "lost": ("hilang", "lost", "lenyap"),
+}
+_DAMAGE_TYPE_LABEL = {"physical": "Fisik", "system": "Sistem/Software",
+                      "lost": "Hilang", "other": "Lainnya"}
 
 # V2 (goals2.md §9): kategori fleet/unit — dicari ke it_asset.unit, bukan
 # category_id aset (yang hanya berisi Laptop/Desktop/Printer/Radio Rig).
@@ -86,26 +109,106 @@ def _or_domain(conds):
         return conds
     return ["|"] * (len(conds) - 1) + conds
 
-_SOCIAL_INTENTS = (nlu.INTENT_GREETING, nlu.INTENT_THANKS,
-                   nlu.INTENT_GOODBYE, nlu.INTENT_HELP)
 
+# Jawaban lanjutan atas pertanyaan konfirmasi ("yang mana: tag spesifik atau
+# semua?"). Hanya dimaknai bila sesi punya pending; kalau tidak, teks jalan
+# normal seperti biasa.
+_RE_SHOW_ALL = _re.compile(
+    r"^\W*(tampilkan\s+semua|tampil\s+semua|lihat\s+semua|tunjukkan\s+semua|"
+    r"semua|semuanya|all|ya|iya|oke|ok|mau|boleh)(\W*)$", _re.I)
+_PENDING_ACTIONS = (nlu.INTENT_ASSET_USER, nlu.INTENT_ASSET_DETAIL,
+                     nlu.INTENT_ASSET_HISTORY, nlu.INTENT_UNIT_DETAIL)
+_PENDING_CAP = 30  # id terbanyak yang diingat untuk "semua"
+
+_UNIT_FIELDS = ["name", "category_id", "brand", "model", "state", "remarks"]
+
+# Kata penanya info unit yang spesifik (selain itu = kode polos -> klarifikasi).
+_SPECIFIC_UNIT_WORDS = ("merek", "merk", "brand", "model", "status",
+                        "kondisi", "aset", "radio", "terpasang", "pasang",
+                        "riwayat", "sejarah", "history", "siapa", "pakai",
+                        "pengguna", "tahun", "km", "kilometer", "bbm")
+_GENERIC_UNIT_WORDS = frozenset(
+    "cari carikan lihat tampil tampilkan info informasi detail data "
+    "tentang apa itu ini tersebut dong kah unit fleet yang di ke dari "
+    "untuk berapa ada saya kak min mas mbak pak bu tolong mohon".split())
+
+_SOCIAL_INTENTS = (nlu.INTENT_GREETING, nlu.INTENT_THANKS,
+                   nlu.INTENT_GOODBYE, nlu.INTENT_HELP,
+                   nlu.INTENT_IDENTITY, nlu.INTENT_CREATOR)
+
+# Jawaban canned bervariasi (rotasi deterministik) biar tak terasa template.
+# {daypart} diisi pagi/siang/sore/malam dari jam server.
 _CANNED_SOCIAL = {
-    nlu.INTENT_GREETING: (
-        "Halo! 👋 Saya membaca <b>data live modul IT</b> — stok produk, "
-        "jumlah aset, pengguna, kondisi, dan riwayat.<br/>Coba: "
-        "<i>“stok toner?”</i> • <i>“rekap aset”</i> • "
-        "<i>“siapa yang pakai LT-012?”</i>"),
-    nlu.INTENT_THANKS: "Sama-sama! 🙏 Ada lagi yang mau dicek dari data IT?",
-    nlu.INTENT_GOODBYE: "Siap, sampai jumpa! 👋 Saya di menu <b>IT → Ask AI</b> kalau dibutuhkan lagi.",
-    nlu.INTENT_HELP: (
+    nlu.INTENT_GREETING: [
+        "Selamat {daypart}! 👋 Saya membaca <b>data live modul IT</b> — "
+        "stok, aset, pengguna, kondisi, dan riwayat.<br/>Coba: "
+        "<i>“stok radio ht?”</i> • <i>“rekap aset”</i> • "
+        "<i>“siapa yang pakai ITLT-007?”</i>",
+        "Halo! 👋 Ada yang bisa saya bantu dari data IT?<br/>Misal: "
+        "<i>“aset tersedia apa saja?”</i> • <i>“riwayat DT-02?”</i>",
+        "Hai! 😊 Saya siap bantu cek data live IT — stok, aset, pengguna, "
+        "sampai riwayat.<br/>Tanya saja, mis: <i>“rekap aset”</i>",
+    ],
+    nlu.INTENT_THANKS: [
+        "Sama-sama! 🙏 Ada lagi yang mau dicek dari data IT?",
+        "Siap, sama-sama! 👍 Kabari saja kalau butuh cek data lagi.",
+        "Dengan senang hati! 🙏 Saya di sini kalau dibutuhkan.",
+    ],
+    nlu.INTENT_GOODBYE: [
+        "Siap, sampai jumpa! 👋 Saya di menu <b>IT → Ask AI</b> kalau dibutuhkan lagi.",
+        "Oke, sampai ketemu lagi! 👋 Semoga harinya lancar.",
+    ],
+    nlu.INTENT_HELP: [
         "Yang bisa saya jawab dari <b>data live</b>:<br/>"
         "<div class='ai-help'>"
-        "<div>📦 <b>Stok</b> — <i>“stok toner?”</i>, <i>“stok menipis”</i></div>"
+        "<div>📦 <b>Stok</b> — <i>“stok radio ht?”</i>, <i>“stok menipis”</i></div>"
         "<div>💻 <b>Jumlah</b> — <i>“rekap aset”</i>, <i>“laptop tersedia”</i></div>"
-        "<div>👤 <b>Pengguna</b> — <i>“siapa pakai LT-012?”</i></div>"
+        "<div>👤 <b>Pengguna</b> — <i>“siapa pakai ITLT-007?”</i></div>"
         "<div>📜 <b>Riwayat</b> — <i>“riwayat PRN-01”</i></div>"
-        "</div>"),
+        "<div>🚜 <b>Unit</b> — <i>“DT-02 merek apa?”</i></div>"
+        "</div>",
+        "Saya bisa bantu soal: <b>stok</b>, <b>rekap aset</b>, "
+        "<b>pengguna</b>, <b>riwayat</b>, <b>unit/fleet</b>, "
+        "<b>handover</b>, dan <b>request</b> — semua dari data live.<br/>"
+        "Contoh: <i>“radio ht yang tersedia?”</i>",
+    ],
+    nlu.INTENT_IDENTITY: [
+        "Saya <b>GSI IT Assistant (Ask AI)</b> 🤖 — asisten inventaris IT "
+        "<b>PT GSI, Site Wolo</b>.<br/>Fungsi saya: menjawab dari <b>data live "
+        "modul IT</b> — stok, aset, pengguna, kondisi, riwayat, maintenance, "
+        "handover, damage, dan request.<br/>Coba: <i>“rekap aset”</i> • "
+        "<i>“stok radio ht?”</i> • <i>“siapa pakai ITLT-007?”</i>",
+        "Saya asisten IT di sini! 🤖 Tugas saya membantu cek <b>data live "
+        "inventaris</b> — stok, aset, pengguna, sampai riwayat.<br/>Ada yang "
+        "mau ditanyakan?",
+    ],
+    nlu.INTENT_CREATOR: [
+        "Saya dibuat oleh <b>Azvan</b> — <b>IT Department PT GSI "
+        "(Site Wolo)</b> 🛠️<br/>Saya berjalan lokal di server "
+        "(Qwen3-0.6B + orkestrasi WACS) tanpa API eksternal.<br/>Ada masukan? "
+        "Sampaikan ke tim IT Site Wolo ya.",
+    ],
 }
+
+
+def _daypart():
+    h = _datetime.datetime.now().hour
+    if 4 <= h < 11:
+        return "pagi"
+    if 11 <= h < 15:
+        return "siang"
+    if 15 <= h < 19:
+        return "sore"
+    return "malam"
+
+
+def _canned_social(intent, seed=""):
+    """Ambil varian canned + isi {daypart}; rotasi deterministik."""
+    pool = _CANNED_SOCIAL.get(intent) or [""]
+    pick = pool[nlu._pick_variant("%s|%s" % (intent, seed or ""), len(pool))]
+    if "{daypart}" in pick:
+        pick = pick.replace("{daypart}", _daypart())
+    return pick
 
 
 def _esc(value):
@@ -134,13 +237,20 @@ class ITAskAI(models.AbstractModel):
         jalan (sesi baru dibuat otomatis). Mengembalikan dict siap-render
         ``{html, intent, confidence, method, action?, session_id}``.
         """
-        out = self._answer_inner(question)
+        try:
+            consumed = self._consume_pending(question, session_id)
+        except Exception as exc:  # pending tak boleh merusak jawaban
+            _logger.warning("Ask AI pending gagal dibaca: %s", exc)
+            consumed = None
+        out = consumed if consumed is not None else self._answer_inner(question)
         try:
             out["session_id"] = self._history_save(
                 question, out, session_id=session_id)
         except Exception as exc:  # riwayat tak boleh merusak jawaban
             _logger.warning("Ask AI history gagal disimpan: %s", exc)
             out["session_id"] = session_id
+        for key in ("pending_action", "pending_ids", "pending_label"):
+            out.pop(key, None)
         return out
 
     def _answer_inner(self, question):
@@ -171,10 +281,10 @@ class ITAskAI(models.AbstractModel):
         conf = classification["confidence"]
         method = classification["method"]
 
-        # Fast-path sosial: jawaban canned, tanpa tool (cermin WACS).
+        # Fast-path sosial: jawaban canned bervariasi, tanpa tool (cermin WACS).
         if method == "rule" and intent in _SOCIAL_INTENTS:
             return self._out(text, intent, conf, "deterministic_answer",
-                             _CANNED_SOCIAL[intent], "deterministic_answer")
+                             _canned_social(intent, text), "deterministic_answer")
 
         # Fast-path OOD: tolak bervariasi, tanpa tool (cermin WACS).
         if method == "ood_rule":
@@ -453,6 +563,34 @@ class ITAskAI(models.AbstractModel):
             "intent": out.get("intent") or "",
             "confidence": out.get("confidence") or 0.0,
         })
+        # Lanjutan konfirmasi: ganti tiap hasil multi baru, bersihkan tiap
+        # jawaban biasa (agar "semua" basi tak termakan nanti).
+        pend_action = out.get("pending_action")
+        pend_ids = out.get("pending_ids") or []
+        if pend_action in _PENDING_ACTIONS and pend_ids:
+            ids = []
+            for i in pend_ids:
+                try:
+                    v = int(i)
+                except (TypeError, ValueError):
+                    continue
+                if v not in ids:
+                    ids.append(v)
+            ids = ids[:_PENDING_CAP]
+            if ids:
+                session.write({
+                    "pending_action": pend_action,
+                    "pending_ids": ",".join(str(i) for i in ids),
+                    "pending_label": (out.get("pending_label") or "")[:80],
+                })
+            elif session.pending_action:
+                session.write({"pending_action": False,
+                               "pending_ids": False,
+                               "pending_label": False})
+        elif session.pending_action:
+            session.write({"pending_action": False,
+                           "pending_ids": False,
+                           "pending_label": False})
         session._touch()
         return session.id
 
@@ -507,6 +645,284 @@ class ITAskAI(models.AbstractModel):
         return True
 
     # ------------------------------------------------------------------
+    # konfirmasi lanjutan: "tag spesifik atau semua?"
+    # ------------------------------------------------------------------
+    def _pending_session(self, session_id):
+        if not session_id or not isinstance(session_id, int):
+            return None
+        return self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+
+    @staticmethod
+    def _pending_id_list(csv):
+        ids = []
+        for part in (csv or "").split(","):
+            part = part.strip()
+            if part.isdigit() and int(part) not in ids:
+                ids.append(int(part))
+        return ids[:_PENDING_CAP]
+
+    def _consume_pending(self, question, session_id):
+        """Selesaikan pertanyaan konfirmasi tertunda. None = bukan lanjutan."""
+        session = self._pending_session(session_id)
+        if not session or not session.pending_action:
+            return None
+        if session.pending_action not in _PENDING_ACTIONS:
+            return None
+        ids = self._pending_id_list(session.pending_ids)
+        if not ids:
+            return None
+        text = (question or "").strip()
+        if not text:
+            return None
+        if session.pending_action == nlu.INTENT_UNIT_DETAIL:
+            return self._consume_pending_unit(text, session, ids)
+        assets = self.env["it_asset.asset"].search_read(
+            [("id", "in", ids)], _ASSET_FIELDS, order="id desc")
+        if not assets:
+            return None
+        # (a) "semua" / "ya" -> tampilkan semua kandidat
+        if len(text) <= 40 and _RE_SHOW_ALL.match(text):
+            return self._render_pending_all(
+                text, session.pending_action, assets)
+        # (b) tag/SN spesifik yang cocok salah satu kandidat
+        entities, _c = self._merged_entities(text)
+        refs = entities.get("asset_refs") or []
+        if refs:
+            def _blob(a):
+                lot = a.get("lot_id")
+                lot_name = lot[1] if isinstance(lot, (list, tuple)) else ""
+                return " ".join([
+                    nlu._stripped_ref(a.get("asset_tag") or ""),
+                    nlu._stripped_ref(a.get("name") or ""),
+                    nlu._stripped_ref(lot_name or "")])
+            blobs = [(a, _blob(a)) for a in assets]
+            hit = None
+            for r in refs:
+                key = nlu._stripped_ref(r)
+                if not key:
+                    continue
+                for a, blob in blobs:
+                    if key in blob:
+                        hit = a
+                        break
+                if hit is not None:
+                    break
+            if hit is not None:
+                handler = self._TOOLS.get(session.pending_action)
+                if handler:
+                    tag = hit.get("asset_tag") or hit.get("name") or ""
+                    try:
+                        result = handler(self, tag)
+                    except Exception as exc:
+                        _logger.warning("Ask AI pending-confirm gagal: %s", exc)
+                        return None
+                    if isinstance(result, dict) and not result.get("miss"):
+                        out = self._out(
+                            text, session.pending_action, 1.0,
+                            "pending_confirm", result["html"],
+                            result.get("tool", session.pending_action),
+                            action=result.get("action"))
+                        for k in ("pending_action", "pending_ids",
+                                  "pending_label"):
+                            if k in result:
+                                out[k] = result[k]
+                        return out
+                    return None
+        return None
+
+    def _consume_pending_unit(self, text, session, ids):
+        """Lanjutan unit: 'semua' -> kartu; kata info -> jawaban fokus."""
+        units = self.env["it_asset.unit"].search_read(
+            [("id", "in", ids)], _UNIT_FIELDS, order="name asc")
+        if not units:
+            return None
+        if len(text) <= 40 and _RE_SHOW_ALL.match(text):
+            cards = "".join(
+                self._unit_card(u, self._installed_assets(u["id"]))
+                for u in units[:3])
+            if len(units) > 3:
+                cards += ("<div class='ai-foot'>+%d unit lain — balas kode "
+                          "unit spesifiknya.</div>" % (len(units) - 3))
+            return self._out(text, nlu.INTENT_UNIT_DETAIL, 1.0,
+                             "pending_confirm", cards, "unit_detail")
+        unit = units[0]
+        assets = self._installed_assets(unit["id"])
+        low = text.lower()
+        keep = {"pending_action": nlu.INTENT_UNIT_DETAIL,
+                "pending_ids": [u["id"] for u in units],
+                "pending_label": session.pending_label or ""}
+        if any(w in low for w in ("merek", "merk", "brand", "model")):
+            out = self._out(
+                text, nlu.INTENT_UNIT_DETAIL, 1.0, "pending_confirm",
+                "🏷️ Unit <b>%s</b> — Merek: <b>%s</b>, Model: <b>%s</b> "
+                "(%s)." % (_esc(unit.get("name") or "-"),
+                           _esc(unit.get("brand") or "-"),
+                           _esc(unit.get("model") or "-"),
+                           _esc(_m2o(unit.get("category_id")) or "-")),
+                "unit_detail")
+            out.update(keep)
+            return out
+        if any(w in low for w in ("status", "kondisi")):
+            out = self._out(
+                text, nlu.INTENT_UNIT_DETAIL, 1.0, "pending_confirm",
+                "🚜 Unit <b>%s</b> berstatus <b>%s</b> (%s) — %d aset "
+                "terpasang." % (
+                    _esc(unit.get("name") or "-"),
+                    _esc(_UNIT_STATE_MAP.get(unit.get("state"),
+                                             unit.get("state") or "-")),
+                    _esc(_m2o(unit.get("category_id")) or "-"), len(assets)),
+                "unit_detail")
+            out.update(keep)
+            return out
+        if any(w in low for w in ("aset", "radio", "terpasang", "pasang")):
+            if assets:
+                html = self._asset_table(
+                    "📻 Aset terpasang di <b>%s</b> (%d):" % (
+                        _esc(unit.get("name") or "-"), len(assets)), assets)
+            else:
+                html = ("Belum ada aset terpasang di unit <b>%s</b>."
+                        % _esc(unit.get("name") or "-"))
+            out = self._out(text, nlu.INTENT_UNIT_DETAIL, 1.0,
+                            "pending_confirm", html, "unit_detail")
+            out.update(keep)
+            return out
+        if any(w in low for w in ("riwayat", "sejarah", "history")):
+            out = self._out(text, nlu.INTENT_UNIT_DETAIL, 1.0,
+                            "pending_confirm",
+                            self._render_unit_history(unit, assets),
+                            "unit_detail")
+            out.update(keep)
+            return out
+        # kode unit disebut lagi -> kartu lengkap
+        try:
+            variants = set()
+            for u in units:
+                variants.add(nlu._stripped_ref(u.get("name") or ""))
+            refs = (self._merged_entities(text)[0].get("asset_refs") or [])
+            if any(nlu._stripped_ref(r) in variants for r in refs):
+                return self._out(
+                    text, nlu.INTENT_UNIT_DETAIL, 1.0, "pending_confirm",
+                    self._unit_card(unit, assets), "unit_detail")
+        except Exception as exc:
+            _logger.warning("Ask AI pending-unit gagal: %s", exc)
+        return None
+
+    def _render_unit_history(self, unit, assets):
+        parts = ["📜 <b>Riwayat unit %s:</b>"
+                 % _esc(unit.get("name") or "-")]
+        swaps = self.env["it_asset.swap"].search_read(
+            [("unit_id", "=", unit["id"])],
+            ["asset_id", "assignment_date", "return_date", "notes", "state"],
+            limit=10, order="assignment_date desc")
+        if swaps:
+            parts.append("<div class='ai-sec'>🔄 <b>Pasang/lepas (%d):</b></div>"
+                         "<div class='ai-timeline'>" % len(swaps))
+            for s in swaps:
+                parts.append(
+                    "<div class='ai-tl-row'><i class='fa fa-refresh'></i><div><b>%s</b>"
+                    "<div class='ai-sub'>%s → %s • %s</div></div></div>" % (
+                        _esc(_m2o(s.get("asset_id")) or "-"),
+                        _esc(s.get("assignment_date") or "-"),
+                        _esc(s.get("return_date") or "sekarang"),
+                        _esc((s.get("notes") or "")[:80])))
+            parts.append("</div>")
+        else:
+            parts.append("<div class='ai-sub'>Belum ada riwayat pasang/lepas.</div>")
+        aids = [a["id"] for a in assets]
+        if aids:
+            maints = self.env["it_asset.maintenance"].search_read(
+                [("asset_id", "in", aids)], _MAINT_FIELDS + ["create_date"],
+                limit=10, order="maintenance_date desc")
+            if maints:
+                parts.append("<div class='ai-sec'>🔧 <b>Maintenance aset "
+                             "terpasang (%d):</b></div>" % len(maints))
+                for m in maints[:5]:
+                    parts.append(
+                        "<div class='ai-tl-row'><i class='fa fa-wrench'></i><div>"
+                        "<b>%s — %s</b><div class='ai-sub'>%s</div></div></div>"
+                        % (_esc(m.get("maintenance_date") or "-"),
+                           _esc(_m2o(m.get("asset_id")) or "-"),
+                           _esc((m.get("description") or "-")[:80])))
+        return "".join(parts)
+
+    def _render_pending_all(self, text, action, assets):
+        if action == nlu.INTENT_ASSET_HISTORY:
+            html = self._render_history_all(assets)
+        elif action == nlu.INTENT_ASSET_USER:
+            html = self._asset_table(
+                "👤 Pengguna <b>%d</b> aset:" % len(assets), assets[:15])
+        else:
+            html = self._asset_table(
+                "🔎 <b>%d</b> aset:" % len(assets), assets[:15])
+        if len(assets) > 15:
+            html += ("<div class='ai-foot'>Menampilkan 15 dari %d. Balas "
+                     "tag spesifik untuk fokus ke satu aset.</div>"
+                     % len(assets))
+        return self._out(text, action, 1.0, "pending_confirm", html, action,
+                         action=self._list_action(
+                             "Assets", "it_asset.asset",
+                             [("id", "in", [a["id"] for a in assets[:15]])]))
+
+    def _render_history_all(self, assets):
+        Assign = self.env["it_asset.assignment"]
+        parts = ["📜 <b>Riwayat %d aset:</b>" % len(assets)]
+        for a in assets[:5]:
+            tag = a.get("asset_tag") or a.get("name") or "-"
+            rows = Assign.search_read(
+                [("asset_id", "=", a["id"])], _ASSIGN_FIELDS, limit=5,
+                order="assignment_date desc")
+            if not rows:
+                parts.append("<div class='ai-sec'><b>%s</b> — belum ada "
+                             "riwayat.</div>" % _esc(tag))
+                continue
+            parts.append("<div class='ai-sec'><b>%s — %s</b> (%d):</div>"
+                         "<div class='ai-timeline'>" % (
+                             _esc(tag), _esc(a.get("name") or "-"), len(rows)))
+            for s in rows:
+                parts.append(
+                    "<div class='ai-tl-row'><i class='fa fa-user'></i><div><b>%s</b>"
+                    "<div class='ai-sub'>%s → %s • %s</div></div></div>" % (
+                        _esc(_m2o(s.get("employee_id")) or "-"),
+                        _esc(s.get("assignment_date") or "-"),
+                        _esc(s.get("return_date") or "sekarang"),
+                        _esc(s.get("state") or "-")))
+            parts.append("</div>")
+        if len(assets) > 5:
+            parts.append("<div class='ai-foot'>+%d aset lain — balas tag "
+                         "spesifiknya untuk riwayat penuh.</div>"
+                         % (len(assets) - 5))
+        return "".join(parts)
+
+    def _confirm_html(self, action, kw_label, rows, total):
+        lines = []
+        for a in rows[:8]:
+            lines.append("<div>🏷️ <b>%s</b> — %s</div>" % (
+                _esc(a.get("asset_tag") or "-"),
+                _esc(a.get("name") or "-")))
+        extra = ""
+        if total > len(rows[:8]):
+            extra = ("<div>+ %d lainnya — persempit atau ketik "
+                     "<i>“semua”</i>.</div>" % (total - len(rows[:8])))
+        verb = {nlu.INTENT_ASSET_USER: "penggunanya",
+                nlu.INTENT_ASSET_DETAIL: "detailnya",
+                nlu.INTENT_ASSET_HISTORY: "riwayatnya",
+                nlu.INTENT_UNIT_DETAIL: "informasinya"}.get(action, "datanya")
+        openings = [
+            "Ditemukan <b>%d</b> aset mirip “<b>%s</b>”. Mau lihat %s yang mana?",
+            "Ada <b>%d</b> kandidat untuk “<b>%s</b>” — %s yang mana?",
+            "Ada <b>%d</b> aset cocok “<b>%s</b>”. Pilih %s yang mana?",
+        ]
+        opening = openings[nlu._pick_variant(
+            "%s|%s" % (action, kw_label), len(openings))]
+        opening = opening % (total, _esc(kw_label), verb)
+        tail = ("<div class='ai-help'>%s</div>%s"
+                "Balas dengan <b>nomor aset / SN</b>-nya, atau ketik "
+                "<i>“semua”</i>." % ("".join(lines), extra))
+        return opening + tail
+
+    # ------------------------------------------------------------------
     # helpers HTML (grounded: semua nilai dari evidence ORM, di-escape)
     # ------------------------------------------------------------------
     @staticmethod
@@ -528,8 +944,17 @@ class ITAskAI(models.AbstractModel):
                         "<thead><tr><th>Aset</th><th>Pengguna</th>"
                         "<th>Status</th></tr></thead><tbody>"]
         for a in rows:
-            tag = ("<span class='ai-tag'>%s</span> " % _esc(a["asset_tag"])
-                   if a.get("asset_tag") else "")
+            # Lencana domain dari DB (asset_type), bukan tebakan kode —
+            # biar jelas ini aset IT atau Operasional.
+            dom = a.get("asset_type")
+            if dom == "it":
+                dom_badge = "<span class='ai-tag'>IT</span> "
+            elif dom == "operation":
+                dom_badge = "<span class='ai-tag ops'>OPS</span> "
+            else:
+                dom_badge = ""
+            tag = (dom_badge + "<span class='ai-tag'>%s</span> " % _esc(a["asset_tag"])
+                   if a.get("asset_tag") else dom_badge)
             serial = ("<div class='ai-sub'>SN: %s</div>" % _esc(_m2o(a.get("lot_id")))
                       if a.get("lot_id") else "")
             cat = ("<div class='ai-sub'>%s</div>" % _esc(_m2o(a.get("category_id")))
@@ -552,6 +977,148 @@ class ITAskAI(models.AbstractModel):
     @staticmethod
     def _list_action(label, model, domain):
         return {"res_model": model, "domain": domain, "name": label}
+
+    # ------------------------------------------------------------------
+    # unit/fleet detail (goals2.md §13)
+    # ------------------------------------------------------------------
+    def _is_bare_unit_query(self, text, kw):
+        """True bila teks hanya kode unit + kata umum (tanpa info spesifik).
+
+        'dt 02' -> True (tanya balik); 'dt 02.07 itu merek apa' -> False.
+        """
+        low = (text or "").lower()
+        if any(w in low for w in _SPECIFIC_UNIT_WORDS):
+            return False
+        try:
+            variants = nlu.ref_variants(kw)
+        except AttributeError:
+            variants = [kw]
+        s = low
+        for v in sorted(variants, key=len, reverse=True):
+            if v:
+                s = s.replace(v.lower(), " ")
+        toks = [t for t in _re.split(r"[^a-z0-9]+", s) if t]
+        return all(t in _GENERIC_UNIT_WORDS or len(t) < 2 or t.isdigit()
+                   for t in toks)
+
+    def _installed_assets(self, unit_id, limit=15):
+        return self.env["it_asset.asset"].search_read(
+            [("unit_id", "=", unit_id)], _ASSET_FIELDS, limit=limit,
+            order="id desc")
+
+    def _unit_card(self, unit, assets, foot=""):
+        badge = ("<span class='ai-badge info'>%s</span>"
+                 % _esc(_UNIT_STATE_MAP.get(unit.get("state"),
+                                            unit.get("state") or "-")))
+        parts = [
+            "<div class='ai-detail-head'>",
+            ("<span class='ai-tag big'>%s</span>" % _esc(unit["name"])
+             if unit.get("name") else ""),
+            "<b>%s %s</b></div>"
+            "<div class='ai-sub'>Aset operasional (fleet) — bukan IT</div>" % (
+                _esc(_m2o(unit.get("category_id")) or "Unit"),
+                _esc(unit.get("name") or "")),
+            "<div class='ai-kv'>"
+            "<div><span>Merek</span><b>%s</b></div>"
+            "<div><span>Model</span><b>%s</b></div>"
+            "<div><span>Kategori</span><b>%s</b></div>"
+            "<div><span>Status</span>%s</div>"
+            "</div>" % (_esc(unit.get("brand") or "-"),
+                        _esc(unit.get("model") or "-"),
+                        _esc(_m2o(unit.get("category_id")) or "-"),
+                        badge),
+        ]
+        if unit.get("remarks"):
+            parts.append("<div class='ai-sub'>Keterangan: %s</div>"
+                         % _esc(unit["remarks"]))
+        if assets:
+            parts.append(self._asset_table(
+                "📻 Aset terpasang (%d):" % len(assets), assets))
+        else:
+            parts.append("<div class='ai-sub'>Belum ada aset terpasang "
+                         "di unit ini.</div>")
+        if foot:
+            parts.append(foot)
+        else:
+            parts.append(
+                "<div class='ai-foot'>Tanya spesifik: "
+                "<i>“merek %s?”</i> • <i>“status %s?”</i> • "
+                "<i>“radio di %s?”</i></div>" % (
+                    _esc(unit.get("name") or ""), _esc(unit.get("name") or ""),
+                    _esc(unit.get("name") or "")))
+        return "".join(parts)
+
+    def _unit_clarify(self, unit):
+        """Kode polos ('dt 02') -> tanya balik mau info apa + pending."""
+        name = unit.get("name") or "-"
+        openings = [
+            "🚜 Unit <b>%s</b> (%s) — mau tau informasi apa?<br/>",
+            "Siap, unit <b>%s</b> ketemu (%s). Mau info yang mana?<br/>",
+        ]
+        opening = openings[nlu._pick_variant("unit_clarify|%s" % name,
+                                             len(openings))]
+        return {"html":
+                (opening + "<div class='ai-help'>"
+                 "<div>🏷️ <b>Merek &amp; model</b> — balas <i>“merek”</i></div>"
+                 "<div>🚦 <b>Status</b> — balas <i>“status”</i></div>"
+                 "<div>📻 <b>Aset terpasang</b> — balas <i>“aset”</i> / <i>“radio”</i></div>"
+                 "<div>📜 <b>Riwayat</b> — balas <i>“riwayat”</i></div>"
+                 "</div>Balas salah satunya, atau ketik <i>“semua”</i> untuk "
+                 "kartu lengkap.") % (
+                    _esc(name),
+                    _esc(_m2o(unit.get("category_id")) or "-")),
+                "tool": "unit_detail",
+                "pending_action": nlu.INTENT_UNIT_DETAIL,
+                "pending_ids": [unit["id"]],
+                "pending_label": unit.get("name") or ""}
+
+    def _tool_unit_detail(self, text):
+        entities, _c = self._merged_entities(text)
+        refs = entities.get("asset_refs") or []
+        fleet_refs = [r for r in refs if nlu._is_fleet_ref(r)]
+        U = self.env["it_asset.unit"]
+        if fleet_refs:
+            kw = fleet_refs[0]
+            units = U.search_read(self._unit_domain_for(kw), _UNIT_FIELDS,
+                                  limit=5, order="name asc")
+            if not units:
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Periksa kode unitnya "
+                                "(mis. <i>DT-02</i>, <i>EX-05</i>, "
+                                "<i>LV-02</i>).</div>"}
+            if len(units) > 1:
+                ids = [u["id"] for u in units]
+                lines = "".join(
+                    "<div>🚜 <b>%s</b> — %s</div>" % (
+                        _esc(u.get("name") or "-"),
+                        _esc(_m2o(u.get("category_id")) or "-"))
+                    for u in units)
+                return {"html":
+                        "Ditemukan <b>%d</b> unit mirip “<b>%s</b>”:"
+                        "<div class='ai-help'>%s</div>"
+                        "Balas <b>kode unit</b> yang dimaksud, atau ketik "
+                        "<i>“semua”</i>." % (
+                            len(units), _esc(kw), lines),
+                        "tool": "unit_detail",
+                        "pending_action": nlu.INTENT_UNIT_DETAIL,
+                        "pending_ids": ids,
+                        "pending_label": kw}
+            unit = units[0]
+            assets = self._installed_assets(unit["id"])
+            if self._is_bare_unit_query(text, kw):
+                return self._unit_clarify(unit)
+            return {"html": self._unit_card(unit, assets),
+                    "tool": "unit_detail",
+                    "action": self._list_action(
+                        unit.get("name") or "Unit", "it_asset.unit",
+                        [("id", "=", unit["id"])])}
+        if refs:
+            # ref non-fleet (ITLT-007, PRN-01) -> alur detail aset biasa
+            return self._tool_asset_detail(text)
+        cat = (entities.get("category") or "")
+        if cat in _FLEET_CATEGORIES or nlu.resolve_fleet_alias(text):
+            return self._tool_unit_search(text, entities)
+        return None
 
     # ------------------------------------------------------------------
     # TOOLS — tiap tool: entities → evidence ORM → html (+ action opsional)
@@ -608,18 +1175,9 @@ class ITAskAI(models.AbstractModel):
                 ["|", ("name", "ilike", kw), ("product_id.name", "ilike", kw)],
                 _CONSUMABLE_FIELDS, limit=20, order="name asc")
             if not rows:
-                assets = self.env["it_asset.asset"].search_read(
-                    ["|", ("name", "ilike", kw), ("asset_tag", "ilike", kw)],
-                    _ASSET_FIELDS, limit=5)
-                if assets:
-                    return {"html": self._asset_table(
-                        "Hasil pencarian “<b>%s</b>” (tercatat sebagai aset, "
-                        "bukan consumable):" % _esc(kw), assets),
-                        "tool": "check_stock"}
-                return {"miss": True,
-                        "hint": "<div class='ai-foot'>Coba kata yang lebih umum "
-                                "(mis: <i>toner, kabel, mouse, tinta</i>) atau "
-                                "ketik <i>“stok menipis”</i>.</div>"}
+                # Bukan consumable -> mungkin barang berupa aset
+                # ("berapa stok radio ht" = HT yang tersedia/belum assign).
+                return self._tool_asset_stock(text, entities, kw)
             return {"html": self._stock_table(
                 "Stok untuk “<b>%s</b>” (%d item):" % (_esc(kw), len(rows)),
                 rows), "tool": "check_stock",
@@ -655,6 +1213,65 @@ class ITAskAI(models.AbstractModel):
             "Ketik <i>“stok menipis”</i> untuk daftar restock atau "
             "<i>“stok [nama barang]”</i> untuk cek spesifik."),
             "tool": "check_stock"}
+
+    # Stok versi aset: "berapa stok radio ht" = HT yang tersedia/belum assign.
+    _ASSET_STOCK_CATEGORIES = frozenset([
+        "laptop", "desktop", "printer", "radio", "rig", "radio rig",
+        "radio ht", "ht", "handy talky", "monitor", "mouse", "keyboard",
+        "pc", "komputer", "server", "router", "switch", "cctv", "gps",
+        "tablet", "headset", "proyektor", "projector",
+    ])
+
+    def _tool_asset_stock(self, text, entities, kw):
+        """Jawaban stok untuk barang berupa aset: yang tersedia/belum assign."""
+        A = self.env["it_asset.asset"]
+        cat = (entities.get("category") or "").lower()
+        base = []
+        if cat in self._ASSET_STOCK_CATEGORIES:
+            base.append(("category_id.name", "ilike", entities["category"]))
+        kind = (entities.get("radio_kind") or "")
+        kind_domain = []
+        if kind == "rig":
+            kind_domain = ["|", ("name", "ilike", "rig"),
+                           ("product_id.name", "ilike", "rig")]
+        elif kind == "ht":
+            kind_domain = ["|", ("name", "ilike", "HT"),
+                           ("product_id.name", "ilike", "HT")]
+        if not base:
+            base = self._asset_domain_for(kw)
+        if kind_domain and A.search_count(base + kind_domain):
+            base = base + kind_domain
+        avail_dom = base + [("state", "=", "available")]
+        inuse_dom = base + [("state", "=", "in_use")]
+        avail_n = A.search_count(avail_dom)
+        inuse_n = A.search_count(inuse_dom)
+        if not avail_n and not inuse_n:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Tidak ada aset “<b>%s</b>” "
+                            "tercatat. Coba kata yang lebih umum "
+                            "(mis. <i>kabel, mouse, tinta</i>), ketik "
+                            "<i>“stok menipis”</i>, atau "
+                            "<i>“rekap aset”</i>.</div>" % _esc(kw)}
+        if not avail_n:
+            rows = A.search_read(inuse_dom, _ASSET_FIELDS, limit=10,
+                                 order="id desc")
+            return {"html": self._asset_table(
+                "📦 Stok “<b>%s</b>” kosong — semua <b>%d</b> sedang "
+                "dipakai:" % (_esc(kw), inuse_n), rows)
+                + "<div class='ai-foot'>Balas tag-nya untuk cek siapa "
+                  "pemakainya.</div>",
+                    "tool": "check_stock"}
+        rows = A.search_read(avail_dom, _ASSET_FIELDS, limit=15,
+                             order="id desc")
+        extra = "" if avail_n <= 15 else \
+            "<div class='ai-foot'>Menampilkan 15 dari %d.</div>" % avail_n
+        return {"html": self._asset_table(
+            "📦 Stok “<b>%s</b>” — <b>%d</b> tersedia%s:" % (
+                _esc(kw), avail_n,
+                " • %d dipakai" % inuse_n if inuse_n else ""), rows) + extra,
+            "tool": "check_stock",
+            "action": self._list_action("Assets", "it_asset.asset",
+                                       avail_dom)}
 
     def _stock_table(self, title, rows, footer=""):
         parts = [title, "<div class='ai-table-wrap'><table class='ai-table'>"
@@ -697,9 +1314,37 @@ class ITAskAI(models.AbstractModel):
         if entities["category"]:
             domain.append(("category_id.name", "ilike", entities["category"]))
             labels.append("kategori “%s”" % entities["category"])
-        if not domain:
+        at = (entities.get("asset_type") or "")
+        if at in ("it", "operation"):
+            domain.append(("asset_type", "=", at))
+            labels.append("aset %s" % _ASSET_TYPE_LABEL[at])
+        # HT vs Rig: saring nama/produk; kalau tak ada yang cocok, jatuh kembali
+        # ke semua radio (jujur berlabel) daripada data_miss yang menyesatkan.
+        kind = (entities.get("radio_kind") or "")
+        kind_domain, kind_label, kind_note = [], "", ""
+        if kind == "rig":
+            kind_domain = ["|", ("name", "ilike", "rig"),
+                           ("product_id.name", "ilike", "rig")]
+            kind_label = "Radio Rig"
+        elif kind == "ht":
+            kind_domain = ["|", ("name", "ilike", "HT"),
+                           ("product_id.name", "ilike", "HT")]
+            kind_label = "Radio HT"
+        if not domain and not kind_domain:
             return None
         A = self.env["it_asset.asset"]
+        if kind_domain:
+            if A.search_count(domain + kind_domain):
+                domain = domain + kind_domain
+                labels.append(kind_label)
+            elif domain:
+                kind_note = ("<div class='ai-foot'>Tidak ada yang namanya "
+                             "persis “<b>%s</b>” — menampilkan semua radio "
+                             "yang cocok filter.</div>" % _esc(kind_label))
+            else:
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Belum ada data %s. "
+                                "Coba <i>“rekap aset”</i>.</div>" % _esc(kind_label)}
         total = A.search_count(domain)
         if not total:
             return {"miss": True,
@@ -714,7 +1359,7 @@ class ITAskAI(models.AbstractModel):
                         _esc(rows[0].get("asset_tag") or rows[0].get("name") or "")))
         return {"html": self._asset_table(
             "🔎 <b>%d</b> aset — %s:" % (total, _esc(" • ".join(labels))),
-            rows) + extra, "tool": "asset_search",
+            rows) + extra + kind_note, "tool": "asset_search",
             "action": self._list_action("Assets", "it_asset.asset", domain)}
 
     def _asset_domain_for(self, keyword):
@@ -816,7 +1461,7 @@ class ITAskAI(models.AbstractModel):
         if unit_state:
             label += " • %s" % _UNIT_STATE_MAP.get(unit_state, unit_state)
         return {"html": self._unit_table(
-            "🚜 <b>%d</b> unit — %s:" % (total, _esc(label)), rows),
+            "🚜 <b>%d</b> unit operasional — %s:" % (total, _esc(label)), rows),
             "tool": "asset_search",
             "action": self._list_action("Units", "it_asset.unit", domain)}
 
@@ -869,12 +1514,15 @@ class ITAskAI(models.AbstractModel):
                             "atau ketik <i>“rekap aset”</i>.</div>"}
         if len(found) > 1:
             total = A.search_count(self._asset_domain_for(kw))
-            first = found[0].get("asset_tag") or found[0].get("name") or ""
-            return {"html": self._asset_table(
-                "Ditemukan <b>%d</b> aset mirip “<b>%s</b>”. Spesifikkan "
-                "tag-nya, mis <i>“riwayat %s”</i>:" % (
-                    total, _esc(kw), _esc(first)), found[:8]),
-                    "tool": "asset_detail"}
+            ids = ([a["id"] for a in found]
+                   + A.search(self._asset_domain_for(kw), limit=_PENDING_CAP,
+                              offset=len(found)).ids)[:_PENDING_CAP]
+            return {"html": self._confirm_html(
+                        nlu.INTENT_ASSET_DETAIL, kw, found[:8], total),
+                    "tool": "asset_detail",
+                    "pending_action": nlu.INTENT_ASSET_DETAIL,
+                    "pending_ids": ids,
+                    "pending_label": kw}
         a = found[0]
         assigns = self.env["it_asset.assignment"].search_read(
             [("asset_id", "=", a["id"])], _ASSIGN_FIELDS, limit=5,
@@ -906,13 +1554,22 @@ class ITAskAI(models.AbstractModel):
             "<div><span>Status</span>%s</div>"
             "<div><span>Kondisi</span>%s</div>"
             "<div><span>Kategori</span><b>%s</b></div>"
+            "<div><span>Tipe</span><b>%s</b></div>"
+            "<div><span>Model</span><b>%s</b></div>"
             "<div><span>Serial</span><b>%s</b></div>"
             "<div><span>Produk</span><b>%s</b></div>"
             "</div>" % (_esc(user), self._state_badge(a.get("state")),
                         self._cond_badge(a.get("condition")),
                         _esc(_m2o(a.get("category_id")) or "-"),
+                        _esc("%s • %s" % (
+                            _ASSET_TYPE_LABEL.get(a.get("asset_type"), "-"),
+                            _IT_TYPE_LABEL.get(a.get("it_type"), "-"))),
+                        _esc(a.get("model") or "-"),
                         _esc(_m2o(a.get("lot_id")) or "-"),
                         _esc(_m2o(a.get("product_id")) or "-")),
+            ("<div class='ai-sec'>📋 <b>Spesifikasi</b></div>"
+             "<div class='ai-sub'>%s</div>" % _esc(a.get("specification") or "-")
+             if a.get("specification") else ""),
             "<div class='ai-sec'>📜 <b>Riwayat pengguna (%s)</b></div>" % (
                 len(assigns) or "belum ada"),
         ]
@@ -957,30 +1614,65 @@ class ITAskAI(models.AbstractModel):
                     a.get("asset_tag") or a.get("name") or "Asset",
                     "it_asset.asset", [("id", "=", a["id"])])}
 
+    @staticmethod
+    def _single_user_html(a):
+        user = (_m2o(a["employee_id"]) if a.get("employee_id")
+                else ("Unit " + _m2o(a["unit_id"]) if a.get("unit_id")
+                      else "Belum di-assign (di gudang IT)"))
+        return ("👤 <b>%s — %s</b> saat ini dipegang oleh <b>%s</b>."
+                "<br/><div class='ai-sub'>Status: %s • Kondisi: %s</div>" % (
+                    _esc(a.get("asset_tag") or "-"),
+                    _esc(a.get("name") or "-"), _esc(user),
+                    _esc(_STATE_LABEL.get(a.get("state"), "-")),
+                    _esc(_COND_LABEL.get(a.get("condition"), "-"))))
+
+    def _user_domain_from_entities(self, entities):
+        """Domain untuk 'siapa pakai <kategori/domain>' (tanpa ref spesifik)."""
+        domain, labels = [], []
+        cat = (entities.get("category") or "")
+        if cat:
+            domain.append(("category_id.name", "ilike", cat))
+            labels.append(cat)
+        at = (entities.get("asset_type") or "")
+        if at in ("it", "operation"):
+            domain.append(("asset_type", "=", at))
+            labels.append("aset %s" % _ASSET_TYPE_LABEL[at])
+        for key in ("state", "condition"):
+            if entities.get(key):
+                domain.append((key, "=", entities[key]))
+        kind = (entities.get("radio_kind") or "")
+        kind_domain = []
+        if kind == "rig":
+            kind_domain = ["|", ("name", "ilike", "rig"),
+                           ("product_id.name", "ilike", "rig")]
+        elif kind == "ht":
+            kind_domain = ["|", ("name", "ilike", "HT"),
+                           ("product_id.name", "ilike", "HT")]
+        return domain, labels, kind_domain, kind
+
     def _tool_asset_user(self, text):
         entities, _c = self._merged_entities(text)
         A = self.env["it_asset.asset"]
         if entities["asset_refs"]:
-            found = A.search_read(
-                self._asset_domain_for(entities["asset_refs"][0]),
-                _ASSET_FIELDS, limit=5, order="id desc")
-            if not found:
+            kw = entities["asset_refs"][0]
+            domain = self._asset_domain_for(kw)
+            total = A.search_count(domain)
+            if not total:
                 return {"miss": True, "hint": ""}
-            if len(found) > 1:
-                return {"html": self._asset_table(
-                    "Ditemukan beberapa aset mirip — tentukan tag-nya:",
-                    found[:8]), "tool": "asset_user"}
-            a = found[0]
-            user = (_m2o(a["employee_id"]) if a.get("employee_id")
-                    else ("Unit " + _m2o(a["unit_id"]) if a.get("unit_id")
-                          else "Belum di-assign (di gudang IT)"))
-            return {"html":
-                    "👤 <b>%s — %s</b> saat ini dipegang oleh <b>%s</b>."
-                    "<br/><div class='ai-sub'>Status: %s • Kondisi: %s</div>" % (
-                        _esc(a.get("asset_tag") or "-"),
-                        _esc(a.get("name") or "-"), _esc(user),
-                        _esc(_STATE_LABEL.get(a.get("state"), "-")),
-                        _esc(_COND_LABEL.get(a.get("condition"), "-"))),
+            if total > 1:
+                found = A.search_read(domain, _ASSET_FIELDS, limit=8,
+                                      order="id desc")
+                ids = ([a["id"] for a in found]
+                       + A.search(domain, limit=_PENDING_CAP,
+                                  offset=len(found)).ids)[:_PENDING_CAP]
+                return {"html": self._confirm_html(
+                            nlu.INTENT_ASSET_USER, kw, found, total),
+                        "tool": "asset_user",
+                        "pending_action": nlu.INTENT_ASSET_USER,
+                        "pending_ids": ids,
+                        "pending_label": kw}
+            a = A.search_read(domain, _ASSET_FIELDS, limit=1)[0]
+            return {"html": self._single_user_html(a),
                     "tool": "asset_user"}
         if entities["employee_name"]:
             name = entities["employee_name"]
@@ -992,7 +1684,41 @@ class ITAskAI(models.AbstractModel):
                         _esc(name), len(rows)), rows), "tool": "asset_user"}
             return {"miss": True,
                     "hint": "<div class='ai-foot'>Cek ejaan nama karyawannya, "
-                            "atau cari by tag aset (<i>“siapa pakai LT-…”</i>).</div>"}
+                            "atau cari by tag aset (<i>“siapa pakai ITLT-…”</i>).</div>"}
+        domain, labels, kind_domain, kind = \
+            self._user_domain_from_entities(entities)
+        if domain:
+            # "radio rig siapa yang pakai" -> jawab + tawarkan spesifikasi
+            total = (A.search_count(domain + kind_domain)
+                     if kind_domain else A.search_count(domain))
+            use_kind = bool(kind_domain and total)
+            if kind_domain and not total:
+                total = A.search_count(domain)
+            if total == 1:
+                eff = domain + kind_domain if use_kind else domain
+                a = A.search_read(eff, _ASSET_FIELDS, limit=1)[0]
+                return {"html": self._single_user_html(a),
+                        "tool": "asset_user"}
+            if total > 1:
+                eff = domain + kind_domain if use_kind else domain
+                rows = A.search_read(eff, _ASSET_FIELDS, limit=8,
+                                     order="id desc")
+                ids = ([a["id"] for a in rows]
+                       + A.search(eff, limit=_PENDING_CAP,
+                                  offset=len(rows)).ids)[:_PENDING_CAP]
+                title = "👤 Pengguna %s (<b>%d</b>):" % (
+                    _esc(" • ".join(labels)) or "aset", total)
+                foot = ("<div class='ai-foot'>Mau detail salah satunya? "
+                        "Balas <b>nomor aset / SN</b>-nya."
+                        + (" Atau ketik <i>“semua”</i> untuk tampilkan "
+                           "semuanya (%d)." % total if total > 8 else "")
+                        + "</div>")
+                return {"html": self._asset_table(title, rows) + foot,
+                        "tool": "asset_user",
+                        "pending_action": nlu.INTENT_ASSET_USER,
+                        "pending_ids": ids,
+                        "pending_label": " • ".join(labels)}
+            # total == 0 -> jatuh ke item fallback di bawah
         if entities["item"] and len(entities["item"]) >= 3:
             rows = A.search_read(self._asset_domain_for(entities["item"]),
                                  _ASSET_FIELDS, limit=8, order="id desc")
@@ -1008,12 +1734,26 @@ class ITAskAI(models.AbstractModel):
         Assign = self.env["it_asset.assignment"]
         if entities["asset_refs"]:
             kw = entities["asset_refs"][0]
-            found = self.env["it_asset.asset"].search_read(
-                self._asset_domain_for(kw), ["id", "name", "asset_tag"],
-                limit=3)
-            if not found:
+            domain = self._asset_domain_for(kw)
+            total = self.env["it_asset.asset"].search_count(domain)
+            if not total:
                 return {"miss": True, "hint": ""}
-            a = found[0]
+            if total > 1:
+                found = self.env["it_asset.asset"].search_read(
+                    domain, ["id", "name", "asset_tag"], limit=8,
+                    order="id desc")
+                ids = ([a["id"] for a in found]
+                       + self.env["it_asset.asset"].search(
+                           domain, limit=_PENDING_CAP,
+                           offset=len(found)).ids)[:_PENDING_CAP]
+                return {"html": self._confirm_html(
+                            nlu.INTENT_ASSET_HISTORY, kw, found, total),
+                        "tool": "asset_history",
+                        "pending_action": nlu.INTENT_ASSET_HISTORY,
+                        "pending_ids": ids,
+                        "pending_label": kw}
+            a = self.env["it_asset.asset"].search_read(
+                domain, ["id", "name", "asset_tag"], limit=1)[0]
             rows = Assign.search_read(
                 [("asset_id", "=", a["id"])], _ASSIGN_FIELDS, limit=10,
                 order="assignment_date desc")
@@ -1081,71 +1821,261 @@ class ITAskAI(models.AbstractModel):
                 "action": self._list_action(
                     "Maintenance", "it_asset.maintenance", [])}
 
-    def _tool_handover_list(self, _text):
-        rows = self.env["it_asset.handover"].search_read(
-            [], ["name", "asset_id", "receiver_id", "handover_date", "state"],
-            limit=10, order="handover_date desc")
-        if not rows:
-            return {"miss": True,
-                    "hint": "<div class='ai-foot'>Belum ada data handover (BAST).</div>"}
-        parts = ["🤝 <b>Handover terakhir:</b>"
-                 "<div class='ai-table-wrap'><table class='ai-table'>"
-                 "<thead><tr><th>Ref</th><th>Aset → Penerima</th><th>Tgl</th></tr>"
-                 "</thead><tbody>"]
-        for h in rows:
-            parts.append("<tr><td>%s</td><td><b>%s</b><div class='ai-sub'>→ %s</div></td><td>%s</td></tr>" % (
-                _esc(h.get("name") or "-"),
-                _esc(_m2o(h.get("asset_id")) or "-"),
-                _esc(_m2o(h.get("receiver_id")) or "-"),
-                _esc(h.get("handover_date") or "-")))
-        parts.append("</tbody></table></div>")
-        return {"html": "".join(parts), "tool": "handover_list"}
+    # ------------------------------------------------------------------
+    # form: periode + status (goals2.md §13)
+    # ------------------------------------------------------------------
+    def _period_range(self, period):
+        """(date_from, date_to) untuk filter tanggal, atau (None, None)."""
+        if not period:
+            return None, None
+        today = _datetime.date.today()
+        if period == "today":
+            return today, today
+        if period == "yesterday":
+            y = today - _datetime.timedelta(days=1)
+            return y, y
+        if period == "this_week":
+            return today - _datetime.timedelta(days=today.weekday()), today
+        if period == "this_month":
+            return today.replace(day=1), today
+        if period == "last_month":
+            first_this = today.replace(day=1)
+            last_prev = first_this - _datetime.timedelta(days=1)
+            return last_prev.replace(day=1), last_prev
+        return None, None
 
-    def _tool_damage_list(self, _text):
-        rows = self.env["it_asset.damage_report"].search_read(
-            [], ["name", "asset_id", "damage_type", "report_date", "state"],
-            limit=10, order="report_date desc")
+    @staticmethod
+    def _request_states(fs):
+        """Status teknis form request (material/aset/akun)."""
+        if fs == "done":
+            return ["fulfilled"]
+        if fs == "open":
+            return ["draft", "submitted", "approved", "partially_fulfilled"]
+        if fs in ("draft", "submitted", "approved", "partially_fulfilled",
+                  "fulfilled", "rejected"):
+            return [fs]
+        return []
+
+    def _form_filter_label(self, entities):
+        bits = []
+        fs = entities.get("form_status") or ""
+        if fs:
+            bits.append(_FORM_STATE_LABEL.get(fs, fs))
+        period = entities.get("period") or ""
+        if period:
+            bits.append(_PERIOD_LABEL.get(period, period))
+        return " • ".join(bits)
+
+    @staticmethod
+    def _state_badge_for(state):
+        cls = {"fulfilled": "ok", "signed": "ok", "resolved": "ok",
+               "approved": "info", "confirmed": "info",
+               "submitted": "warn", "partially_fulfilled": "warn",
+               "draft": "muted", "rejected": "bad"}.get(state, "muted")
+        return "<span class='ai-badge %s'>%s</span>" % (cls, _esc(state or "-"))
+
+    def _tool_handover_list(self, text):
+        entities, _c = self._merged_entities(text)
+        fs = entities.get("form_status") or ""
+        dfrom, dto = self._period_range(entities.get("period") or "")
+        hstates = {"signed": ["signed"], "draft": ["draft"],
+                   "done": ["signed"], "open": ["draft"]}.get(fs, [])
+        asset_ids = []
+        refs = entities.get("asset_refs") or []
+        if refs:
+            asset_ids = self.env["it_asset.asset"].search(
+                self._asset_domain_for(refs[0]), limit=10).ids
+        hdom = []
+        if hstates:
+            hdom.append(("state", "in", hstates))
+        if dfrom:
+            hdom.append(("handover_date", ">=", dfrom))
+        if dto:
+            hdom.append(("handover_date", "<=", dto))
+        if asset_ids:
+            hdom.append(("asset_id", "in", asset_ids))
+        hrows = self.env["it_asset.handover"].search_read(
+            hdom, ["name", "asset_id", "receiver_id", "handover_date",
+                   "state"], limit=10, order="handover_date desc")
+        idom = []
+        if hstates:
+            idom.append(("state", "in", hstates))
+        if dfrom:
+            idom.append(("handover_date", ">=", dfrom))
+        if dto:
+            idom.append(("handover_date", "<=", dto))
+        irows = self.env["it_asset.item.handover"].search_read(
+            idom, ["name", "receiver_id", "handover_date", "state",
+                   "total_items"], limit=10, order="handover_date desc")
+        if not hrows and not irows:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Belum ada serah terima "
+                            "cocok filter. Coba longgarkan periode/status.</div>"}
+        flabel = self._form_filter_label(entities)
+        title = "🤝 <b>Serah terima%s:</b>" % (
+            " (%s)" % _esc(flabel) if flabel else "")
+        parts = [title]
+        if hrows:
+            parts.append("<div class='ai-sec'>Handover aset (BAST)</div>"
+                         "<div class='ai-table-wrap'><table class='ai-table'>"
+                         "<thead><tr><th>Ref</th><th>Aset → Penerima</th>"
+                         "<th>Tgl</th><th>Status</th></tr></thead><tbody>")
+            for h in hrows:
+                parts.append("<tr><td>%s</td><td><b>%s</b><div class='ai-sub'>→ %s</div></td>"
+                             "<td>%s</td><td>%s</td></tr>" % (
+                                 _esc(h.get("name") or "-"),
+                                 _esc(_m2o(h.get("asset_id")) or "-"),
+                                 _esc(_m2o(h.get("receiver_id")) or "-"),
+                                 _esc(h.get("handover_date") or "-"),
+                                 self._state_badge_for(h.get("state"))))
+            parts.append("</tbody></table></div>")
+        if irows:
+            parts.append("<div class='ai-sec'>Item handover (multi-item)</div>"
+                         "<div class='ai-table-wrap'><table class='ai-table'>"
+                         "<thead><tr><th>Ref</th><th>Penerima</th>"
+                         "<th>Tgl</th><th>Status</th></tr></thead><tbody>")
+            for h in irows:
+                parts.append("<tr><td>%s<div class='ai-sub'>%s item</div></td>"
+                             "<td><b>%s</b></td><td>%s</td><td>%s</td></tr>" % (
+                                 _esc(h.get("name") or "-"),
+                                 h.get("total_items") or 0,
+                                 _esc(_m2o(h.get("receiver_id")) or "-"),
+                                 _esc(h.get("handover_date") or "-"),
+                                 self._state_badge_for(h.get("state"))))
+            parts.append("</tbody></table></div>")
+        return {"html": "".join(parts), "tool": "handover_list",
+                "action": self._list_action(
+                    "Handovers", "it_asset.handover", hdom)}
+
+    def _request_section(self, model, title, states, dfrom, dto):
+        M = self.env[model]
+        base = []
+        if states:
+            base.append(("state", "in", states))
+        if dfrom:
+            base.append(("request_date", ">=", dfrom))
+        if dto:
+            base.append(("request_date", "<=", dto))
+        rows = M.search_read(
+            base, ["name", "employee_id", "request_date", "state"], limit=10,
+            order="request_date desc")
+        done_n = M.search_count(base + [("state", "=", "fulfilled")]) \
+            if model != "it_asset.handover" else 0
+        open_n = M.search_count(
+            base + [("state", "in", ["draft", "submitted", "approved",
+                                    "partially_fulfilled"])])
         if not rows:
-            return {"html": "Belum ada <b>damage report</b>. Kabar baik — "
-                            "tidak ada laporan kerusakan tercatat 🎉",
-                    "tool": "damage_list"}
-        parts = ["📝 <b>Damage report terakhir:</b>"
+            return "", False
+        parts = ["<div class='ai-sec'>%s (%d fulfilled • %d belum)</div>"
+                 "<div class='ai-table-wrap'><table class='ai-table'><tbody>"
+                 % (title, done_n, open_n)]
+        for r in rows:
+            parts.append("<tr><td><b>%s</b><div class='ai-sub'>%s • %s</div></td>"
+                         "<td>%s</td></tr>" % (
+                             _esc(r.get("name") or "-"),
+                             _esc(_m2o(r.get("employee_id")) or "-"),
+                             _esc(r.get("request_date") or "-"),
+                             self._state_badge_for(r.get("state"))))
+        parts.append("</tbody></table></div>")
+        return "".join(parts), True
+
+    def _tool_request_status(self, text):
+        entities, _c = self._merged_entities(text)
+        fk = entities.get("form_kind") or ""
+        states = self._request_states(entities.get("form_status") or "")
+        dfrom, dto = self._period_range(entities.get("period") or "")
+        want = [fk] if fk in ("material", "asset_request", "account") else \
+            ["material", "asset_request", "account"]
+        specs = {"material": ("it_asset.material_request", "Material Request"),
+                 "asset_request": ("it_asset.request", "Asset Request"),
+                 "account": ("it_asset.account_request", "Account Request")}
+        flabel = self._form_filter_label(entities)
+        if fk:
+            flabel = (specs[fk][1] + (" • " + flabel if flabel else "")).strip()
+        parts = ["📥 <b>Status pengajuan%s:</b>" % (
+            " (%s)" % _esc(flabel) if flabel else "")]
+        any_rows = False
+        for key in want:
+            model, title = specs[key]
+            html, ok = self._request_section(model, title, states, dfrom, dto)
+            if ok:
+                parts.append(html)
+                any_rows = True
+            elif fk:
+                parts.append("<div class='ai-sub'>%s: belum ada data cocok "
+                             "filter.</div>" % title)
+        if not any_rows:
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Belum ada pengajuan cocok "
+                            "filter. Coba longgarkan status/periode.</div>"}
+        parts.append("<div class='ai-foot'>Sudah fulfilled vs belum dihitung "
+                     "per jenis di atas.</div>")
+        return {"html": "".join(parts), "tool": "request_status"}
+
+    def _tool_damage_list(self, text):
+        entities, _c = self._merged_entities(text)
+        fs = entities.get("form_status") or ""
+        if fs == "done":
+            states = ["resolved"]
+        elif fs == "open":
+            states = ["draft", "confirmed"]
+        elif fs in ("draft", "confirmed", "resolved"):
+            states = [fs]
+        else:
+            states = []
+        low = (text or "").lower()
+        dtype = ""
+        for key, words in _DAMAGE_TYPE_WORDS.items():
+            if any(w in low for w in words):
+                dtype = key
+                break
+        dfrom, dto = self._period_range(entities.get("period") or "")
+        domain = []
+        if states:
+            domain.append(("state", "in", states))
+        if dtype:
+            domain.append(("damage_type", "=", dtype))
+        if dfrom:
+            domain.append(("report_date", ">=", dfrom))
+        if dto:
+            domain.append(("report_date", "<=", dto))
+        refs = entities.get("asset_refs") or []
+        if refs:
+            aids = self.env["it_asset.asset"].search(
+                self._asset_domain_for(refs[0]), limit=10).ids
+            if aids:
+                domain.append(("asset_id", "in", aids))
+        D = self.env["it_asset.damage_report"]
+        rows = D.search_read(
+            domain, ["name", "asset_id", "damage_type", "report_date",
+                     "state"], limit=15, order="report_date desc")
+        if not rows:
+            if not domain:
+                return {"html": "Belum ada <b>damage report</b>. Kabar baik — "
+                                "tidak ada laporan kerusakan tercatat 🎉",
+                        "tool": "damage_list"}
+            return {"miss": True,
+                    "hint": "<div class='ai-foot'>Tidak ada damage cocok "
+                            "filter. Coba longgarkan status/periode.</div>"}
+        flabel = self._form_filter_label(entities)
+        if dtype:
+            flabel = ((_DAMAGE_TYPE_LABEL.get(dtype, dtype) + " • " + flabel)
+                      if flabel else _DAMAGE_TYPE_LABEL.get(dtype, dtype))
+        parts = ["📝 <b>Damage report%s (%d):</b>"
                  "<div class='ai-table-wrap'><table class='ai-table'>"
-                 "<thead><tr><th>Ref</th><th>Aset</th><th>Status</th></tr></thead><tbody>"]
+                 "<thead><tr><th>Ref</th><th>Aset</th><th>Status</th></tr></thead><tbody>"
+                 % ((" (%s)" % _esc(flabel)) if flabel else "", len(rows))]
         for d in rows:
             parts.append("<tr><td>%s<div class='ai-sub'>%s • %s</div></td><td><b>%s</b></td>"
-                         "<td><span class='ai-badge info'>%s</span></td></tr>" % (
+                         "<td>%s</td></tr>" % (
                              _esc(d.get("name") or "-"),
-                             _esc(d.get("damage_type") or "-"),
+                             _esc(_DAMAGE_TYPE_LABEL.get(d.get("damage_type"),
+                                                         d.get("damage_type") or "-")),
                              _esc(d.get("report_date") or "-"),
                              _esc(_m2o(d.get("asset_id")) or "-"),
-                             _esc(d.get("state") or "-")))
+                             self._state_badge_for(d.get("state"))))
         parts.append("</tbody></table></div>")
         return {"html": "".join(parts), "tool": "damage_list"}
-
-    def _tool_request_status(self, _text):
-        mat = self.env["it_asset.material_request"].search_read(
-            [], ["name", "employee_id", "request_date", "state"], limit=5,
-            order="request_date desc")
-        ass = self.env["it_asset.request"].search_read(
-            [], ["name", "employee_id", "request_date", "state"], limit=5,
-            order="request_date desc")
-        parts = ["📥 <b>Status request terakhir:</b>"]
-        for title, rows in (("Material Request", mat), ("Asset Request", ass)):
-            if not rows:
-                parts.append("<div class='ai-sub'>%s: belum ada data.</div>" % title)
-                continue
-            parts.append("<div class='ai-sec'>%s</div>"
-                         "<div class='ai-table-wrap'><table class='ai-table'><tbody>" % title)
-            for r in rows:
-                parts.append("<tr><td><b>%s</b><div class='ai-sub'>%s • %s</div></td>"
-                             "<td><span class='ai-badge info'>%s</span></td></tr>" % (
-                                 _esc(r.get("name") or "-"),
-                                 _esc(_m2o(r.get("employee_id")) or "-"),
-                                 _esc(r.get("request_date") or "-"),
-                                 _esc(r.get("state") or "-")))
-            parts.append("</tbody></table></div>")
-        return {"html": "".join(parts), "tool": "request_status"}
 
     def _tool_human_agent(self, text):
         return {"html": nlu.handover_reply(text)
@@ -1153,10 +2083,23 @@ class ITAskAI(models.AbstractModel):
                   "(Damage Report / Material Request).</div>",
                 "tool": "handover_to_staff"}
 
+    def _tool_identity(self, _text):
+        """Jaring pengaman: identitas via jalur NLU/LLM (bukan fast-path rule)."""
+        return {"html": _canned_social(nlu.INTENT_IDENTITY, _text),
+                "tool": "identity"}
+
+    def _tool_creator(self, _text):
+        """Jaring pengaman: pembuat via jalur NLU/LLM (bukan fast-path rule)."""
+        return {"html": _canned_social(nlu.INTENT_CREATOR, _text),
+                "tool": "creator"}
+
     # Peta intent → tool (cermin routeDecision/defaultToolForIntent WACS).
     _TOOLS = {
         nlu.INTENT_RECAP: _tool_recap,
         nlu.INTENT_CHECK_STOCK: _tool_check_stock,
+        nlu.INTENT_UNIT_DETAIL: _tool_unit_detail,
+        nlu.INTENT_IDENTITY: _tool_identity,
+        nlu.INTENT_CREATOR: _tool_creator,
         nlu.INTENT_ASSET_SEARCH: _tool_asset_search,
         nlu.INTENT_ASSET_DETAIL: _tool_asset_detail,
         nlu.INTENT_ASSET_USER: _tool_asset_user,

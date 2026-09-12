@@ -33,6 +33,12 @@ class ITAskAISession(models.Model):
         "it_asset.ask_ai.message", "session_id", string="Pesan")
     message_count = fields.Integer(
         string="Jumlah Pesan", compute="_compute_message_count", store=True)
+    # Lanjutan tertunda: hasil multi-kandidat menunggu konfirmasi user
+    # ("balas tag/SN spesifik" atau "semua"). Dibaca pesan berikutnya,
+    # diganti tiap ada hasil multi baru, dibersihkan tiap jawaban biasa.
+    pending_action = fields.Char(string="Aksi Tertunda", readonly=True)
+    pending_ids = fields.Char(string="ID Aset Tertunda (csv)", readonly=True)
+    pending_label = fields.Char(string="Label Tertunda", readonly=True)
 
     @api.depends("message_ids")
     def _compute_message_count(self):

@@ -23,7 +23,7 @@ Membangun **chatbot AI yang smart, cepat, ringan, dan dapat diandalkan** di dala
 
 Meskipun memakai model kecil, Ask AI harus terasa seperti AI Agent besar, yaitu mampu:
 
-- memahami konteks dan percakapan multi-turn secara natural (tanpa user mengulang info seperti `LT-012`, `PRN-01`);
+- memahami konteks dan percakapan multi-turn secara natural (tanpa user mengulang info seperti `ITLT-007`, `PRN-01`);
 - memahami maksud user walau tidak terstruktur, singkat, typo, atau bahasa sehari-hari/slang Indonesia (normalisasi `_SLANG_TABLE` di `ask_ai_nlu.py`);
 - **membaca kode berantakan ala user lapangan (V2, lihat §9)**: `itlt-002` = `itlt02` = `ITLT 002`, `dt 02` = `dt.02` = `dt02` = `DT-02`, `exca` = `excavator`/`EX` — tanpa user harus hafal format resmi;
 - mempertahankan konteks dan menangani pindah topik tanpa kehilangan konteks penting;
@@ -71,9 +71,9 @@ Sumber kebenaran: `ALL_INTENTS` di `ask_ai_nlu.py`, pemetaan `_TOOLS` di `ask_ai
 | Intent | Tool | Deskripsi |
 | --- | --- | --- |
 | `recap` | `_tool_recap` | Rekap jumlah aset & stok menipis |
-| `check_stock` | `_tool_check_stock` | Stok produk/consumable (`low_only` opsional) |
+| `check_stock` | `_tool_check_stock` | Stok consumable (`low_only` opsional); untuk barang berupa aset (mis. radio HT) dijawab dari aset **tersedia/belum assign** (`_tool_asset_stock`), bukan consumable |
 | `asset_search` | `_tool_asset_search` | Pencarian aset IT/Operation |
-| `asset_detail` | `_tool_asset_detail` | Detail aset (mis. `LT-012`) |
+| `asset_detail` | `_tool_asset_detail` | Detail aset (mis. `ITLT-007`) |
 | `asset_user` | `_tool_asset_user` | Siapa pemakai aset |
 | `asset_history` | `_tool_asset_history` | Riwayat aset (mis. `PRN-01`) |
 | `maintenance_list` | `_tool_maintenance_list` | Daftar maintenance |
@@ -146,8 +146,38 @@ User lapangan mengetik cepat dan tidak hafal format resmi. Ask AI **wajib paham*
 - **Tetap grounded**: kalau kode sudah dikanonikalisasi tapi tidak ada di DB → jawab `data_miss` jujur + saran format, jangan mengarang.
 - **Acuan implementasi**: kanonikalisasi di `ask_ai_nlu.py` (`normalize_id` + varian ref), pencarian pakai OR antar-varian + `unit_id.name` di `_asset_domain_for` (`ask_ai.py`).
 
-## 10. UI Simple + Riwayat Terhapus Otomatis 10 Hari
+## 10. UI Interaktif + Riwayat Terhapus Otomatis 10 Hari
 
-- **UI simple namun elegan**: topbar ramping (brand + badge retensi + tombol Chat Baru), sidebar hanya daftar riwayat + tombol hapus per sesi (tanpa search box, tanpa tips box), hero ringkas + 3 chip saran, composer tanpa tombol lampiran. Satu aksen indigo flat (`#4f46e5`), style jawaban data (`.ai-*`) dipertahankan.
-- **Riwayat di backend, bukan memori**: sesi + pesan tersimpan di `it_asset.ask_ai.session` / `it_asset.ask_ai.message` (`addons/it_asset/models/ask_ai_history.py`). Setiap `answer()` otomatis menyimpan pasangan pesan user+AI dan mengembalikan `session_id` (kompatibel mundur dengan pemanggil lama).
+- **UI interaktif**: topbar (toggle sidebar mobile, brand + status online, badge Live Data, tombol Clear + New Chat), sidebar (search percakapan, daftar riwayat + hapus per sesi, tips + catatan retensi), hero welcome + 4 kartu saran, bubble avatar user/AI, typing indicator, composer auto-grow + hint keyboard.
+- **Riwayat di backend, bukan memori**: sesi + pesan tersimpan di `it_asset.ask_ai.session` / `it_asset.ask_ai.message` (`addons/it_asset/models/ask_ai_history.py`). Setiap `answer()` otomatis menyimpan pasangan pesan user+AI dan mengembalikan `session_id` (kompatibel mundur dengan pemanggil lama). Klik riwayat memuat isi dari backend (bukan kirim ulang prompt).
 - **Retensi 10 hari**: cron harian `Ask AI: hapus riwayat chat > 10 hari` (`data/ask_ai_cron.xml`) menghapus sesi yang `last_seen`-nya lebih tua dari N hari (default 10, diatur via System Parameter `it_asset.ask_ai.history_retention_days`); pesan ikut terhapus via ondelete cascade. Batas ini juga tertulis di UI (badge topbar + footer sidebar).
+- **Penting setelah update kode**: modul **wajib di-upgrade** (`-u it_asset`) + hard-refresh browser, karena model `session`/`message`, cron, dan JS baru tidak aktif sebelum itu. Chat lama sebelum upgrade memang tidak muncul (dulu hanya dummy di memori, tidak pernah tersimpan).
+
+## 11. Paham Domain: HT vs Rig, IT vs Operasional, Status, Kategori/Tipe/Spek
+
+- **Radio HT vs Radio Rig**: keduanya berkategori `Radio Rig` di master data — dibedakan via `radio_kind` (`rig`/`ht`) yang menyaring nama/produk (`ask_ai_nlu.resolve_radio_kind` + filter di `_tool_asset_search`). Kalau tak ada yang namanya persis cocok, fallback jujur ke semua radio berlabel (bukan miss menyesatkan). `ht`, `rig`, `handy talky` berdiri sendiri juga dipahami.
+- **Aset IT vs Operasional**: entitas `asset_type` (`aset it` → `it`; `operasional`/`operasi`/`operation` → `operation`) menjadi filter `asset_type` di pencarian dan pertanyaan pengguna (`_tool_asset_user`).
+- **Status tersedia/available**: `tersedia`, `available`, `ready` → `available`; dikombinasikan dengan kategori/domain lain. `berapa stok radio ht` = HT yang `available`/belum di-assign (kalau kosong dan semua dipakai, ditampilkan siapa pemakainya).
+- **Kata info**: `tipe`/`type`/`jenis`/`kategori` → pencarian; `spek`/`spesifikasi` → detail per aset.
+- **Detail aset menampilkan**: Tipe (`IT/Operasional • Asset/Accessory/…`), Model, Spesifikasi, Kategori, Serial, Produk, Status, Kondisi, Pengguna + riwayat.
+
+## 12. Konfirmasi Balik + Identitas
+
+- **Konfirmasi saat ambigu**: kalau hasil lebih dari 1 (pengguna/detail/riwayat), AI balik tanya — tampilkan daftar tag + nama, minta balas **nomor aset/SN spesifik** atau ketik **“semua”**. Berlaku umum untuk semua tool berbasis ref. Contoh: `radio rig siapa yang pakai?` → jawab daftar + `Mau detail salah satunya? Balas nomor aset/SN-nya` (+ `semua` bila >8).
+- **Ingat pilihan**: kandidat disimpan di sesi (`pending_action`/`pending_ids`/`pending_label` di `it_asset.ask_ai.session`); pesan berikutnya `semua`/`ya` → tampilkan semua, tag cocok → eksekusi satu itu, pertanyaan baru → pending dibersihkan otomatis.
+- **Identitas**: `kamu siapa?` / `fungsimu apa?` → jawab GSI IT Assistant + fungsinya (intent `identity`); `siapa yang buat?` / `developernya siapa?` → jawab **Azvan, IT Department PT GSI (Site Wolo)** (intent `creator`). Keduanya canned deterministik (fast-path + jaring pengaman tool).
+
+## 13. Tanya Fleet + Baca Semua Form
+
+- **Fleet/unit (intent `unit_detail`)**: kode `DT/EX/LV/WT` selalu soal unit — `dt 02.07 itu merek apa?` → kartu unit (merek, model, kategori, status, aset terpasang). Kode polos (`dt 02`) → tanya balik `mau tau informasi apa?` (merek/status/aset/riwayat/`semua`), diingat via pending; lanjutan `merek`/`status`/`aset`/`riwayat` menjawab fokus, `semua`/kode lagi → kartu lengkap.
+- **Form handover**: baca `it_asset.handover` (BAST) + `it_asset.item.handover` sekaligus — filter status (signed/draft/belum/sudah) dan periode (hari ini/kemarin/minggu ini/bulan ini/bulan lalu), plus filter aset bila disebut tag. Contoh: `bast kemarin`, `serah terima tanggal berapa`.
+- **Form request**: baca material + asset + account request sekaligus — filter jenis (`material`/`asset_request`/`account`), status (`fulfilled` vs `belum` = draft/submitted/approved/partially, plus status spesifik), dan periode. Tiap jenis diringkas `X fulfilled • Y belum`. Contoh: `pengajuan material yang belum`, `asset request approved`.
+- **Form damage**: filter status (resolved/confirmed/draft/belum/sudah), jenis (fisik/sistem/hilang), periode, dan aset. Tanpa filter + data kosong → tetap kabar-baik (bukan miss).
+- **Aturan status**: kata `belum/pending/menunggu` selalu menang atas kata spesifik (`belum fulfilled` → open, bukan fulfilled).
+
+## 14. Sumber Kebenaran Domain + Anti Bot Kaku
+
+- **IT vs Operasional dari DB, bukan tebakan kode**: `asset_type` (`it`/`operation`) + `it_type` + `category_id` dari database. Setiap baris aset berlabel lencana **IT** / **OPS** (`_asset_table`), detail menampilkan `Tipe: IT/Operasional • Asset/…`, kartu unit menyatakan `Aset operasional (fleet) — bukan IT`.
+- **Prefix fleet = `DT/EX/LV/WT`** (sesuai master `it_asset.unit.category`: Dump Truck, Water Truck, Excavator, Light Vehicle; terpusat di `FLEET_PREFIXES`). Fleet selalu operasional.
+- **Bervariasi biar tidak kentara bot**: sapaan (3 varian + selamat pagi/siang/sore/malam ikut jam server), terima kasih (3), selamat tinggal (2), bantuan (2), identitas (2), klarifikasi (3 template), konfirmasi multi-kandidat (3 bukaan), klarifikasi unit (2 bukaan) — semua rotasi deterministik hash+counter.
+- **Variasi pertanyaan dipahami**: slang/typo diperluas (`liat`, `kasitau`, `coba`, `stokc`, `monitr`, `keybord`, `pritner`…), kata kerja tanya (`cari`, `lihat`, `tampilkan`, `kasih`…) dan kata benda umum (`aset`, `asset`) tidak mengotori keyword pencarian.
