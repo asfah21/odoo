@@ -23,7 +23,7 @@
                 </div>
                 <div class="ask-topbar-right">
                     <span class="ask-model-badge d-none d-md-inline-flex">
-                        <i class="fa fa-bolt me-1"/> Demo Front-End
+                        <i class="fa fa-database me-1"/> Live Data IT
                     </span>
                     <button class="btn btn-light border btn-sm" t-on-click="clearChat" title="Bersihkan percakapan">
                         <i class="fa fa-trash-o me-1"/> <span class="d-none d-sm-inline">Clear</span>
@@ -68,7 +68,7 @@
                     <div class="ask-sidebar-footer">
                         <div class="ask-tip">
                             <i class="fa fa-lightbulb-o me-2 text-warning"/>
-                            <span>Tips: tanyakan dengan spesifik, mis. tipe aset + kendalanya.</span>
+                            <span>Tips: sebut tag/nama aset. Cth: “riwayat LT-012”, “stok toner”, “rekap aset”.</span>
                         </div>
                     </div>
                 </aside>
@@ -85,7 +85,7 @@
                                         <i class="fa fa-magic"/>
                                     </div>
                                     <h2>Selamat datang di <span class="text-gradient">Ask AI</span></h2>
-                                    <p>Asisten IT PT GSI — Site Wolo. Tanya soal aset, request, handover, atau troubleshooting.</p>
+                                    <p>Asisten IT PT GSI — Site Wolo. Terhubung ke data live: stok, aset, pengguna, kondisi &amp; riwayat.</p>
                                     <div class="ask-suggest-grid">
                                         <t t-foreach="state.suggestions" t-as="sg" t-key="sg.title">
                                             <div class="ask-suggest-card" t-on-click="() => this.useSuggestion(sg.prompt)">
@@ -128,6 +128,11 @@
                                                 <span class="ask-badge-ai">AI</span>
                                             </div>
                                             <div class="ask-bubble-text" t-out="m.content"/>
+                                            <t t-if="m.action">
+                                                <button class="btn btn-sm btn-outline-primary ask-view-action" t-on-click="() => this.openMsgAction(m)">
+                                                    <i class="fa fa-external-link me-1"/> Lihat di modul
+                                                </button>
+                                            </t>
                                             <div class="ask-bubble-meta">
                                                 <span t-esc="m.time"/>
                                             </div>
@@ -164,7 +169,7 @@
                             <textarea t-ref="chatInput"
                                 class="ask-input"
                                 rows="1"
-                                placeholder="Tulis pertanyaan seputar IT di sini… (Enter untuk kirim)"
+                                placeholder="Cth: stok toner? rekap aset? siapa pakai LT-012? (Enter kirim)"
                                 t-att-value="state.input"
                                 t-on-input="onInput"
                                 t-on-keydown="onKeydown"/>

@@ -13,3 +13,5 @@ from . import excel_template
 from . import excel_export_mixin
 from . import material_request
 from . import product_template
+from . import ask_ai_nlu
+from . import ask_ai

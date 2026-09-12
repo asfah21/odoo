@@ -472,6 +472,13 @@
             text-align: right;
         }
 
+        .ask-view-action {
+            margin-top: 0.55rem;
+            border-radius: 9px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
         &.ask-bubble-user {
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             color: #ffffff;
@@ -644,6 +651,173 @@
             font-size: 0.65rem;
             font-family: inherit;
             color: #475569;
+        }
+    }
+
+    // ---------- AI data answer styling ----------
+    .ask-bubble-text {
+        .ai-table-wrap {
+            margin: 0.6rem -0.2rem 0.2rem -0.2rem;
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+        .ai-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+            min-width: 380px;
+            thead th {
+                background: #f8fafc;
+                color: #64748b;
+                font-size: 0.66rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                text-align: left;
+                padding: 0.5rem 0.65rem;
+                border-bottom: 1px solid #e2e8f0;
+                white-space: nowrap;
+            }
+            tbody td {
+                padding: 0.55rem 0.65rem;
+                border-bottom: 1px solid #f1f5f9;
+                vertical-align: top;
+                color: #1e293b;
+            }
+            tbody tr:last-child td {
+                border-bottom: none;
+            }
+            tbody tr:hover td {
+                background: #f8fafc;
+            }
+            .ai-num {
+                font-weight: 700;
+                white-space: nowrap;
+                font-feature-settings: "tnum";
+            }
+        }
+        .ai-sub {
+            font-size: 0.7rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .ai-tag {
+            display: inline-block;
+            font-size: 0.66rem;
+            font-weight: 800;
+            background: #eef2ff;
+            color: #4338ca;
+            border: 1px solid #c7d2fe;
+            border-radius: 5px;
+            padding: 0 5px;
+            margin-right: 4px;
+            &.big {
+                font-size: 0.75rem;
+                padding: 0.1rem 0.5rem;
+                border-radius: 7px;
+            }
+        }
+        .ai-badge {
+            display: inline-block;
+            font-size: 0.68rem;
+            font-weight: 700;
+            border-radius: 20px;
+            padding: 0.1rem 0.55rem;
+            white-space: nowrap;
+            &.ok { background: #dcfce7; color: #15803d; }
+            &.info { background: #dbeafe; color: #1d4ed8; }
+            &.warn { background: #fef3c7; color: #b45309; }
+            &.bad { background: #fee2e2; color: #b91c1c; }
+            &.muted { background: #f1f5f9; color: #64748b; }
+        }
+        .ai-kpi {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+            margin-top: 0.7rem;
+        }
+        .ai-kpi-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.55rem 0.65rem;
+            display: flex;
+            flex-direction: column;
+            span { font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #64748b; }
+            b { font-size: 1.25rem; font-weight: 800; color: #0f172a; line-height: 1.2; }
+            small { font-size: 0.68rem; color: #64748b; }
+            &.green { background: #f0fdf4; border-color: #bbf7d0; b { color: #15803d; } }
+            &.blue { background: #eff6ff; border-color: #bfdbfe; b { color: #1d4ed8; } }
+            &.red { background: #fef2f2; border-color: #fecaca; b { color: #b91c1c; } }
+            &.amber { background: #fffbeb; border-color: #fde68a; b { color: #b45309; } }
+        }
+        .ai-kv {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem 0.8rem;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            margin-top: 0.6rem;
+            div span { display: block; font-size: 0.64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #94a3b8; }
+            div b { font-size: 0.8rem; color: #1e293b; }
+        }
+        .ai-detail-head {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-size: 0.95rem;
+            margin-bottom: 0.1rem;
+            flex-wrap: wrap;
+        }
+        .ai-sec {
+            margin-top: 0.7rem;
+            font-size: 0.8rem;
+        }
+        .ai-timeline {
+            margin-top: 0.4rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .ai-tl-row {
+            display: flex;
+            gap: 0.55rem;
+            align-items: flex-start;
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            border-radius: 9px;
+            padding: 0.45rem 0.6rem;
+            font-size: 0.76rem;
+            i { color: #6366f1; margin-top: 2px; }
+        }
+        .ai-help {
+            margin-top: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 0.6rem 0.75rem;
+            font-size: 0.78rem;
+        }
+        .ai-foot {
+            margin-top: 0.55rem;
+            font-size: 0.72rem;
+            color: #64748b;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 0.45rem;
+        }
+        .ai-ol {
+            margin: 0.4rem 0 0.2rem 1.1rem;
+            padding: 0;
+            li { margin-bottom: 0.25rem; }
+        }
+        @media (max-width: 576px) {
+            .ai-kpi { grid-template-columns: 1fr 1fr; }
+            .ai-kv { grid-template-columns: 1fr; }
         }
     }
 

@@ -24,6 +24,7 @@
         'views/item_handover_views.xml',
         'views/asset_form_views.xml',
         'views/ask_ai_views.xml',
+        'views/ask_ai_feedback_views.xml',
         'views/material_request_fulfill_wizard_views.xml',
         'views/excel_export_views.xml',
         'views/brand_promotion_views.xml',
