@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Client Action untuk Ask AI (front-end chat) -->
+    <record id="action_it_asset_ask_ai" model="ir.actions.client">
+        <field name="name">Ask AI</field>
+        <field name="tag">it_asset_ask_ai_action</field>
+    </record>
+
+    <!-- Menu Ask AI — setelah menu Form (Form seq 40, Ask AI seq 50) -->
+    <menuitem id="menu_it_asset_ask_ai"
+              name="Ask AI"
+              parent="it_asset_menu_root"
+              action="action_it_asset_ask_ai"
+              sequence="50"/>
+</odoo>

@@ -23,6 +23,7 @@
         'views/printer_usage_views.xml',
         'views/item_handover_views.xml',
         'views/asset_form_views.xml',
+        'views/ask_ai_views.xml',
         'views/material_request_fulfill_wizard_views.xml',
         'views/excel_export_views.xml',
         'views/brand_promotion_views.xml',
@@ -37,6 +38,9 @@
             'it_asset/static/src/components/dashboard/dashboard.js',
             'it_asset/static/src/components/dashboard/dashboard.xml',
             'it_asset/static/src/components/dashboard/dashboard.scss',
+            'it_asset/static/src/components/ask_ai/ask_ai.js',
+            'it_asset/static/src/components/ask_ai/ask_ai.xml',
+            'it_asset/static/src/components/ask_ai/ask_ai.scss',
             'it_asset/static/src/scss/stock_dashboard.scss',
         ],
         'web.assets_frontend': [
