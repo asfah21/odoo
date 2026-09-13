@@ -8,7 +8,7 @@
 
     <!-- Parent: IT -> Ask AI (no action, 3 children: Chat, Setting, Dictionary) -->
     <menuitem id="menu_it_asset_ask_ai"
-              name="Ask AI"
+              name="AI"
               parent="it_asset_menu_root"
               sequence="50"/>
 
@@ -19,11 +19,12 @@
               action="action_it_asset_ask_ai"
               sequence="10"/>
 
-    <!-- Child 2: Setting — Generate dictionary + Qwen rephrase 0.6B -->
+    <!-- Child 2: Setting — via server action agar selalu membuka THE singleton
+         (act_window biasa membuka form Create kosong -> kesan tak tersimpan) -->
     <menuitem id="menu_it_asset_ask_ai_setting"
               name="Setting"
               parent="menu_it_asset_ask_ai"
-              action="action_it_ask_ai_setting"
+              action="action_it_ask_ai_setting_open"
               sequence="20"/>
 
     <!-- Child 3: Dictionary — Generate output -->

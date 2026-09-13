@@ -101,4 +101,23 @@
             <p>Click Create, save, then click <b>Generate Dictionary</b>.</p>
         </field>
     </record>
+
+    <!-- Pembuka singleton: menu Setting SELALU membuka THE one record
+         (buat bila belum ada, buang duplikat). Tanpa ini Odoo membuka
+         form kosong Create setiap kali -> kesan "tidak tersimpan". -->
+    <record id="action_it_ask_ai_setting_open" model="ir.actions.server">
+        <field name="name">Ask AI Setting (open)</field>
+        <field name="model_id" ref="model_it_asset_ask_ai_setting"/>
+        <field name="state">code</field>
+        <field name="code">rec = model._get_singleton()
+action = {
+    "type": "ir.actions.act_window",
+    "name": "Setting",
+    "res_model": "it_asset.ask_ai.setting",
+    "res_id": rec.id,
+    "view_mode": "form",
+    "views": [(env.ref("it_asset.view_it_ask_ai_setting_form").id, "form")],
+    "target": "current",
+}</field>
+    </record>
 </odoo>

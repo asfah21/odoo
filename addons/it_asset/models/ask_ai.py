@@ -266,20 +266,31 @@ class ITAskAI(models.AbstractModel):
     # entrypoint (dipanggil JS via orm.call)
     # ------------------------------------------------------------------
     @api.model
-    def answer(self, question, session_id=None):
+    def answer(self, question, session_id=None, mode="alpha"):
         """Jawab satu pertanyaan + simpan otomatis ke riwayat (retensi 10 hari).
+
+        ``mode``: "alpha" (rule/NLU + kamus, perilaku sekarang) atau "beta"
+        (Qwen decide + dictionary + DB only, untuk eksperimen). Mode selain
+        itu dinormalisasi ke "alpha". Mode ikut dikembalikan di ``out["mode"]``
+        agar frontend bisa menandainya (tidak di-pop).
 
         Kompatibel mundur: JS lama yang memanggil ``answer([text])`` tetap
         jalan (sesi baru dibuat otomatis). Mengembalikan dict siap-render
-        ``{html, intent, confidence, method, action?, session_id}``.
+        ``{html, intent, confidence, method, action?, session_id, mode}``.
         """
+        mode = "beta" if (mode or "") == "beta" else "alpha"
         try:
             consumed = self._consume_flow(question, session_id)
         except Exception as exc:  # flow tak boleh merusak jawaban
             _logger.warning("Ask AI flow gagal dibaca: %s", exc)
             consumed = None
-        out = consumed if consumed is not None else self._answer_inner(
-            question, session_id=session_id)
+        if consumed is not None:
+            out = consumed
+        elif mode == "beta":
+            out = self._answer_beta(question, session_id)
+        else:
+            out = self._answer_inner(question, session_id=session_id)
+        out["mode"] = out.get("mode") or mode
         try:
             out["session_id"] = self._history_save(
                 question, out, session_id=session_id)
@@ -292,22 +303,19 @@ class ITAskAI(models.AbstractModel):
             out.pop(key, None)
         return out
 
-    def _answer_inner(self, question, session_id=None):
-        """Jawab satu pertanyaan. Selalu kembalikan dict siap-render.
+    def _preprocess(self, question):
+        """Preprocess bersama Alpha & Beta: empty/F4/persona/kamus/OOD-awal.
 
-        Bentuk: ``{html, intent, confidence, method, action?}`` dengan
-        ``action = {res_model, domain, name}`` opsional untuk tombol
-        "Lihat di modul" di frontend.
-
-        Urutan ringan (hemat token & CPU):
-          persona (strip nama + bahasa) -> kamus lokal (typo-tolerant) ->
-          rule/override -> Qwen decide (opsional) -> tool ORM ->
-          Qwen rephrase (opsional, gaya persona, fakta tetap).
+        Kembalikan dict {text (efektif/terkoreksi), lang, pkey, pname,
+        dict_hint, ood0_reason, is_ood0, early}. ``early`` = out jawaban
+        langsung (empty / self_correct / name-only greeting) atau None.
+        Riwayat/feedback pemanggil tetap memakai pertanyaan asli.
         """
         text = (question or "").strip()
         if not text:
-            return self._out(text, nlu.INTENT_UNKNOWN, 0.0, "empty",
-                             "Tulis dulu pertanyaannya 🙂", "clarification")
+            return {"early": self._out(
+                text, nlu.INTENT_UNKNOWN, 0.0, "empty",
+                "Tulis dulu pertanyaannya 🙂", "clarification")}
 
         # F4: teguran halu -> minta maaf + klarifikasi (masuk kurasi).
         # Dicek paling awal agar keluhan user tak tenggelam dalam flow.
@@ -322,7 +330,7 @@ class ITAskAI(models.AbstractModel):
                 suggestions=["rekap aset", "stok radio ht", "bantuan"])
             out["flow_clear"] = True
             self._record_feedback(text, out)
-            return out
+            return {"early": out}
 
         # -1) Persona: bahasa user + kupas panggilan nama ("Alya, stok..?").
         try:
@@ -335,14 +343,19 @@ class ITAskAI(models.AbstractModel):
             text = stripped
         if not text:
             # user hanya memanggil nama -> sapa sebagai greeting
-            return self._out(question or "", nlu.INTENT_GREETING, 0.95,
-                             "persona_name",
-                             self._social_reply(nlu.INTENT_GREETING, "", lang,
-                                                pkey, pname),
-                             "deterministic_answer")
+            return {"early": self._out(
+                question or "", nlu.INTENT_GREETING, 0.95, "persona_name",
+                self._social_reply(nlu.INTENT_GREETING, "", lang, pkey, pname),
+                "deterministic_answer")}
 
         # 0) Kamus lokal: koreksi typo ringan tanpa token/API/Qwen.
         #    Mis. "stokc radiio ht" -> tahu maksud "stok radio ht".
+        # F3b: vonis OOD dihitung pada teks PRA-kamus agar tak bisa
+        # dikalahkan oleh koreksi kamus / NLU lemah / LLM ragu-ragu.
+        try:
+            ood0_reason, is_ood0 = nlu.ood_match(text)
+        except Exception:
+            ood0_reason, is_ood0 = "", False
         try:
             dict_hint = self._dict_assist(text)
         except Exception as exc:
@@ -351,7 +364,177 @@ class ITAskAI(models.AbstractModel):
         effective_text = dict_hint.get("effective_text") or text
         # Tool/NLU bekerja pada teks terkoreksi kamus (typo sudah diluruskan),
         # sedangkan riwayat/feedback tetap memakai teks asli dari pemanggil.
-        text = effective_text
+        return {"text": effective_text, "lang": lang, "pkey": pkey,
+                "pname": pname, "dict_hint": dict_hint,
+                "ood0_reason": ood0_reason, "is_ood0": is_ood0, "early": None}
+
+    def _answer_beta(self, question, session_id=None):
+        """Jalur Beta (eksperimen): Qwen decide + dictionary + DB only.
+
+        Tanpa rule/override/NLU-TFIDF. Qwen WAJIB hidup: bila Qwen mati atau
+        tak terkonfigurasi, jatuh kembali ke jalur Alpha dengan label
+        ``beta_fallback`` (jujur, bukan eksperimen murni). Flow konfirmasi,
+        guard F1/F2/F4, grounding, dan rephrase dipakai sama seperti Alpha
+        (lapisan keamanan & UX, bukan pendekatan pemahaman).
+        """
+        pre = self._preprocess(question)
+        if pre.get("early") is not None:
+            out = pre["early"]
+            out["mode"] = "beta"
+            return out
+        text = pre["text"]
+        lang, pkey, pname = pre["lang"], pre["pkey"], pre["pname"]
+        dict_hint = pre["dict_hint"]
+        _ood0_reason, _is_ood0 = pre["ood0_reason"], pre["is_ood0"]
+
+        try:
+            llm_cfg = self._get_llm_config()
+        except Exception:
+            llm_cfg = {"enabled": False}
+        if not llm_cfg.get("enabled"):
+            out = self._out(
+                text, nlu.INTENT_UNKNOWN, 0.0, "beta_no_qwen",
+                "Mode <b>Beta</b> butuh Qwen Decide yang aktif — saat ini mati. "
+                "Aktifkan di <b>AI → Setting</b> (Qwen Decide) + jalankan "
+                "llama-server, atau pakai mode <b>Alpha</b> yang tak butuh Qwen.",
+                "beta_no_qwen",
+                suggestions=["rekap aset", "stok radio ht", "bantuan"])
+            out["mode"] = "beta_no_qwen"
+            self._record_feedback(text, out)
+            return out
+
+        decision = self._try_llm_decide(text)
+        if not decision:
+            _logger.info("Ask AI Beta: Qwen tak menjawab -> fallback Alpha")
+            out = self._answer_inner(question, session_id=session_id)
+            out["mode"] = "beta_fallback"
+            return out
+
+        intent, conf = decision["intent"], decision["confidence"]
+
+        # Sosial via Qwen -> canned persona (pemahaman milik Qwen).
+        if intent in _SOCIAL_INTENTS:
+            out = self._out(text, intent, conf, "llm",
+                             self._social_reply(intent, text, lang, pkey, pname),
+                             "deterministic_answer")
+            out["mode"] = "beta"
+            return out
+
+        ctx_update = {"ask_ai_llm": {
+            "entities": decision["entities"] or {},
+            "constraints": decision["constraints"] or {},
+        }}
+        try:
+            sctx = self._get_session_ctx(session_id)
+        except Exception as exc:
+            _logger.warning("Ask AI session-ctx gagal dibaca: %s", exc)
+            sctx = {}
+        if sctx:
+            ctx_update["ask_ai_ctx"] = sctx
+        runner = self.with_context(**ctx_update)
+
+        # F3b: OOD pra-kamus menang atas LLM yang tidak EXECUTE.
+        if _is_ood0 and conf < nlu.confidence_threshold(intent):
+            _logger.info("Ask AI Beta OOD-precedence (conf=%.3f)", conf)
+            out = self._ood_scope_out(text, _ood0_reason)
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+
+        entities, constraints = runner._merged_entities(text)
+        cmd = cmds.build_command(intent, entities, constraints)
+        grounding = {"mode": "beta",
+                     "dict_matches": dict_hint.get("matches", {}),
+                     "command": cmd["command"], "slots": cmd["slots"],
+                     "slot_errors": cmd["errors"]}
+        if not cmd["valid"]:
+            out = self._out(text, intent, conf, "command_repair",
+                             nlu.clarification_reply(intent, entities)
+                             + "<div class='ai-sub'>Detail: %s.</div>"
+                             % _esc("; ".join(cmd["errors"])),
+                             "clarification",
+                             suggestions=self._suggest_for(intent))
+            out["grounding"] = grounding
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+        slot_out = runner._validate_slots_db(text, intent, entities,
+                                             original=question)
+        if slot_out is not None:
+            slot_out["grounding"] = grounding
+            slot_out["mode"] = "beta"
+            self._record_feedback(text, slot_out)
+            return slot_out
+
+        handler = self._TOOLS.get(intent)
+        if not handler:
+            out = self._out(text, nlu.INTENT_UNKNOWN, 0.0, "llm",
+                             nlu.scope_reply(text, ""), "unknown_fallback",
+                             suggestions=self._suggest_for(intent))
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+        try:
+            result = handler(runner, text)
+        except Exception as exc:
+            _logger.warning("Ask AI Beta tool %s gagal: %s", intent, exc)
+            out = self._out(text, intent, conf, "llm",
+                             "Maaf, saya gagal membaca data untuk itu. "
+                             "Coba lagi atau persempit kata kuncinya.",
+                             "tool_error",
+                             suggestions=self._suggest_for(intent))
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+        if result is None:
+            entities2, _c2 = runner._merged_entities(text)
+            out = self._out(text, intent, conf, "llm",
+                             nlu.clarification_reply(intent, entities2),
+                             "clarification",
+                             suggestions=self._suggest_for(intent))
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+        if result.get("miss"):
+            out = self._out(text, intent, conf, "llm",
+                             nlu.data_miss_reply(text)
+                             + (result.get("hint") or ""), "data_miss",
+                             suggestions=self._suggest_for(intent))
+            out["grounding"] = grounding
+            out["mode"] = "beta"
+            self._record_feedback(text, out)
+            return out
+        out = self._out(text, intent, conf, "llm", result["html"],
+                         result.get("tool", intent),
+                         action=result.get("action"),
+                         suggestions=result.get("suggestions"))
+        out["grounding"] = grounding
+        out["mode"] = "beta"
+        _logger.info("Ask AI Beta grounding intent=%s conf=%.3f slots=%s",
+                     intent, conf, sorted(cmd["slots"]))
+        try:
+            polished = self._maybe_rephrase(out.get("html") or "", intent, lang)
+            if polished:
+                out["html"] = polished
+                out["rephrased"] = True
+        except Exception as exc:
+            _logger.warning("Ask AI rephrase gagal, pakai jawaban asli: %s", exc)
+        self._record_feedback(text, out)
+        return out
+
+    def _answer_inner(self, question, session_id=None):
+        """Jalur Alpha: rule/NLU deterministik + kamus (perilaku sekarang).
+
+        Selalu kembalikan dict siap-render. Lihat ``answer()`` untuk kontrak.
+        """
+        pre = self._preprocess(question)
+        if pre.get("early") is not None:
+            return pre["early"]
+        text = pre["text"]
+        lang, pkey, pname = pre["lang"], pre["pkey"], pre["pname"]
+        dict_hint = pre["dict_hint"]
+        effective_text = text
+        _ood0_reason, _is_ood0 = pre["ood0_reason"], pre["is_ood0"]
 
         # Klasifikasi deterministik dulu: fast-path sosial/OOD dan L2
         # override TIDAK PERNAH memanggil Qwen (cermin WACS — tiap panggilan
@@ -402,10 +585,7 @@ class ITAskAI(models.AbstractModel):
         # Fast-path OOD: tolak bervariasi, tanpa tool (cermin WACS).
         if method == "ood_rule":
             reason = classification.get("ood_reason", "")
-            out = self._out(text, nlu.INTENT_UNKNOWN, conf, "ood_scope_filter",
-                            nlu.scope_reply(text, reason), "ood_scope_filter",
-                            suggestions=self._suggest_for(intent))
-            out["ood_reason"] = reason
+            out = self._ood_scope_out(text, reason)
             self._record_feedback(text, out)
             return out
 
@@ -453,6 +633,13 @@ class ITAskAI(models.AbstractModel):
                 return out
 
         route = nlu.route(classification)
+        # F3b: OOD pra-kamus menang atas jalur lemah/ragu (dict/NLU/LLM-ragu).
+        # Rule/override/LLM-yakin tidak tersentuh.
+        if _is_ood0 and cmds.ood_wins_over(method, route == nlu.ROUTE_EXECUTE):
+            _logger.info("Ask AI OOD-precedence menang atas method=%s", method)
+            out = self._ood_scope_out(text, _ood0_reason)
+            self._record_feedback(text, out)
+            return out
         if route == nlu.ROUTE_HANDOVER:
             entities, _constraints = self._merged_entities(text)
             if nlu.has_meaningful_signal(entities, text):
@@ -475,6 +662,8 @@ class ITAskAI(models.AbstractModel):
                             nlu.clarification_reply(intent, entities),
                             "clarification",
                             suggestions=self._suggest_for(intent))
+            _logger.info("Ask AI clarify intent=%s method=%s conf=%.3f",
+                         intent, method, conf)
             self._record_feedback(text, out)
             return out
 
@@ -857,6 +1046,14 @@ class ITAskAI(models.AbstractModel):
         if intent == nlu.INTENT_IDENTITY:
             return persona.identity_text(pkey, pname, lang)
         return _canned_social(intent, text)
+
+    def _ood_scope_out(self, text, reason):
+        """Jawaban scope OOD bervariasi (dipakai 2 jalur: fast-path + F3b)."""
+        out = self._out(text, nlu.INTENT_UNKNOWN, 0.9, "ood_scope_filter",
+                        nlu.scope_reply(text, reason), "ood_scope_filter",
+                        suggestions=self._suggest_for(nlu.INTENT_UNKNOWN))
+        out["ood_reason"] = reason
+        return out
 
     # ------------------------------------------------------------------
     # perakitan output + feedback (cermin CaptureReasonFor WACS)

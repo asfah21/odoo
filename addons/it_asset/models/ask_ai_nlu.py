@@ -1449,6 +1449,8 @@ _SELF_TEST_CASES = [
     ("cctv biru", "asset_search"),
     ("printer biru yang tersedia", "asset_search"),
     ("handover bulan ini", "handover_list"),
+    # F3b: sinyal inventaris kuat (rule) menang atas kata OOD
+    ("cuaca bnc", "check_stock"),
 ]
 
 

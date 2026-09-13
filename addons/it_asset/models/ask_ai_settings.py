@@ -129,11 +129,25 @@ class ITAskAISetting(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def _get_singleton(self):
-        rec = self.search([], limit=1)
-        if not rec:
+        """Kembalikan THE one record Setting (buat bila belum ada).
+
+        Merapikan duplikat sisa bug lama (menu membuka form Create kosong
+        sehingga tiap Save bikin baris baru): sisakan yang TERAKHIR diubah
+        agar nilai terakhir yang diketik user tidak hilang.
+        """
+        recs = self.search([], order="write_date desc, id desc")
+        if not recs:
             rec = self.create({})
             rec._load_from_params()
-        return rec
+            return rec
+        if len(recs) > 1:
+            try:
+                (recs - recs[0]).unlink()
+                _logger.info("Ask AI setting: %d baris duplikat dibuang",
+                             len(recs) - 1)
+            except Exception as exc:
+                _logger.warning("Ask AI setting dedupe gagal: %s", exc)
+        return recs[0]
 
     def _load_from_params(self):
         Param = self.env["ir.config_parameter"].sudo()

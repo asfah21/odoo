@@ -465,6 +465,21 @@ def social_grounded(intent, text):
     return False
 
 
+# F3b: OOD deterministik (pada teks pra-kamus) tak boleh dikalahkan oleh
+# koreksi kamus / NLU lemah / LLM yang ragu-ragu. Hanya rule/override
+# (sinyal kuat) dan LLM yang YAKIN (jalur EXECUTE) boleh menang.
+_OOD_STICKY_METHODS = frozenset(["empty", "dict", "nlu", "llm_ungrounded"])
+
+
+def ood_wins_over(method, route_execute):
+    """True bila vonis OOD mentah harus dipakai alih-alih pipeline lanjut."""
+    if method in _OOD_STICKY_METHODS:
+        return True
+    if method == "llm" and not route_execute:
+        return True
+    return False
+
+
 # ============================================================================
 # Self-test mandiri (aturan tetap: ukur, bukan latih)
 # ============================================================================
@@ -640,6 +655,20 @@ def run_self_test():
             good += 1
         else:
             fails.append(("socialground", (intent, text), want, got))
+    # F3b: OOD mentah menang atas jalur lemah/ragu, kalah dari sinyal kuat
+    for method, route_exec, want in [
+        ("empty", False, True), ("dict", False, True),
+        ("nlu", False, True), ("llm_ungrounded", False, True),
+        ("llm", False, True), ("llm", True, False),
+        ("rule", True, False), ("rule", False, False),
+        ("override", True, False), ("ood_rule", False, False),
+    ]:
+        total += 1
+        got = ood_wins_over(method, route_exec)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("oodwins", (method, route_exec), want, got))
     print("commands self-test: %d/%d benar (%.1f%%)"
           % (good, total, good / total * 100 if total else 0))
     for kind, case, want, got in fails:
