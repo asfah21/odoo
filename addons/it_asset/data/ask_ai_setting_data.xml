@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="1">
-        <!-- Satu baris Setting agar menu Ask AI -> Setting langsung bisa dibuka
-             dan tombol Generate/Test langsung jalan tanpa klik Buat dulu. -->
+        <!-- One Setting row so Ask AI -> Setting opens immediately
+             and Generate/Test work without clicking Create first. -->
         <record id="ask_ai_default_setting" model="it_asset.ask_ai.setting">
             <field name="name">Ask AI Setting</field>
             <field name="llm_url">http://127.0.0.1:8081</field>

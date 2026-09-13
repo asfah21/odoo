@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Setting Ask AI — menu IT -> Ask AI -> Setting.
+"""Ask AI Setting — IT -> Ask AI -> Setting menu.
 
-Satu layar untuk:
-- Konfigurasi Qwen Decide (intent) + Qwen Rephrase (final answer).
-  Prinsip baru: kamus lokal yang paham konteks (termasuk typo),
-  Qwen HANYA untuk rephrase agar jawaban tidak robotik.
-- Tombol **Generate Kamus** yang membaca database (produk, kategori,
-  harga, stok, keterangan, aset, unit, karyawan) menjadi kamus otomatis.
-- Test koneksi Qwen + info jumlah istilah + waktu generate terakhir.
+One screen for:
+- Qwen Decide (intent) + Qwen Rephrase (final answer) configuration.
+  Design: a local dictionary that understands context (including typos),
+  Qwen ONLY rephrases so answers sound less robotic.
+- A **Generate Dictionary** button that reads the database (products,
+  categories, prices, stock, descriptions, assets, units, employees)
+  into an auto dictionary.
+- Qwen connection test + term count + last generate time.
 
-Semua nilai juga disalin ke ``ir.config_parameter`` agar kompatibel
-dengan kode lama yang membaca ``it_asset.ask_ai.*`` langsung:
+All values are also mirrored to ``ir.config_parameter`` for compatibility
+with legacy code reading ``it_asset.ask_ai.*`` directly:
   - it_asset.ask_ai.llm_enabled / llm_url / llm_model / llm_timeout / llm_json_mode
   - it_asset.ask_ai.rephrase_enabled / rephrase_max_tokens / rephrase_temperature
   - it_asset.ask_ai.history_retention_days
@@ -48,32 +49,33 @@ _PARAMS = {
 
 class ITAskAISetting(models.Model):
     _name = "it_asset.ask_ai.setting"
-    _description = "Ask AI Setting (Kamus + Qwen Rephrase)"
+    _description = "Ask AI Setting (Dictionary + Qwen Rephrase)"
 
     name = fields.Char(default="Ask AI Setting", readonly=True)
-    # --- Qwen Decide (opsional, L1 intent) ---
-    llm_enabled = fields.Boolean(string="Aktifkan Qwen Decide (intent)")
-    llm_url = fields.Char(string="URL llama-server", default="http://127.0.0.1:8081")
-    llm_model = fields.Char(string="Model Decide", default="qwen3-0.6b")
-    llm_timeout = fields.Float(string="Timeout Decide (detik)", default=10.0)
+    # --- Qwen Decide (optional, L1 intent) ---
+    llm_enabled = fields.Boolean(string="Enable Qwen Decide (intent)")
+    llm_url = fields.Char(string="llama-server URL", default="http://127.0.0.1:8081")
+    llm_model = fields.Char(string="Decide Model", default="qwen3-0.6b")
+    llm_timeout = fields.Float(string="Decide Timeout (seconds)", default=10.0)
     llm_json_mode = fields.Boolean(string="JSON Mode", default=True)
-    # --- Qwen Rephrase (disarankan: 0.6B, hanya poles bahasa) ---
+    # --- Qwen Rephrase (recommended: 0.6B, wording polish only) ---
     rephrase_enabled = fields.Boolean(
-        string="Aktifkan Rephrase Qwen (0.6B)",
-        help="Jika aktif, jawaban faktual dari database dipoles Qwen agar "
-             "natural. Fakta/angka/nama tidak diubah. Gagal = pakai jawaban asli.")
-    rephrase_max_tokens = fields.Integer(string="Max Token Rephrase", default=150)
-    rephrase_temperature = fields.Float(string="Temperature Rephrase", default=0.7)
-    # --- Retensi ---
-    history_retention_days = fields.Integer(string="Retensi Riwayat (hari)", default=10)
-    # --- Kamus ---
-    dict_count = fields.Integer(string="Jumlah Istilah Kamus",
+        string="Enable Qwen Rephrase (0.6B)",
+        help="If enabled, factual answers from the database are polished by Qwen "
+             "to sound natural. Facts/numbers/names are untouched. "
+             "On failure the original answer is used.")
+    rephrase_max_tokens = fields.Integer(string="Rephrase Max Tokens", default=150)
+    rephrase_temperature = fields.Float(string="Rephrase Temperature", default=0.7)
+    # --- Retention ---
+    history_retention_days = fields.Integer(string="History Retention (days)", default=10)
+    # --- Dictionary ---
+    dict_count = fields.Integer(string="Dictionary Term Count",
                                 compute="_compute_dict_info")
-    dict_last_generate = fields.Datetime(string="Generate Terakhir", readonly=True)
-    dict_last_summary = fields.Text(string="Ringkasan Generate Terakhir",
+    dict_last_generate = fields.Datetime(string="Last Generated", readonly=True)
+    dict_last_summary = fields.Text(string="Last Generate Summary",
                                     readonly=True)
-    qwen_status = fields.Char(string="Status Qwen", readonly=True,
-                              help="Hasil test koneksi terakhir.")
+    qwen_status = fields.Char(string="Qwen Status", readonly=True,
+                              help="Last connection test result.")
 
     @api.depends()
     def _compute_dict_info(self):
@@ -143,10 +145,10 @@ class ITAskAISetting(models.Model):
         return res
 
     # ------------------------------------------------------------------
-    # GENERATE KAMUS — baca database -> it_asset.ask_ai.term
+    # GENERATE DICTIONARY — read database -> it_asset.ask_ai.term
     # ------------------------------------------------------------------
     def action_generate_dictionary(self):
-        """Tombol utama: baca produk, kategori, harga, stok, keterangan, dst."""
+        """Main button: read products, categories, prices, stock, notes, etc."""
         self.ensure_one()
         Term = self.env["it_asset.ask_ai.term"]
         counts = {}
@@ -155,7 +157,7 @@ class ITAskAISetting(models.Model):
             if rows:
                 counts[kind] = Term._upsert(rows)
 
-        # 1. Produk (nama, kode, kategori, harga, cost, keterangan)
+        # 1. Products (name, code, category, price, cost, notes)
         try:
             products = self.env["product.product"].search_read(
                 [], ["name", "default_code", "categ_id", "list_price",
@@ -187,14 +189,14 @@ class ITAskAISetting(models.Model):
                     "category": (cat or "")[:80],
                     "price": p.get("list_price") or 0.0,
                     "cost": p.get("standard_price") or 0.0,
-                    "uom": (uom or "")[:20], "description": "Kode: %s (%s)" % (code, name[:60]),
+                    "uom": (uom or "")[:20], "description": "Code: %s (%s)" % (code, name[:60]),
                     "source_model": "product.product", "source_id": p["id"],
                 })
-        # hapus snapshot produk lama agar tidak menumpuk, lalu isi ulang
+        # drop the old product snapshot first to avoid pile-up, then refill
         Term.search([("kind", "=", "product")]).unlink()
         _add(rows, "product")
 
-        # 2. Kategori aset IT
+        # 2. IT asset categories
         try:
             cats = self.env["it_asset.category"].search_read(
                 [], ["name", "description"], limit=500)
@@ -207,7 +209,7 @@ class ITAskAISetting(models.Model):
         Term.search([("kind", "=", "category")]).unlink()
         _add(rows, "category")
 
-        # 3. Kategori unit/fleet
+        # 3. Unit/fleet categories
         try:
             ucats = self.env["it_asset.unit.category"].search_read(
                 [], ["name"], limit=100)
@@ -219,7 +221,7 @@ class ITAskAISetting(models.Model):
         Term.search([("kind", "=", "unit_category")]).unlink()
         _add(rows, "unit_category")
 
-        # 4. Aset (tag + nama + model + spek singkat)
+        # 4. Assets (tag + name + model + short spec)
         try:
             assets = self.env["it_asset.asset"].search_read(
                 [], ["name", "asset_tag", "model", "category_id",
@@ -251,7 +253,7 @@ class ITAskAISetting(models.Model):
         Term.search([("kind", "=", "asset")]).unlink()
         _add(rows, "asset")
 
-        # 5. Consumable (nama + qty + min + harga dari produk)
+        # 5. Consumables (name + qty + min + product price)
         try:
             cons = self.env["it_asset.consumable"].search_read(
                 [], ["name", "product_id", "min_quantity", "description"],
@@ -287,7 +289,7 @@ class ITAskAISetting(models.Model):
         Term.search([("kind", "=", "consumable")]).unlink()
         _add(rows, "consumable")
 
-        # 6. Unit/fleet (nama + brand + model + status)
+        # 6. Units/fleet (name + brand + model + status)
         try:
             units = self.env["it_asset.unit"].search_read(
                 [], ["name", "category_id", "brand", "model", "state"],
@@ -309,7 +311,7 @@ class ITAskAISetting(models.Model):
         Term.search([("kind", "=", "unit")]).unlink()
         _add(rows, "unit")
 
-        # 7. Karyawan (untuk "siapa pakai / milik siapa")
+        # 7. Employees (for "who uses / whose is it")
         try:
             emps = self.env["hr.employee"].search_read(
                 [], ["name"], limit=2000)
@@ -325,15 +327,15 @@ class ITAskAISetting(models.Model):
         summary = " | ".join("%s: %d" % (k, v) for k, v in sorted(counts.items()))
         self.write({
             "dict_last_generate": fields.Datetime.now(),
-            "dict_last_summary": "Total %d istilah (%s)" % (total, summary),
+            "dict_last_summary": "Total %d terms (%s)" % (total, summary),
         })
-        # notifikasi kembali ke form
+        # notify back to the form
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {
-                "title": "Kamus berhasil di-generate",
-                "message": "Total %d istilah. %s" % (total, summary),
+                "title": "Dictionary generated successfully",
+                "message": "Total %d terms. %s" % (total, summary),
                 "type": "success",
                 "sticky": False,
             },
@@ -342,21 +344,21 @@ class ITAskAISetting(models.Model):
     def action_clear_dictionary(self):
         self.ensure_one()
         self.env["it_asset.ask_ai.term"].search([]).unlink()
-        self.write({"dict_last_summary": "Dikosongkan manual."})
+        self.write({"dict_last_summary": "Cleared manually."})
         return True
 
     def action_open_dictionary(self):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": "Kamus Ask AI",
+            "name": "Ask AI Dictionary",
             "res_model": "it_asset.ask_ai.term",
             "view_mode": "list,form",
             "target": "current",
         }
 
     def action_test_qwen(self):
-        """Ping llama-server (/v1/models). Gagal = status jelas, bukan error."""
+        """Ping llama-server (/v1/models). Failure = clear status, not an error."""
         self.ensure_one()
         import json as _json
         import urllib.request as _urlrequest
@@ -366,9 +368,9 @@ class ITAskAISetting(models.Model):
             with _urlrequest.urlopen(req, timeout=5) as resp:
                 data = _json.loads(resp.read().decode("utf-8"))
             models = [m.get("id", "?") for m in data.get("data", [])][:3]
-            status = "OK — %s" % (", ".join(models) if models else "terhubung")
+            status = "OK — %s" % (", ".join(models) if models else "connected")
         except Exception as exc:
-            status = "GAGAL — %s. Jalankan: scripts/install-qwen.ps1 (Windows) / install-qwen.sh (Linux)." % exc
+            status = "FAILED — %s. Run: scripts/install-qwen.ps1 (Windows) / install-qwen.sh (Linux)." % exc
         self.write({"qwen_status": status})
         return {
             "type": "ir.actions.client",
@@ -379,7 +381,7 @@ class ITAskAISetting(models.Model):
 
     @api.model
     def _cron_refresh_dictionary(self):
-        """Opsional: refresh kamus harian (aktif via Automated Actions bila perlu)."""
+        """Optional: daily dictionary refresh (enable via Automated Actions if needed)."""
         rec = self.search([], limit=1)
         if rec:
             try:

@@ -1,10 +1,10 @@
 services:
   llm:
     # llama.cpp server CPU-only untuk Qwen3-0.6B-Q4_K_M (~397 MB).
-    # Image resmi ghcr.io/ggml-org/llama.cpp:server-full sudah termasuk
-    # curl + dukungan --hf-repo (download otomatis dari Hugging Face).
-    # Repo/file bisa dioverride via environment (lihat bawah).
-    image: ghcr.io/ggml-org/llama.cpp:server-full
+    # Image resmi ghcr.io/ggml-org/llama.cpp:server hanya berisi
+    # llama-server + curl (dukungan --hf-repo untuk download otomatis
+    # dari Hugging Face). Repo/file bisa dioverride via environment.
+    image: ghcr.io/ggml-org/llama.cpp:server
     container_name: odoo-llm-qwen06
     restart: unless-stopped
     ports:
@@ -12,14 +12,29 @@ services:
     environment:
       - HF_REPO=${HF_REPO:-unsloth/Qwen3-0.6B-GGUF}
       - HF_FILE=${HF_FILE:-Qwen3-0.6B-Q4_K_M.gguf}
+    # Catatan:
+    # - --host 0.0.0.0 eksplisit agar port publish Docker bisa dijangkau
+    #   (image memang sudah default 0.0.0.0, ini hanya penegas).
+    # - Start pertama download ~397 MB + load model di CPU (±1-3 menit di
+    #   dual-core), jadi healthcheck diberi start_period longgar.
+    # - Tanpa volume model: file di-download ke /app (satu direktori dengan
+    #   binary server), sehingga volume di sana justru menyembunyikan binary.
+    #   Download ulang hanya terjadi bila container di-recreate.
     command: >
       --hf-repo ${HF_REPO:-unsloth/Qwen3-0.6B-GGUF}
       --hf-file ${HF_FILE:-Qwen3-0.6B-Q4_K_M.gguf}
+      --host 0.0.0.0
       --port 8081
       --ctx-size 1024
       --threads 2
       --parallel 1
       --reasoning off
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
     networks:
       - app-network
 

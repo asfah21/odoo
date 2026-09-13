@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Kamus otomatis Ask AI — snapshot ringan dari database untuk NLU.
+"""Ask AI auto dictionary — lightweight database snapshot for NLU.
 
-Ide (sesuai permintaan user):
-- Tombol **Generate** di menu Ask AI -> Setting membaca database
-  (produk, kategori, harga, stok, keterangan, aset, unit, karyawan)
-  lalu menyimpannya sebagai baris kamus ``it_asset.ask_ai.term``.
-- Saat user bertanya (walau typo), backend mencocokkan kata ke kamus
-  secara lokal (tanpa token API, tanpa memanggil Qwen) sehingga
-  intent/classifier cepat paham konteks.
-- Qwen lokal HANYA dipakai untuk rephrase jawaban agar tidak robotik
-  (lihat ``ask_ai.py``). Tanpa Qwen pun chatbot tetap jalan.
+Design (per user request):
+- The **Generate** button in Ask AI -> Setting reads the database
+  (products, categories, prices, stock, descriptions, assets, units,
+  employees) and stores them as ``it_asset.ask_ai.term`` rows.
+- When a user asks (even with typos), the backend matches words against
+  the dictionary locally (no API tokens, no Qwen call) so the
+  intent/classifier quickly grasps the context.
+- Local Qwen is ONLY used to rephrase answers so they sound less robotic
+  (see ``ask_ai.py``). The chatbot works even without Qwen.
 
-Desain:
-- Satu baris = satu istilah kanonik + bentuk normal + ringkasan info
-  (kategori, harga, stok, keterangan) untuk tooltip/debug.
-- Generate bersifat idempoten: hapus + isi ulang per ``source_model``,
-  atau full rebuild bila diminta.
-- Normalisasi memakai fungsi yang sama dengan NLU (lowercase, lipat
-  spasi/tanda baca) agar pencocokan konsisten.
+Design:
+- One row = one canonical term + normalized form + info summary
+  (category, price, stock, description) for tooltip/debug.
+- Generate is idempotent: delete + refill per ``source_model``,
+  or full rebuild when requested.
+- Normalization uses the same function as NLU (lowercase, fold
+  spaces/punctuation) for consistent matching.
 """
 
 import logging
@@ -37,43 +37,43 @@ def _norm(text):
 
 class ITAskAIDictionary(models.Model):
     _name = "it_asset.ask_ai.term"
-    _description = "Ask AI Dictionary (Kamus Otomatis)"
+    _description = "Ask AI Dictionary (Auto Dictionary)"
     _order = "kind asc, term asc"
     _rec_name = "term"
 
-    term = fields.Char(string="Istilah", required=True, index=True)
-    normalized = fields.Char(string="Normalisasi", index=True,
-                             help="Bentuk normal untuk pencocokan typo-tolerant.")
+    term = fields.Char(string="Term", required=True, index=True)
+    normalized = fields.Char(string="Normalized", index=True,
+                             help="Normalized form for typo-tolerant matching.")
     kind = fields.Selection([
-        ("product", "Produk"),
-        ("category", "Kategori Aset"),
-        ("unit_category", "Kategori Unit"),
-        ("asset", "Aset (tag/nama)"),
+        ("product", "Product"),
+        ("category", "Asset Category"),
+        ("unit_category", "Unit Category"),
+        ("asset", "Asset (tag/name)"),
         ("consumable", "Consumable"),
         ("unit", "Unit/Fleet"),
-        ("employee", "Karyawan"),
-        ("alias", "Alias Lapangan"),
-    ], string="Jenis", required=True, default="product", index=True)
-    category = fields.Char(string="Kategori")
-    price = fields.Float(string="Harga (List)", digits="Product Price")
+        ("employee", "Employee"),
+        ("alias", "Field Alias"),
+    ], string="Type", required=True, default="product", index=True)
+    category = fields.Char(string="Category")
+    price = fields.Float(string="Price (List)", digits="Product Price")
     cost = fields.Float(string="Cost (Standard)", digits="Product Price")
-    qty = fields.Float(string="Stok/Qty")
-    uom = fields.Char(string="Satuan")
-    description = fields.Text(string="Keterangan")
-    source_model = fields.Char(string="Model Sumber", index=True)
-    source_id = fields.Integer(string="ID Sumber")
+    qty = fields.Float(string="Stock/Qty")
+    uom = fields.Char(string="UoM")
+    description = fields.Text(string="Description")
+    source_model = fields.Char(string="Source Model", index=True)
+    source_id = fields.Integer(string="Source ID")
     active = fields.Boolean(default=True)
-    usage_count = fields.Integer(string="Dipakai", default=0, readonly=True,
-                                 help="Berapa kali istilah ini membantu koreksi typo.")
+    usage_count = fields.Integer(string="Usage Count", default=0, readonly=True,
+                                 help="How many times this term helped fix a typo.")
 
     _sql_constraints = [
         ("term_kind_uniq", "unique(term, kind, source_model, source_id)",
-         "Istilah kamus duplikat!"),
+         "Duplicate dictionary term!"),
     ]
 
     @api.model
     def _upsert(self, vals_list, batch=500):
-        """Insert ringan dengan deduplication di Python (hindari error unik)."""
+        """Lightweight insert with Python-side dedup (avoids unique errors)."""
         seen = set()
         clean = []
         for v in vals_list:
@@ -91,7 +91,7 @@ class ITAskAIDictionary(models.Model):
             try:
                 self.create(chunk)
                 created += len(chunk)
-            except Exception as exc:  # satu chunk gagal -> coba satu-satu
+            except Exception as exc:  # one chunk failed -> retry row by row
                 _logger.warning("Ask AI dict chunk gagal, fallback per-baris: %s", exc)
                 self.env.cr.rollback()
                 for v in chunk:
@@ -105,7 +105,7 @@ class ITAskAIDictionary(models.Model):
 
     @api.model
     def lookup(self, text, limit=5):
-        """Cari kandidat kamus untuk satu kata/frasa (ilike, ringan)."""
+        """Find dictionary candidates for one word/phrase (light ilike)."""
         text = (text or "").strip()
         if not text or len(text) < 2:
             return []
