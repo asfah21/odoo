@@ -369,13 +369,13 @@ class ITAskAI(models.AbstractModel):
                 "ood0_reason": ood0_reason, "is_ood0": is_ood0, "early": None}
 
     def _answer_beta(self, question, session_id=None):
-        """Jalur Beta (eksperimen): Qwen decide + dictionary + DB only.
+        """Jalur Beta (eksperimen MURNI): Qwen decide + dictionary + DB only.
 
-        Tanpa rule/override/NLU-TFIDF. Qwen WAJIB hidup: bila Qwen mati atau
-        tak terkonfigurasi, jatuh kembali ke jalur Alpha dengan label
-        ``beta_fallback`` (jujur, bukan eksperimen murni). Flow konfirmasi,
-        guard F1/F2/F4, grounding, dan rephrase dipakai sama seperti Alpha
-        (lapisan keamanan & UX, bukan pendekatan pemahaman).
+        Tanpa rule/override/NLU-TFIDF dan TANPA fallback ke Alpha. Bila Qwen
+        mati/tak menjawab, kembalikan pesan jujur (bukan jawaban Alpha yang
+        menyamar). Flow konfirmasi, guard F1/F2/F4, grounding, dan rephrase
+        dipakai sama seperti Alpha (lapisan keamanan & UX, bukan pendekatan
+        pemahaman).
         """
         pre = self._preprocess(question)
         if pre.get("early") is not None:
@@ -405,9 +405,20 @@ class ITAskAI(models.AbstractModel):
 
         decision = self._try_llm_decide(text)
         if not decision:
-            _logger.info("Ask AI Beta: Qwen tak menjawab -> fallback Alpha")
-            out = self._answer_inner(question, session_id=session_id)
-            out["mode"] = "beta_fallback"
+            # Beta murni: tanpa Qwen tidak ada tebakan maksud -> jujur buntu,
+            # JANGAN fallback ke Alpha (mengotori data eksperimen).
+            _logger.info("Ask AI Beta: Qwen tak menjawab -> buntu jujur")
+            out = self._out(
+                text, nlu.INTENT_UNKNOWN, 0.0, "beta_no_qwen",
+                "Mode <b>Beta</b> butuh Qwen yang hidup — llama-server tidak "
+                "menjawab. Cek service <b>llm</b> / Test Qwen di Setting, lalu "
+                "kirim ulang pesanmu. (Tanpa Qwen, Beta tidak bisa menebak "
+                "maksud. Pakai <b>Alpha</b> untuk jalur non-Qwen.)",
+                "beta_no_qwen",
+                suggestions=["rekap aset", "stok radio ht", "bantuan"])
+            out["flow_clear"] = True
+            out["mode"] = "beta_no_qwen"
+            self._record_feedback(text, out)
             return out
 
         intent, conf = decision["intent"], decision["confidence"]
