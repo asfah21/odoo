@@ -512,6 +512,10 @@ _IN_DOMAIN_NOUNS = [
 ]
 
 _RE_WEATHER = re.compile(r"\b(cuaca|hujan|berangin|salju|mendung|prakiraan|bmkg|iklim|badai|banjir|gempa|kabut|panas|dingin)\b", re.I)
+# F3: kata langit (langit/biru/bintang/...) hanya OOD bila TANPA kata benda
+# in-domain ("kenapa langit warna biru" -> OOD, "cctv biru" tetap inventaris).
+# "bulan" SENGAJA dikecualikan agar "handover bulan ini" tak rusak.
+_RE_SKY = re.compile(r"\b(langit|biru|bintang|matahari|pelangi|angkasa|awan)\b", re.I)
 _RE_MATH = re.compile(r"(\d+\s*[+\-*/x×÷]\s*\d+|\b(hitung|hitunglah|kalkulator|rumus|persamaan|matematika|tambah|kurang|kali|bagi)\b)", re.I)
 _RE_CLOCK_PHRASE = re.compile(r"\b(jam|pukul)\b", re.I)
 _RE_CLOCK_QUAL = re.compile(r"\b(berapa|sekarang)\b", re.I)
@@ -520,14 +524,34 @@ _RE_PERSONAL = re.compile(r"\b(kamu|anda)\b.{0,25}\b(pacar|umur|tinggal|rasa|suk
 _RE_TRIVIA = re.compile(r"\b(resep|film|lagu|musik|berita|presiden|pemilu|zodiak|horoskop|saham|terjemah(kan|an)?|translate|kamus|sinonim|antonim|definisi|sepak bola|skor)\b", re.I)
 
 
+def _has_domain_noun(lower):
+    """True bila ada kata benda in-domain di teks.
+
+    Kata pendek (<=3 huruf, mis. 'it') wajib cocok batas-kata penuh agar
+    'langit' tak terbaca mengandung 'it'.
+    """
+    for noun in _IN_DOMAIN_NOUNS:
+        n = (noun or "").strip()
+        if not n:
+            continue
+        if len(n) <= 3:
+            if re.search(r"\b" + re.escape(n) + r"\b", lower):
+                return True
+        elif n in lower:
+            return True
+    return False
+
+
 def _matches_clock(text):
     if not (_RE_CLOCK_PHRASE.search(text) and _RE_CLOCK_QUAL.search(text)):
         return False
-    lower = text.lower()
-    for noun in _IN_DOMAIN_NOUNS:
-        if noun.strip() and noun.strip() in lower:
-            return False
-    return True
+    return not _has_domain_noun(text.lower())
+
+
+def _matches_sky(text):
+    if not _RE_SKY.search(text):
+        return False
+    return not _has_domain_noun(text.lower())
 
 
 def ood_match(raw_text):
@@ -536,6 +560,8 @@ def ood_match(raw_text):
     if not trimmed:
         return "", False
     if _RE_WEATHER.search(trimmed):
+        return OOD_WEATHER, True
+    if _matches_sky(trimmed):
         return OOD_WEATHER, True
     if _RE_MATH.search(trimmed):
         return OOD_MATH, True
@@ -1416,10 +1442,27 @@ _SELF_TEST_CASES = [
     ("cuaca hari ini bagaimana", "unknown"), ("12 + 34 berapa", "unknown"),
     ("jam berapa sekarang", "unknown"), ("kamu manusia atau robot", "unknown"),
     ("resep rendang", "unknown"), ("siapa presiden pertama", "unknown"),
+    # F3/F6 regresi insiden lapangan: langit OOD, biru+IT tetap inventaris,
+    # "bulan" periode tak boleh jadi OOD
+    ("kenapa langit warna biru?", "unknown"),
+    ("bintang di langit apa saja?", "unknown"),
+    ("cctv biru", "asset_search"),
+    ("printer biru yang tersedia", "asset_search"),
+    ("handover bulan ini", "handover_list"),
 ]
+
+
+def _self_test_handover_bulan_ini():
+    """Jaga: 'bulan' tak pernah jadi pemicu OOD (periode form)."""
+    r, ok = ood_match("handover bulan ini")
+    assert not ok, ("handover bulan ini dianggap OOD: %s" % r)
+    r, ok = ood_match("serah terima bulan lalu")
+    assert not ok, ("serah terima bulan lalu dianggap OOD: %s" % r)
+
 
 _SELF_TEST_OOD_REASONS = {
     "cuaca hari ini bagaimana": OOD_WEATHER,
+    "kenapa langit warna biru?": OOD_WEATHER,
     "jam berapa sekarang": OOD_CLOCK,
     "kamu manusia atau robot": OOD_IDENTITY,
     "resep rendang": OOD_TRIVIA,
@@ -1451,6 +1494,8 @@ def run_self_test():
     for text, expected, got in failures:
         print("  FAIL %-42r harap=%s dapat=%s" % (text, expected, got))
     # ATURAN TETAP: sampel uji tidak boleh disalin ke EXEMPLARS.
+    _self_test_handover_bulan_ini()
+    print("OOD bulan-guard: OK (periode form tak pernah OOD)")
     _self_test_llm_path()
     return acc
 

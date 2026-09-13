@@ -388,6 +388,84 @@ def load_state(raw):
 
 
 # ============================================================================
+# F1/F2/F4 helpers — guard anti-halusinasi (murni, teruji)
+# ============================================================================
+
+def _stripped(text):
+    """Kanonik perbandingan: alnum saja, uppercase (duplikat ringan agar
+    modul ini tetap mandiri tanpa impor nlu)."""
+    return _re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def is_grounded_code(code, original_text):
+    """True bila kode boleh DISEBUT ke user: stripped-nya substring dari
+    pertanyaan ASLI user. F1: template slot_repair dilarang menuduh user
+    mencari kode yang tak pernah diketiknya, dari sumber mana pun."""
+    key = _stripped(code)
+    if not key:
+        return False
+    return key in _stripped(original_text)
+
+
+_RE_CODE_LIKE = _re.compile(r"[A-Z]{2,}-[0-9][A-Z0-9/\-]*|\b\d{2,}\b")
+
+
+def invented_codes(original_html, polished_html):
+    """Kode/angka di hasil poles yang TAK ADA di aslinya (F2).
+
+    Kembalikan list temuan. Kosong = aman. Guardrail ini cerminan terbalik
+    dari preservation check: bukan hanya 'fakta asli tak boleh hilang',
+    tapi 'fakta baru tak boleh muncul' (khususnya kode aset inventaris).
+    """
+    def _toks(html):
+        txt = _re.sub(r"<[^>]*>", " ", html or "")
+        return set(_RE_CODE_LIKE.findall(txt.upper()))
+
+    return sorted(_toks(polished_html) - _toks(original_html))
+
+
+_RE_SELF_CORRECT = _re.compile(
+    r"\b(halu|halusinasi|ngawur|ngaco)\b", _re.I)
+
+
+def detect_self_correct(text):
+    """True bila user menegur bot mengarang (F4: momen minta maaf)."""
+    return bool(_RE_SELF_CORRECT.search(text or ""))
+
+
+# F6b: intent sosial via LLM wajib grounded kata sosial di teks user.
+# Qwen 0.6B kadang menebak 'identity' untuk gumaman bingung
+# ("aduh gimana ya") — tanpa jangkar kata, tebakan itu ditolak.
+_SOCIAL_KEYWORDS = {
+    "greeting": ("halo", "hai", "hello", "hei", "hey", "pagi", "siang",
+                 "sore", "malam", "assalamu", "kabar"),
+    "thanks": ("kasih", "makasih", "thanks", "nuwun", "suwun", "thx"),
+    "goodbye": ("bye", "dadah", "jumpa", "tinggal"),
+    "help": ("bisa", "bantu", "contoh", "fitur", "cara", "help", "menu"),
+    "identity": ("kamu", "anda", "nama", "fungsi", "tugas", "peran",
+                 "siapa", "bot", "robot"),
+    "creator": ("buat", "pembuat", "developer", "pencipta", "cipta",
+                "dibuat", "bikin"),
+    "human_agent": ("admin", "teknisi", "cs", "manusia", "orang"),
+}
+
+
+def social_grounded(intent, text):
+    """True bila intent sosial punya jangkar kata di teks user.
+
+    Kata kunci <=2 huruf ('cs') wajib cocok batas-kata penuh.
+    """
+    low = (text or "").lower()
+    for k in _SOCIAL_KEYWORDS.get(intent, ()):
+        if len(k) <= 2:
+            if _re.search(r"\b" + _re.escape(k) + r"\b", low):
+                return True
+        elif k in low:
+            return True
+    return False
+
+
+# ============================================================================
 # Self-test mandiri (aturan tetap: ukur, bukan latih)
 # ============================================================================
 
@@ -504,6 +582,64 @@ def run_self_test():
             good += 1
         else:
             fails.append(("signal", (flow, text), want, got))
+    # F1: kode hanya boleh disebut bila grounded di pertanyaan asli
+    for code, original, want in [
+        ("ITLT-007", "siapa pakai ITLT-007?", True),
+        ("ITLT-007", "siapa pakai itlt 007?", True),
+        ("DT-02", "riwayat dt 02", True),
+        ("KCT-1K12", "kenapa langit warna biru?", False),
+        ("CORE-5", "emangnya kapan aku cari kode ini", False),
+        ("", "stok radio?", False),
+    ]:
+        total += 1
+        got = is_grounded_code(code, original)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("grounded", (code, original), want, got))
+    # F2: hasil poles tak boleh memunculkan kode/angka baru
+    for original, polished, want_empty in [
+        ("Stok <b>5</b> tersedia", "Stok <b>5</b> tersedia ya", True),
+        ("Data belum tercatat", "Kode <b>KCT-1K12</b> tidak ditemukan", False),
+        ("Total <b>12</b> aset", "Total <b>12</b> aset, 15 rusak", False),
+    ]:
+        total += 1
+        got = invented_codes(original, polished)
+        if (not got) == want_empty:
+            good += 1
+        else:
+            fails.append(("invented", polished, want_empty, got))
+    # F4: teguran halu terdeteksi; status form bukan teguran
+    for text, want in [
+        ("kok kamu halu sih?", True), ("ngaco banget", True),
+        ("jangan ngawur dong", True), ("material yang sudah fulfilled", False),
+        ("rekap aset", False),
+    ]:
+        total += 1
+        got = detect_self_correct(text)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("selfcorrect", text, want, got))
+    # F6b: intent sosial LLM wajib grounded kata sosial
+    for intent, text, want in [
+        ("identity", "kamu siapa?", True),
+        ("identity", "aduh gimana ya", False),
+        ("identity", "siapa namamu", True),
+        ("greeting", "halo kak", True),
+        ("greeting", "stok radio", False),
+        ("help", "kamu bisa apa", True),
+        ("creator", "siapa developernya", True),
+        ("creator", "rekap aset", False),
+        ("human_agent", "hubungi teknisi", True),
+        ("thanks", "makasih ya", True),
+    ]:
+        total += 1
+        got = social_grounded(intent, text)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("socialground", (intent, text), want, got))
     print("commands self-test: %d/%d benar (%.1f%%)"
           % (good, total, good / total * 100 if total else 0))
     for kind, case, want, got in fails:

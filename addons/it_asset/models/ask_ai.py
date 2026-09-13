@@ -309,6 +309,21 @@ class ITAskAI(models.AbstractModel):
             return self._out(text, nlu.INTENT_UNKNOWN, 0.0, "empty",
                              "Tulis dulu pertanyaannya 🙂", "clarification")
 
+        # F4: teguran halu -> minta maaf + klarifikasi (masuk kurasi).
+        # Dicek paling awal agar keluhan user tak tenggelam dalam flow.
+        if cmds.detect_self_correct(text):
+            out = self._out(
+                text, nlu.INTENT_UNKNOWN, 0.0, "self_correct",
+                "Maaf, saya salah — terima kasih sudah mengoreksi! 🙏"
+                "<br/>Biar saya bantu dengan benar: sebutkan <b>kode tag / "
+                "nama barangnya</b> dengan kata-katamu sendiri, atau ketik "
+                "<i>“rekap aset”</i> untuk mulai dari ringkasan.",
+                "clarification",
+                suggestions=["rekap aset", "stok radio ht", "bantuan"])
+            out["flow_clear"] = True
+            self._record_feedback(text, out)
+            return out
+
         # -1) Persona: bahasa user + kupas panggilan nama ("Alya, stok..?").
         try:
             pkey, pname = self._persona_ctx()
@@ -358,6 +373,19 @@ class ITAskAI(models.AbstractModel):
             if llm_classification:
                 classification = llm_classification
                 method = "llm"
+
+        # F6b: tebakan sosial LLM tanpa jangkar kata -> turunkan ke klarifikasi.
+        # (Qwen 0.6B kadang menebak 'identity' untuk gumaman bingung.)
+        if method == "llm" and classification.get("intent") in _SOCIAL_INTENTS:
+            if not cmds.social_grounded(classification["intent"], text):
+                _logger.info("Ask AI llm-social ditolak (ungrounded): %s",
+                             classification["intent"])
+                classification = {"intent": nlu.INTENT_UNKNOWN,
+                                  "confidence": 0.72,
+                                  "category": nlu.CAT_OTHER,
+                                  "method": "llm_ungrounded",
+                                  "ood_reason": ""}
+                method = "llm_ungrounded"
 
         intent = classification["intent"]
         conf = classification["confidence"]
@@ -468,7 +496,8 @@ class ITAskAI(models.AbstractModel):
                          intent, cmd["command"], cmd["errors"])
             self._record_feedback(text, out)
             return out
-        slot_out = runner._validate_slots_db(text, intent, entities)
+        slot_out = runner._validate_slots_db(text, intent, entities,
+                                                 original=question)
         if slot_out is not None:
             slot_out["grounding"] = grounding
             _logger.info("Ask AI grounding intent=%s cmd=%s slot_repair",
@@ -518,8 +547,8 @@ class ITAskAI(models.AbstractModel):
                         action=result.get("action"),
                         suggestions=result.get("suggestions"))
         out["grounding"] = grounding
-        _logger.info("Ask AI grounding intent=%s cmd=%s slots=%s dict=%s",
-                     intent, cmd["command"], sorted(cmd["slots"]),
+        _logger.info("Ask AI grounding intent=%s method=%s conf=%.3f cmd=%s slots=%s dict=%s",
+                     intent, method, conf, cmd["command"], sorted(cmd["slots"]),
                      sorted((dict_hint.get("matches") or {})))
         # Rephrase Qwen (opsional, default mati): poles bahasa tanpa ubah fakta.
         try:
@@ -692,6 +721,12 @@ class ITAskAI(models.AbstractModel):
             if must and must not in polished:
                 _logger.warning("Ask AI rephrase ditolak: fakta hilang (%s)", must)
                 return ""
+        # F2: tolak hasil yang MEMUNCULKAN kode/angka baru (anti-addition).
+        new_codes = cmds.invented_codes(html_answer, polished)
+        if new_codes:
+            _logger.warning("Ask AI rephrase ditolak: fakta baru (%s)",
+                            ",".join(new_codes[:5]))
+            return ""
         return polished
 
     # ------------------------------------------------------------------
@@ -787,6 +822,10 @@ class ITAskAI(models.AbstractModel):
             # menunggu timeout dua kali (cermin unavailableCooldown WACS).
             _LLM_COOLDOWN_UNTIL = _time.time() + _LLM_COOLDOWN_SEC
             return None
+        # F5: jejak keputusan LLM untuk diagnosis halusinasi.
+        _logger.info("Ask AI L1 decide intent=%s conf=%.3f entities=%s",
+                     decision.get("intent"), decision.get("confidence", 0.0),
+                     {k: v for k, v in (decision.get("entities") or {}).items() if v})
         return {"intent": decision["intent"],
                 "confidence": decision["confidence"],
                 "category": nlu.get_intent_category(decision["intent"]),
@@ -847,6 +886,7 @@ class ITAskAI(models.AbstractModel):
             except AttributeError:
                 v_stripped, t_stripped = v, (text or "").upper()
             if v_stripped and v_stripped in t_stripped and any(ch.isdigit() for ch in v):
+                _logger.info("Ask AI llm-entity adopted ref=%s", v)
                 entities["asset_refs"] = [v]
         for key, slot in (("item", "item"), ("employee", "employee_name"),
                           ("category", "category")):
@@ -899,17 +939,28 @@ class ITAskAI(models.AbstractModel):
             rows = []
         return [r["term"] for r in rows if r.get("term")][:limit]
 
-    def _validate_slots_db(self, text, intent, entities):
+    def _validate_slots_db(self, text, intent, entities, original=None):
         """Level C (pola CALM): slot ada tapi tak cocok isi DB/kamus.
 
         Kembalikan out tanya-balik spesifik, atau None bila lolos.
         Hanya untuk intent berbasis ref/kategori; intent lain jalan seperti
         biasa agar perilaku lama tak berubah.
+
+        F1: kode HANYA boleh disebut bila grounded di pertanyaan ASLI user
+        (``original``). Bila tidak grounded — dari sumber mana pun — jangan
+        pernah menuduh user mencari kode itu; fallback klarifikasi generik.
         """
         refs = entities.get("asset_refs") or []
         if intent in (nlu.INTENT_ASSET_DETAIL, nlu.INTENT_ASSET_USER,
                       nlu.INTENT_ASSET_HISTORY) and refs:
             kw = refs[0]
+            if not cmds.is_grounded_code(kw, original or text):
+                _logger.warning("Ask AI ungrounded-ref ditolak: %s", kw)
+                return self._out(
+                    text, intent, 0.0, "slot_repair",
+                    nlu.clarification_reply(intent, entities),
+                    "clarification",
+                    suggestions=self._suggest_for(intent))
             try:
                 found = self.env["it_asset.asset"].search_count(
                     self._asset_domain_for(kw)) or self.env["it_asset.unit"].search_count(
