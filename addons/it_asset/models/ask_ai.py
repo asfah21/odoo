@@ -49,13 +49,47 @@ _LLM_COOLDOWN_UNTIL = 0.0
 _LLM_COOLDOWN_SEC = 60.0
 
 # Default parameter — cermin variabel WACS (WACS_QWEN_URL/MODEL/TIMEOUT_SEC).
+# Ditambah rephrase_* (Qwen 0.6B hanya poles bahasa, bukan decide).
 _LLM_DEFAULTS = {
     "it_asset.ask_ai.llm_enabled": "False",
     "it_asset.ask_ai.llm_url": "http://127.0.0.1:8081",
     "it_asset.ask_ai.llm_model": nlu.LLM_MODEL_DEFAULT,
     "it_asset.ask_ai.llm_timeout": "10",
     "it_asset.ask_ai.llm_json_mode": "True",
+    "it_asset.ask_ai.rephrase_enabled": "False",
+    "it_asset.ask_ai.rephrase_max_tokens": "150",
+    "it_asset.ask_ai.rephrase_temperature": "0.7",
 }
+
+# Cache kamus di memori (TTL singkat) agar tiap pesan tidak query 2000 baris.
+# Key: dbname -> (expire_epoch, rows). Rows: list[(term, normalized, kind)].
+_DICT_CACHE = {}
+_DICT_CACHE_TTL = 120.0
+
+
+def _levenshtein_le2(a, b, limit=2):
+    """Edit distance dengan early-exit > limit (murah untuk typo 1-2 huruf)."""
+    if a == b:
+        return 0
+    la, lb = len(a), len(b)
+    if abs(la - lb) > limit:
+        return limit + 1
+    if la == 0 or lb == 0:
+        return max(la, lb)
+    prev = list(range(lb + 1))
+    for i in range(1, la + 1):
+        cur = [i] + [0] * lb
+        row_min = cur[0]
+        ca = a[i - 1]
+        for j in range(1, lb + 1):
+            cost = 0 if ca == b[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+            if cur[j] < row_min:
+                row_min = cur[j]
+        if row_min > limit:
+            return limit + 1
+        prev = cur
+    return prev[lb]
 
 _ASSET_FIELDS = [
     "name", "asset_tag", "asset_type", "it_type", "category_id",
@@ -242,7 +276,8 @@ class ITAskAI(models.AbstractModel):
         except Exception as exc:  # pending tak boleh merusak jawaban
             _logger.warning("Ask AI pending gagal dibaca: %s", exc)
             consumed = None
-        out = consumed if consumed is not None else self._answer_inner(question)
+        out = consumed if consumed is not None else self._answer_inner(
+            question, session_id=session_id)
         try:
             out["session_id"] = self._history_save(
                 question, out, session_id=session_id)
@@ -253,23 +288,48 @@ class ITAskAI(models.AbstractModel):
             out.pop(key, None)
         return out
 
-    def _answer_inner(self, question):
+    def _answer_inner(self, question, session_id=None):
         """Jawab satu pertanyaan. Selalu kembalikan dict siap-render.
 
         Bentuk: ``{html, intent, confidence, method, action?}`` dengan
         ``action = {res_model, domain, name}`` opsional untuk tombol
         "Lihat di modul" di frontend.
+
+        Urutan ringan (hemat token & CPU):
+          kamus lokal (typo-tolerant) -> rule/override -> Qwen decide
+          (opsional) -> tool ORM -> Qwen rephrase (opsional, fakta tetap).
         """
         text = (question or "").strip()
         if not text:
             return self._out(text, nlu.INTENT_UNKNOWN, 0.0, "empty",
                              "Tulis dulu pertanyaannya 🙂", "clarification")
 
+        # 0) Kamus lokal: koreksi typo ringan tanpa token/API/Qwen.
+        #    Mis. "stokc radiio ht" -> tahu maksud "stok radio ht".
+        try:
+            dict_hint = self._dict_assist(text)
+        except Exception as exc:
+            _logger.warning("Ask AI dict-assist gagal: %s", exc)
+            dict_hint = {}
+        effective_text = dict_hint.get("effective_text") or text
+        # Tool/NLU bekerja pada teks terkoreksi kamus (typo sudah diluruskan),
+        # sedangkan riwayat/feedback tetap memakai teks asli dari pemanggil.
+        text = effective_text
+
         # Klasifikasi deterministik dulu: fast-path sosial/OOD dan L2
         # override TIDAK PERNAH memanggil Qwen (cermin WACS — tiap panggilan
         # Qwen adalah round-trip CPU mahal di runtime single-slot).
-        classification = nlu.classify(text)
+        classification = nlu.classify(effective_text)
         method = classification["method"]
+        if dict_hint.get("corrected") and method in ("empty",):
+            # Kamus menemukan topik jelas tapi NLU masih kosong:
+            # naikkan ke klarifikasi terarah, bukan handover buta.
+            classification = {"intent": dict_hint.get("suggested_intent") or nlu.INTENT_ASSET_SEARCH,
+                              "confidence": 0.72,
+                              "category": nlu.get_intent_category(
+                                  dict_hint.get("suggested_intent") or nlu.INTENT_ASSET_SEARCH),
+                              "method": "dict", "ood_reason": ""}
+            method = "dict"
 
         if method not in ("rule", "ood_rule", "override"):
             llm_classification = self._try_llm_decide(text)
@@ -380,8 +440,172 @@ class ITAskAI(models.AbstractModel):
                         result.get("tool", intent),
                         action=result.get("action"),
                         suggestions=result.get("suggestions"))
+        # Rephrase Qwen (opsional, default mati): poles bahasa tanpa ubah fakta.
+        try:
+            polished = self._maybe_rephrase(out.get("html") or "", intent)
+            if polished:
+                out["html"] = polished
+                out["rephrased"] = True
+        except Exception as exc:
+            _logger.warning("Ask AI rephrase gagal, pakai jawaban asli: %s", exc)
         self._record_feedback(text, out)  # no-op bila terjawab yakin
         return out
+
+    # ------------------------------------------------------------------
+    # Kamus lokal typo-tolerant (tanpa token API / tanpa Qwen)
+    # ------------------------------------------------------------------
+    def _dict_rows(self):
+        """Ambil baris kamus aktif (cache 120 dtk per database)."""
+        try:
+            dbname = self.env.cr.dbname
+        except Exception:
+            dbname = "default"
+        now = _time.time()
+        hit = _DICT_CACHE.get(dbname)
+        if hit and hit[0] > now:
+            return hit[1]
+        try:
+            rows = self.env["it_asset.ask_ai.term"].search_read(
+                [("active", "=", True)], ["term", "normalized", "kind"],
+                limit=2000)
+        except Exception:
+            rows = []
+        _DICT_CACHE[dbname] = (now + _DICT_CACHE_TTL, rows)
+        return rows
+
+    def _dict_assist(self, text):
+        """Koreksi typo ringan memakai kamus + suggest intent.
+
+        Kembalikan dict {corrected(bool), effective_text, matches, suggested_intent}.
+        Murah: hanya token >= 4 huruf, edit-distance <= 2, dan hanya bila
+        kamus sudah di-generate (tanpa kamus -> no-op).
+        """
+        rows = self._dict_rows()
+        if not rows:
+            return {}
+        norm = nlu.normalize_id(text)
+        toks = [t for t in norm.split() if len(t) >= 4]
+        if not toks:
+            return {}
+        # index kata kamus -> (term kanonik, kind)
+        word_index = {}
+        for r in rows:
+            base = (r.get("normalized") or r.get("term") or "").lower()
+            for w in base.split():
+                if len(w) >= 4 and w not in word_index:
+                    word_index[w] = (r.get("term") or w, r.get("kind") or "")
+        if not word_index:
+            return {}
+        corrections = {}
+        matched_kinds = set()
+        for tok in set(toks):
+            if tok in word_index:
+                continue
+            best, best_kind, best_d = None, "", 99
+            for w, (term, kind) in word_index.items():
+                if abs(len(w) - len(tok)) > 2:
+                    continue
+                if not w or not tok or w[0] != tok[0]:
+                    # syarat huruf pertama sama: presisi tinggi, murah
+                    continue
+                d = _levenshtein_le2(tok, w, 2)
+                if d < best_d:
+                    best, best_kind, best_d = w, kind, d
+                    if d <= 1:
+                        break
+            if best and best_d <= 2:
+                corrections[tok] = word_index[best][0].lower()
+                if best_kind:
+                    matched_kinds.add(best_kind)
+        if not corrections:
+            return {}
+        effective = norm
+        for typo, canon in corrections.items():
+            effective = _re.sub(r"\b%s\b" % _re.escape(typo), canon, effective)
+        # tebak intent dari jenis kamus yang kena
+        suggested = ""
+        if matched_kinds & {"product", "consumable"}:
+            suggested = nlu.INTENT_CHECK_STOCK
+        elif matched_kinds & {"asset"}:
+            suggested = nlu.INTENT_ASSET_DETAIL
+        elif matched_kinds & {"unit", "unit_category"}:
+            suggested = nlu.INTENT_UNIT_DETAIL
+        elif matched_kinds & {"category"}:
+            suggested = nlu.INTENT_ASSET_SEARCH
+        elif matched_kinds & {"employee"}:
+            suggested = nlu.INTENT_ASSET_USER
+        return {"corrected": True, "effective_text": effective,
+                "matches": corrections, "suggested_intent": suggested,
+                "method": "dict"}
+
+    # ------------------------------------------------------------------
+    # Rephrase Qwen 0.6B — poles bahasa, FAKTA TIDAK BOLEH BERUBAH
+    # ------------------------------------------------------------------
+    def _maybe_rephrase(self, html_answer, intent):
+        """Poles jawaban HTML dengan Qwen bila rephrase_enabled=True.
+
+        Aturan keras: hanya gaya bahasa; angka/nama/tag/kode/SN, struktur
+        HTML dan tabel WAJIB dipertahankan. Gagal/timeout -> kembalikan "".
+        """
+        try:
+            Param = self.env["ir.config_parameter"].sudo()
+            enabled = str(Param.get_param(
+                "it_asset.ask_ai.rephrase_enabled", "False")).strip().lower() in (
+                    "1", "true", "yes")
+            if not enabled:
+                return ""
+            url = (Param.get_param(
+                "it_asset.ask_ai.llm_url", "http://127.0.0.1:8081") or "").rstrip("/")
+            try:
+                max_tokens = int(Param.get_param(
+                    "it_asset.ask_ai.rephrase_max_tokens", "150") or 150)
+            except (TypeError, ValueError):
+                max_tokens = 150
+            try:
+                temperature = float(Param.get_param(
+                    "it_asset.ask_ai.rephrase_temperature", "0.7") or 0.7)
+            except (TypeError, ValueError):
+                temperature = 0.7
+        except Exception:
+            return ""
+        if _time.time() < _LLM_COOLDOWN_UNTIL:
+            return ""
+        system = (
+            "Kamu editor Bahasa Indonesia yang ramah. Poles TEKS PEMBUKA dan "
+            "PENUTUP jawaban berikut agar natural dan tidak robotik. ATURAN KERAS: "
+            "jangan ubah angka, nama, kode/tag aset, SN, merek, status, tabel, "
+            "dan tag HTML apa pun. Jangan tambah fakta baru. Kembalikan HTML "
+            "lengkap yang sudah dipoles, tanpa penjelasan tambahan.")
+        payload = {
+            "temperature": max(0.0, min(1.0, temperature)),
+            "max_tokens": max(64, min(1024, max_tokens)),
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": html_answer[:3000]},
+            ],
+        }
+        try:
+            req = _urlrequest.Request(
+                url + "/v1/chat/completions",
+                data=_json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"})
+            started = _time.time()
+            with _urlrequest.urlopen(req, timeout=8) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+            _logger.info("[AI_TIMING] qwen_rephrase total=%.2fs url=%s",
+                         _time.time() - started, url)
+            polished = (data["choices"][0]["message"]["content"] or "").strip()
+        except Exception as exc:
+            _logger.warning("Ask AI rephrase gagal: %s", exc)
+            return ""
+        # Guardrail: tolak hasil yang menghilangkan angka/tag penting.
+        if not polished or len(polished) < len(html_answer) * 0.5:
+            return ""
+        for must in _re.findall(r"[A-Z]{2,}-[0-9]+|\d+", html_answer):
+            if must and must not in polished:
+                _logger.warning("Ask AI rephrase ditolak: fakta hilang (%s)", must)
+                return ""
+        return polished
 
     # ------------------------------------------------------------------
     # L1 — klien Qwen (cermin internal/ai/agent/agent.go WACS)

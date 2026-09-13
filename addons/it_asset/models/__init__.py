@@ -15,4 +15,6 @@ from . import material_request
 from . import product_template
 from . import ask_ai_nlu
 from . import ask_ai_history
+from . import ask_ai_dictionary
+from . import ask_ai_settings
 from . import ask_ai

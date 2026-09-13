@@ -2,14 +2,34 @@
 <odoo>
     <!-- Client Action untuk Ask AI (front-end chat) -->
     <record id="action_it_asset_ask_ai" model="ir.actions.client">
-        <field name="name">Ask AI</field>
+        <field name="name">Ask AI Chat</field>
         <field name="tag">it_asset_ask_ai_action</field>
     </record>
 
-    <!-- Menu Ask AI — setelah menu Form (Form seq 40, Ask AI seq 50) -->
+    <!-- Induk: IT -> Ask AI (tanpa action, punya 3 anak: Chat, Setting, Kamus) -->
     <menuitem id="menu_it_asset_ask_ai"
               name="Ask AI"
               parent="it_asset_menu_root"
-              action="action_it_asset_ask_ai"
               sequence="50"/>
+
+    <!-- Anak 1: Chat (action lama, id menu baru agar induk tetap stabil) -->
+    <menuitem id="menu_it_asset_ask_ai_chat"
+              name="Chat"
+              parent="menu_it_asset_ask_ai"
+              action="action_it_asset_ask_ai"
+              sequence="10"/>
+
+    <!-- Anak 2: Setting — Generate kamus + Qwen rephrase 0.6B -->
+    <menuitem id="menu_it_asset_ask_ai_setting"
+              name="Setting"
+              parent="menu_it_asset_ask_ai"
+              action="action_it_ask_ai_setting"
+              sequence="20"/>
+
+    <!-- Anak 3: Kamus — isi hasil Generate -->
+    <menuitem id="menu_it_asset_ask_ai_dict"
+              name="Kamus"
+              parent="menu_it_asset_ask_ai"
+              action="action_it_ask_ai_term"
+              sequence="30"/>
 </odoo>

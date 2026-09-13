@@ -1,0 +1,28 @@
+services:
+  llm:
+    # llama.cpp server CPU-only untuk Qwen3-0.6B-Q4_K_M (~397 MB).
+    # Image resmi ghcr.io/ggml-org/llama.cpp:server-full sudah termasuk
+    # curl + dukungan --hf-repo (download otomatis dari Hugging Face).
+    # Repo/file bisa dioverride via environment (lihat bawah).
+    image: ghcr.io/ggml-org/llama.cpp:server-full
+    container_name: odoo-llm-qwen06
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      - HF_REPO=${HF_REPO:-unsloth/Qwen3-0.6B-GGUF}
+      - HF_FILE=${HF_FILE:-Qwen3-0.6B-Q4_K_M.gguf}
+    command: >
+      --hf-repo ${HF_REPO:-unsloth/Qwen3-0.6B-GGUF}
+      --hf-file ${HF_FILE:-Qwen3-0.6B-Q4_K_M.gguf}
+      --port 8081
+      --ctx-size 1024
+      --threads 2
+      --parallel 1
+      --reasoning off
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Kamus otomatis Ask AI: snapshot istilah dari database -->
+    <record id="view_it_ask_ai_term_list" model="ir.ui.view">
+        <field name="name">it.ask.ai.term.list</field>
+        <field name="model">it_asset.ask_ai.term</field>
+        <field name="arch" type="xml">
+            <list string="Kamus Ask AI" default_order="kind asc, term asc">
+                <field name="term"/>
+                <field name="kind" widget="badge"
+                       decoration-info="kind in ('product', 'consumable')"
+                       decoration-warning="kind in ('asset', 'unit')"/>
+                <field name="category" optional="show"/>
+                <field name="price" optional="show"/>
+                <field name="qty" optional="show"/>
+                <field name="uom" optional="show"/>
+                <field name="usage_count"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_it_ask_ai_term_form" model="ir.ui.view">
+        <field name="name">it.ask.ai.term.form</field>
+        <field name="model">it_asset.ask_ai.term</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="term"/>
+                            <field name="normalized" readonly="1"/>
+                            <field name="kind"/>
+                            <field name="active"/>
+                        </group>
+                        <group>
+                            <field name="category"/>
+                            <field name="price"/>
+                            <field name="cost"/>
+                            <field name="qty"/>
+                            <field name="uom"/>
+                            <field name="usage_count" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="description"/>
+                    </group>
+                    <group string="Sumber">
+                        <field name="source_model" readonly="1"/>
+                        <field name="source_id" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_it_ask_ai_term_search" model="ir.ui.view">
+        <field name="name">it.ask.ai.term.search</field>
+        <field name="model">it_asset.ask_ai.term</field>
+        <field name="arch" type="xml">
+            <search string="Cari Istilah">
+                <field name="term" string="Istilah"
+                       filter_domain="['|', ('term', 'ilike', self), ('normalized', 'ilike', self)]"/>
+                <field name="category"/>
+                <field name="kind"/>
+                <filter string="Produk" name="product" domain="[('kind', '=', 'product')]"/>
+                <filter string="Consumable" name="consumable" domain="[('kind', '=', 'consumable')]"/>
+                <filter string="Aset" name="asset" domain="[('kind', '=', 'asset')]"/>
+                <filter string="Unit" name="unit" domain="[('kind', '=', 'unit')]"/>
+                <filter string="Kategori" name="category" domain="[('kind', '=', 'category')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Jenis" name="by_kind" context="{'group_by': 'kind'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_it_ask_ai_term" model="ir.actions.act_window">
+        <field name="name">Kamus</field>
+        <field name="res_model">it_asset.ask_ai.term</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Kamus masih kosong.</p>
+            <p>Buka <b>Ask AI -&gt; Setting</b> lalu klik <b>Generate Kamus</b> untuk membaca database (produk, kategori, harga, stok, keterangan, aset, unit, karyawan).</p>
+        </field>
+    </record>
+</odoo>

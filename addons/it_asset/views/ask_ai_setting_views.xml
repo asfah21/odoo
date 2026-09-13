@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Setting Ask AI: kamus otomatis + Qwen rephrase-only (0.6B) -->
+    <record id="view_it_ask_ai_setting_form" model="ir.ui.view">
+        <field name="name">it.ask.ai.setting.form</field>
+        <field name="model">it_asset.ask_ai.setting</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_generate_dictionary" type="object"
+                            string="Generate Kamus" class="oe_highlight"
+                            icon="fa-refresh"/>
+                    <button name="action_test_qwen" type="object"
+                            string="Test Qwen" icon="fa-plug"/>
+                    <button name="action_open_dictionary" type="object"
+                            string="Lihat Kamus" icon="fa-book"/>
+                    <button name="action_clear_dictionary" type="object"
+                            string="Kosongkan Kamus" icon="fa-trash"
+                            confirm="Hapus seluruh istilah kamus?"/>
+                </header>
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        <b>Cara kerja hemat:</b> kamus lokal yang paham konteks + typo
+                        (tanpa token API, tanpa Qwen).
+                        Qwen 0.6B <b>hanya</b> memoles bahasa jawaban agar tidak robotik.
+                        Tanpa Qwen pun chatbot tetap jalan.
+                    </div>
+                    <group string="Kamus Otomatis (dari Database)">
+                        <field name="dict_count" readonly="1"/>
+                        <field name="dict_last_generate" readonly="1"/>
+                        <field name="dict_last_summary" readonly="1"/>
+                    </group>
+                    <group string="Qwen Decide — Intent (opsional)">
+                        <group>
+                            <field name="llm_enabled"/>
+                            <field name="llm_url"/>
+                        </group>
+                        <group>
+                            <field name="llm_model"/>
+                            <field name="llm_timeout"/>
+                            <field name="llm_json_mode"/>
+                        </group>
+                    </group>
+                    <group string="Qwen Rephrase 0.6B — Poles Bahasa (disarankan)">
+                        <group>
+                            <field name="rephrase_enabled"/>
+                            <field name="rephrase_max_tokens"/>
+                        </group>
+                        <group>
+                            <field name="rephrase_temperature"/>
+                            <field name="qwen_status" readonly="1"/>
+                        </group>
+                    </group>
+                    <group string="Contoh install Qwen 0.6B (Hugging Face)">
+                        <div colspan="2">
+                            <p><b>Windows (PowerShell):</b> <code>scripts\install-qwen.ps1</code></p>
+                            <p><b>Linux:</b> <code>bash scripts/install-qwen.sh</code></p>
+                            <p>Model: <code>unsloth/Qwen3-0.6B-GGUF / Qwen3-0.6B-Q4_K_M.gguf</code> (~397 MB, CPU-only, port 8081). Alternatif Indonesia: <code>sail/Sailor-0.5B-Chat-gguf</code>. Detail di <code>llm/README.md</code>.</p>
+                        </div>
+                    </group>
+                    <group string="Lainnya">
+                        <field name="history_retention_days"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_it_ask_ai_setting_list" model="ir.ui.view">
+        <field name="name">it.ask.ai.setting.list</field>
+        <field name="model">it_asset.ask_ai.setting</field>
+        <field name="arch" type="xml">
+            <list string="Ask AI Setting">
+                <field name="name"/>
+                <field name="dict_count"/>
+                <field name="dict_last_generate"/>
+                <field name="rephrase_enabled" widget="boolean_toggle"/>
+                <field name="llm_enabled" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_it_ask_ai_setting" model="ir.actions.act_window">
+        <field name="name">Setting</field>
+        <field name="res_model">it_asset.ask_ai.setting</field>
+        <field name="view_mode">form,list</field>
+        <field name="target">current</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Belum ada konfigurasi.</p>
+            <p>Klik Buat, simpan, lalu klik <b>Generate Kamus</b>.</p>
+        </field>
+    </record>
+</odoo>
