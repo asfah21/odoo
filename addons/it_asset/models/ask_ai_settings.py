@@ -43,6 +43,8 @@ _PARAMS = {
     "rephrase_max_tokens": ("it_asset.ask_ai.rephrase_max_tokens", "150"),
     "rephrase_temperature": ("it_asset.ask_ai.rephrase_temperature", "0.7"),
     "history_retention_days": ("it_asset.ask_ai.history_retention_days", "10"),
+    "persona": ("it_asset.ask_ai.persona", "alya"),
+    "persona_name": ("it_asset.ask_ai.persona_name", ""),
     "dict_auto_note": ("it_asset.ask_ai.dict_note", ""),
 }
 
@@ -66,6 +68,15 @@ class ITAskAISetting(models.Model):
              "On failure the original answer is used.")
     rephrase_max_tokens = fields.Integer(string="Rephrase Max Tokens", default=150)
     rephrase_temperature = fields.Float(string="Rephrase Temperature", default=0.7)
+    # --- Persona (Alya / Raka) ---
+    persona = fields.Selection(
+        [("alya", "Alya"), ("raka", "Raka")],
+        string="Active Persona", default="alya", required=True)
+    persona_name = fields.Char(
+        string="Persona Display Name",
+        help="Configurable name users see in chat. Empty = persona default.")
+    persona_summary = fields.Text(
+        string="Persona Traits", compute="_compute_persona_summary")
     # --- Retention ---
     history_retention_days = fields.Integer(string="History Retention (days)", default=10)
     # --- Dictionary ---
@@ -76,6 +87,34 @@ class ITAskAISetting(models.Model):
                                     readonly=True)
     qwen_status = fields.Char(string="Qwen Status", readonly=True,
                               help="Last connection test result.")
+
+    @api.depends("persona")
+    def _compute_persona_summary(self):
+        try:
+            from . import ask_ai_persona as _persona
+        except Exception:
+            _persona = None
+        for rec in self:
+            if _persona is None:
+                rec.persona_summary = ""
+            else:
+                rec.persona_summary = _persona.summary(rec.persona or "alya")
+
+    @api.onchange("persona")
+    def _onchange_persona(self):
+        try:
+            from . import ask_ai_persona as _persona
+        except Exception:
+            return
+        if not _persona:
+            return
+        current = (self.persona_name or "").strip()
+        defaults = [_persona.PERSONAS[k]["default_name"]
+                    for k in _persona.ALL_PERSONAS]
+        if not current or current in defaults:
+            self.persona_name = _persona.PERSONAS.get(
+                self.persona or "alya",
+                _persona.PERSONAS["alya"])["default_name"]
 
     @api.depends()
     def _compute_dict_info(self):
@@ -123,6 +162,10 @@ class ITAskAISetting(models.Model):
                 rec.history_retention_days = int(Param.get_param(*_PARAMS["history_retention_days"]))
             except (TypeError, ValueError):
                 rec.history_retention_days = 10
+            rec.persona = (Param.get_param(*_PARAMS["persona"]) or "alya").strip().lower()
+            if rec.persona not in ("alya", "raka"):
+                rec.persona = "alya"
+            rec.persona_name = Param.get_param(*_PARAMS["persona_name"]) or ""
 
     def write(self, vals):
         res = super().write(vals)
@@ -137,6 +180,8 @@ class ITAskAISetting(models.Model):
             "rephrase_max_tokens": "it_asset.ask_ai.rephrase_max_tokens",
             "rephrase_temperature": "it_asset.ask_ai.rephrase_temperature",
             "history_retention_days": "it_asset.ask_ai.history_retention_days",
+            "persona": "it_asset.ask_ai.persona",
+            "persona_name": "it_asset.ask_ai.persona_name",
         }
         for rec in self:
             for field, key in mapping.items():

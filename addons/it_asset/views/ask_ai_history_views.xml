@@ -32,6 +32,10 @@
                         <field name="pending_label"/>
                         <field name="pending_ids"/>
                     </group>
+                    <group string="Flow (CALM-style)" invisible="flow_name == False">
+                        <field name="flow_name"/>
+                        <field name="flow_step"/>
+                    </group>
                     <field name="message_ids" readonly="1">
                         <list>
                             <field name="role"/>

@@ -39,6 +39,13 @@ class ITAskAISession(models.Model):
     pending_action = fields.Char(string="Aksi Tertunda", readonly=True)
     pending_ids = fields.Char(string="ID Aset Tertunda (csv)", readonly=True)
     pending_label = fields.Char(string="Label Tertunda", readonly=True)
+    # Flow engine (pola CALM): alur multi-langkah eksplisit sebagai data.
+    # flow_slots/flow_stack JSON: {slot: value} dan tumpukan flow yang
+    # diinterupsi topik baru (untuk "lanjut/kembali").
+    flow_name = fields.Char(string="Flow Name", readonly=True)
+    flow_step = fields.Char(string="Flow Step", readonly=True)
+    flow_slots = fields.Json(string="Flow Slots", readonly=True)
+    flow_stack = fields.Json(string="Flow Stack", readonly=True)
     # Ingatan topik: kategori/domain terakhir agar "yang rusak?" setelah
     # "stok cctv" dibaca sebagai CCTV rusak. Kedaluwarsa 60 menit.
     last_category = fields.Char(string="Kategori Terakhir", readonly=True)

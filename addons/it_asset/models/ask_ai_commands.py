@@ -1,0 +1,515 @@
+# -*- coding: utf-8 -*-
+"""Ask AI Commands & Flows — pola CALM yang diport ke Python tanpa LLM.
+
+Peran file ini (cermin CALM Rasa, tanpa butuh model bahasa):
+
+A. **Command schema** — NLU lokal hanya boleh mengeluarkan *perintah* dari
+   daftar tertutup (``COMMAND_SLOTS``) dengan slot yang lolos validasi
+   struktural. Perintah tak-valid tidak pernah mencapai tool.
+B. **Flow engine data-driven** — interaksi multi-langkah (konfirmasi
+   kandidat, klarifikasi unit, pencarian terpandu) didefinisikan sebagai
+   DATA (``FLOW_DEFS``), bukan ``if`` tersebar. Runner murni
+   (``flow_next``) beroperasi di atas dict biasa sehingga bisa diuji
+   tanpa Odoo.
+C. **Repair detection** — koreksi (``ralat/maksud saya``), pembatalan
+   (``batal/gajadi``), dan lanjutan (``lanjut/kembali``) terdeteksi
+   sebagai sinyal eksplisit sebelum klasifikasi normal.
+
+File ini murni stdlib (tanpa ``import odoo``) sehingga bisa diuji mandiri::
+
+    python ask_ai_commands.py
+"""
+
+import json as _json
+import re as _re
+
+# ============================================================================
+# A. Command schema — allowlist perintah + slot
+# ============================================================================
+
+# Intent yang BOLEH dieksekusi sebagai tool. Intent sosial/OOD tidak ada di
+# sini (mereka fast-path di backend, bukan command).
+COMMAND_TOOLS = frozenset([
+    "recap", "check_stock", "asset_search", "asset_detail", "asset_user",
+    "asset_history", "maintenance_list", "handover_list", "damage_list",
+    "request_status", "human_agent", "unit_detail", "asset_top",
+    "identity", "creator",
+])
+
+# Slot yang boleh dibawa tiap command. Slot di luar daftar ini dibuang
+# (cermin CALM: model tak bisa menyelundupkan parameter tak dikenal).
+COMMAND_SLOTS = {
+    "recap": (),
+    "check_stock": ("item", "category", "radio_kind", "low_only"),
+    "asset_search": ("category", "radio_kind", "asset_type", "state",
+                     "condition", "item"),
+    "asset_detail": ("asset_refs", "item", "category"),
+    "asset_user": ("asset_refs", "employee_name", "category", "asset_type",
+                   "radio_kind", "state", "condition", "item"),
+    "asset_history": ("asset_refs", "item"),
+    "maintenance_list": (),
+    "handover_list": ("form_kind", "form_status", "period", "asset_refs"),
+    "damage_list": ("form_status", "period", "asset_refs"),
+    "request_status": ("form_kind", "form_status", "period"),
+    "human_agent": (),
+    "unit_detail": ("asset_refs", "category"),
+    "asset_top": ("top_kind", "category", "asset_type", "radio_kind"),
+    "identity": (),
+    "creator": (),
+}
+
+# Minimal satu slot grup ini harus terisi agar command dianggap lengkap
+# secara struktural (keberadaan di DB dicek level C di backend).
+COMMAND_ANY_OF = {
+    "asset_detail": ("asset_refs", "item", "category"),
+    "asset_user": ("asset_refs", "employee_name", "category", "item"),
+    "asset_history": ("asset_refs", "item"),
+    "unit_detail": ("asset_refs", "category"),
+    "asset_search": ("category", "radio_kind", "asset_type", "state",
+                     "condition", "item"),
+}
+
+_VALID_PERIODS = frozenset(
+    ["today", "yesterday", "this_week", "this_month", "last_month"])
+_VALID_FORM_STATUS = frozenset(
+    ["draft", "submitted", "approved", "partially_fulfilled", "fulfilled",
+     "rejected", "signed", "confirmed", "resolved", "open", "done"])
+_VALID_FORM_KIND = frozenset(
+    ["handover", "material", "asset_request", "account"])
+_VALID_TOP_KIND = frozenset(["oldest", "newest", "moved", "damaged"])
+_VALID_STATE = frozenset(["available", "in_use", "maintenance", "retired"])
+_VALID_CONDITION = frozenset(["good", "degraded", "broken"])
+_VALID_RADIO_KIND = frozenset(["rig", "ht"])
+_VALID_ASSET_TYPE = frozenset(["it", "operation"])
+
+_RE_REF_LIKE = _re.compile(r"^[A-Z0-9][A-Z0-9 .\-_/]*[0-9][A-Z0-9/\-]*$")
+
+
+def _is_ref_like(value):
+    """True bila string mirip kode ref (ada digit, min 3 alnum)."""
+    v = (value or "").strip().upper()
+    alnum = _re.sub(r"[^A-Z0-9]", "", v)
+    return len(alnum) >= 3 and any(ch.isdigit() for ch in alnum) \
+        and bool(_RE_REF_LIKE.match(v))
+
+
+def validate_slot(name, value):
+    """Validasi struktural satu slot. Kembalikan error str atau ''."""
+    if name == "asset_refs":
+        vals = value if isinstance(value, (list, tuple)) else [value]
+        vals = [v for v in vals if (v or "").strip()]
+        if not vals:
+            return "empty"
+        for v in vals:
+            if not _is_ref_like(v):
+                return "bad ref format: %s" % v
+        return ""
+    if name in ("item", "category"):
+        return "" if len((value or "").strip()) >= 2 else "too short"
+    if name == "employee_name":
+        return "" if len((value or "").strip()) >= 3 else "too short"
+    if name == "period":
+        return "" if value in _VALID_PERIODS else "unknown period"
+    if name == "form_status":
+        return "" if value in _VALID_FORM_STATUS else "unknown status"
+    if name == "form_kind":
+        return "" if value in _VALID_FORM_KIND else "unknown kind"
+    if name == "top_kind":
+        return "" if value in _VALID_TOP_KIND else "unknown rank"
+    if name == "state":
+        return "" if value in _VALID_STATE else "unknown state"
+    if name == "condition":
+        return "" if value in _VALID_CONDITION else "unknown condition"
+    if name == "radio_kind":
+        return "" if value in _VALID_RADIO_KIND else "unknown radio kind"
+    if name == "asset_type":
+        return "" if value in _VALID_ASSET_TYPE else "unknown asset type"
+    if name == "low_only":
+        return "" if isinstance(value, bool) else "not bool"
+    return "unknown slot"
+
+
+def build_command(intent, entities, constraints=None):
+    """Bangun command tervalidasi dari hasil NLU.
+
+    ``entities``: dict extractor (boleh ada kunci ekstra — dibuang bila
+    tak dikenal command). ``constraints``: dict kanal terpisah (low_only).
+
+    Kembalikan ``{command, slots, valid, errors}``. ``valid=False`` berarti
+    backend harus klarifikasi, bukan eksekusi.
+    """
+    errors = []
+    if intent not in COMMAND_TOOLS:
+        return {"command": intent, "slots": {}, "valid": False,
+                "errors": ["not a tool command: %s" % intent]}
+    allowed = COMMAND_SLOTS.get(intent, ())
+    slots = {}
+    for key in allowed:
+        if key == "low_only":
+            low = bool((constraints or {}).get("low_only", False))
+            if low:
+                slots[key] = True
+            continue
+        val = (entities or {}).get(key)
+        if val is None or val == "" or val == []:
+            continue
+        err = validate_slot(key, val)
+        if err:
+            errors.append("%s: %s" % (key, err))
+            continue
+        slots[key] = val
+    for key in COMMAND_ANY_OF.get(intent, ()):
+        if slots.get(key):
+            break
+    else:
+        if COMMAND_ANY_OF.get(intent):
+            errors.append("missing slot: need one of %s"
+                          % "/".join(COMMAND_ANY_OF[intent]))
+    return {"command": intent, "slots": slots,
+            "valid": not errors, "errors": errors}
+
+
+# ============================================================================
+# Repair detection — sinyal eksplisit sebelum klasifikasi normal
+# ============================================================================
+
+# HANYA kata batal eksplisit. "sudah/cukup/selesai" SENGAJA dikecualikan
+# agar "material yang sudah fulfilled" tak terbaca sebagai pembatalan.
+_RE_CANCEL = _re.compile(
+    r"\b(batal|batalkan|gajadi|gak\s*jadi|nggak\s*jadi|tidak\s*jadi|"
+    r"cancel|cancelled)\b", _re.I)
+_RE_RESUME = _re.compile(
+    r"^\W*(lanjut|lanjutkan|teruskan|terus|kembali|balik|resume)\W*$", _re.I)
+_RE_CORRECT = _re.compile(
+    r"^\W*(ralat|koreksi|revisi|maksud\s*saya|maksudnya|salah\s*ketik|"
+    r"salah|sori|sorry|eh)\b[\s,:.\-]*", _re.I)
+_RE_NEGATE = _re.compile(r"^\W*bukan\b[\s,:.\-]*", _re.I)
+
+
+def detect_cancel(text):
+    """True bila user membatalkan alur yang sedang berjalan."""
+    return bool(_RE_CANCEL.search(text or ""))
+
+
+def detect_resume(text):
+    """True bila user minta lanjutkan alur yang tertunda."""
+    return bool(_RE_RESUME.match((text or "").strip()))
+
+
+def detect_correction(text):
+    """Kembalikan payload koreksi (str) atau '' bila bukan koreksi.
+
+    'ralat PRN-02' -> 'PRN-02'. 'bukan ITLT-007, maksudnya ITLT-008'
+    -> 'ITLT-008' (ambil segmen terakhir setelah koma).
+    """
+    t = (text or "").strip()
+    m = _RE_CORRECT.match(t) or _RE_NEGATE.match(t)
+    if not m:
+        return ""
+    payload = t[m.end():].strip(" ,:.-")
+    if "," in payload:  # 'bukan X, maksudnya Y' -> pakai Y
+        payload = payload.rsplit(",", 1)[-1].strip()
+        payload = _RE_CORRECT.sub("", payload).strip(" ,:.-")
+        payload = _RE_NEGATE.sub("", payload).strip(" ,:.-")
+    return payload
+
+
+# Jawaban "semua/ya" atas pertanyaan konfirmasi (pindah dari ask_ai.py agar
+# terpusat dan teruji; pola regex dipertahankan identik).
+_RE_SHOW_ALL = _re.compile(
+    r"^\W*(tampilkan\s+semua|tampil\s+semua|lihat\s+semua|tunjukkan\s+semua|"
+    r"semua|semuanya|all|ya|iya|oke|ok|mau|boleh)(\W*)$", _re.I)
+
+
+def detect_show_all(text):
+    return bool(_RE_SHOW_ALL.match((text or "").strip()))
+
+
+# ============================================================================
+# F. FLOW_DEFS — definisi flow sebagai DATA
+# ============================================================================
+
+# Satu flow = {"slots": [...slot yang dikumpulkan...],
+#              "steps": [langkah berurutan],
+#              "on_complete": command yang dijalankan saat slot lengkap,
+#              "prompts": {step: template}}.
+# Runner generik di backend mengeksekusi definisi ini; menambah flow
+# read-only baru = tambah entri + test, tanpa sentuh runner.
+FLOW_DEFS = {
+    # Konfirmasi multi-kandidat: "tag spesifik atau semua?"
+    "confirm_asset": {
+        "description": "Confirm which candidate asset the user means",
+        "slots": ["action", "ids", "label"],
+        "steps": ["await_choice"],
+        "transitions": ["show_all", "show_one", "correction", "cancel",
+                        "new_topic", "resume"],
+    },
+    # Klarifikasi unit: kode polos -> tanya mau info apa
+    "unit_clarify": {
+        "description": "Ask which unit info the user wants",
+        "slots": ["ids", "label"],
+        "steps": ["await_info"],
+        "transitions": ["info_brand", "info_status", "info_assets",
+                        "info_history", "show_all", "correction", "cancel",
+                        "new_topic", "resume"],
+    },
+    # F: pencarian terpandu barang rusak (collect kategori -> eksekusi).
+    # Contoh flow baru yang 100% dari data: runner + command asset_search
+    # yang sudah ada, tanpa kode baru di backend.
+    "guided_broken": {
+        "description": "Guided search for broken assets by category",
+        "slots": ["category"],
+        "steps": ["await_category"],
+        "on_complete": "asset_search",
+        "fixed_slots": {"condition": "broken"},
+        "prompts": {
+            "await_category":
+                "Mau cari aset rusak kategori apa? 🙏<br/>Contoh: "
+                "<i>“laptop”</i>, <i>“printer”</i>, <i>“radio”</i>.",
+        },
+        "transitions": ["collect", "cancel", "new_topic", "resume"],
+    },
+}
+
+# Kata info unit -> transisi unit_clarify (dipakai runner + test).
+_UNIT_INFO_WORDS = {
+    "info_brand": ("merek", "merk", "brand", "model"),
+    "info_status": ("status", "kondisi"),
+    "info_assets": ("aset", "radio", "terpasang", "pasang"),
+    "info_history": ("riwayat", "sejarah", "history"),
+}
+
+
+def unit_info_transition(text):
+    """Petakan kata info unit -> nama transisi, atau ''."""
+    low = (text or "").lower()
+    for name, words in _UNIT_INFO_WORDS.items():
+        if any(w in low for w in words):
+            return name
+    return ""
+
+
+def flow_signal(flow_name, state, text, ref_hit=False, info=""):
+    """Petakan pesan user -> sinyal flow_next (murni, tanpa I/O).
+
+    ``ref_hit``: ref user cocok kandidat flow (dihitung backend dari DB).
+    ``info``: transisi info unit yang sudah dipetakan (atau '').
+    Cermin pemetaan di backend ``_consume_flow`` — keduanya harus sejalan.
+    """
+    t = (text or "").strip()
+    if detect_cancel(t):
+        return "cancel"
+    if detect_resume(t):
+        return "resume"
+    if detect_correction(t):
+        return "correction"
+    if detect_show_all(t) and len(t) <= 40:
+        return "show_all"
+    if flow_name == "confirm_asset":
+        return "show_one" if ref_hit else "new_topic"
+    if flow_name == "unit_clarify":
+        if info:
+            return info
+        return "show_one" if ref_hit else "new_topic"
+    if flow_name == "guided_broken":
+        return "collect"
+    return "new_topic"
+
+
+def flow_next(flow_name, state, signal, payload=None):
+    """Runner MURNI: (flow, state, sinyal) -> keputusan transisi.
+
+    ``state``: dict {step, slots}. ``signal`` salah satu dari:
+    show_all | show_one | info_* | collect | correction | cancel |
+    new_topic | resume.
+    ``payload``: data tambahan (mis. slot terkumpul / teks koreksi).
+
+    Kembalikan ``{action, step?, slots?}`` dengan action salah satu dari:
+    show_all | show_one | ask | execute | restart | close | push | resume.
+    Tanpa I/O dan tanpa Odoo — bisa diunit-test penuh.
+    """
+    flow = FLOW_DEFS.get(flow_name)
+    if not flow:
+        return {"action": "close"}
+    if signal == "cancel":
+        return {"action": "close"}
+    if signal == "new_topic":
+        return {"action": "push"}
+    if signal == "resume":
+        return {"action": "resume", "step": state.get("step"),
+                "slots": dict(state.get("slots") or {})}
+    if signal == "correction":
+        slots = dict(state.get("slots") or {})
+        if payload and isinstance(payload, dict):
+            slots.update(payload)
+        # koreksi mengulang step saat ini dengan slot baru
+        return {"action": "restart", "step": state.get("step"), "slots": slots,
+                "correction_text": payload if isinstance(payload, str) else ""}
+    if signal in ("show_all", "show_one") or signal.startswith("info_"):
+        return {"action": signal, "step": state.get("step"),
+                "slots": dict(state.get("slots") or {}),
+                "payload": payload}
+    if signal == "collect":
+        slots = dict(state.get("slots") or {})
+        if payload and isinstance(payload, dict):
+            slots.update(payload)
+        steps = flow.get("steps") or []
+        cur = state.get("step") or (steps[0] if steps else "")
+        # slot wajib flow ini sudah lengkap?
+        need = [s for s in (flow.get("slots") or []) if not slots.get(s)]
+        if not need:
+            return {"action": "execute", "slots": slots,
+                    "command": flow.get("on_complete"),
+                    "fixed_slots": dict(flow.get("fixed_slots") or {})}
+        try:
+            nxt = steps[steps.index(cur) + 1] if cur in steps else steps[0]
+        except IndexError:
+            nxt = steps[-1]
+        return {"action": "ask", "step": nxt, "slots": slots,
+                "prompt": (flow.get("prompts") or {}).get(nxt, "")}
+    return {"action": "close"}
+
+
+def dump_state(state):
+    """Serialisasi state flow ke JSON string (disimpan di sesi)."""
+    try:
+        return _json.dumps(state or {}, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return "{}"
+
+
+def load_state(raw):
+    """Balikan dump_state; rusak -> {} (flow dianggap tidak ada)."""
+    try:
+        data = _json.loads(raw or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+# ============================================================================
+# Self-test mandiri (aturan tetap: ukur, bukan latih)
+# ============================================================================
+
+_SELF_TEST_COMMANDS = [
+    # (intent, entities, constraints, valid?)
+    ("asset_detail", {"asset_refs": ["ITLT-007"]}, {}, True),
+    ("asset_detail", {"item": "kabel"}, {}, True),
+    ("asset_detail", {}, {}, False),
+    ("asset_user", {"employee_name": "budi"}, {}, True),
+    ("asset_user", {"employee_name": "x"}, {}, False),
+    ("asset_history", {"asset_refs": ["PRN-01"]}, {}, True),
+    ("unit_detail", {"asset_refs": ["DT-02"]}, {}, True),
+    ("unit_detail", {}, {}, False),
+    ("check_stock", {"item": "tinta"}, {"low_only": True}, True),
+    ("check_stock", {}, {}, True),
+    ("asset_search", {"category": "laptop", "state": "available"}, {}, True),
+    ("asset_search", {}, {}, False),
+    ("asset_search", {"state": "heng"}, {}, False),
+    ("request_status", {"form_status": "open", "period": "this_month"}, {}, True),
+    ("request_status", {"form_status": "ngambang"}, {}, False),
+    ("asset_top", {"top_kind": "moved"}, {}, True),
+    ("handover_list", {"period": "kemarin"}, {}, False),
+    ("greeting", {}, {}, False),  # bukan tool command
+    ("unknown", {}, {}, False),
+]
+
+_SELF_TEST_REPAIR = [
+    ("batal", "cancel"), ("batalkan ya", "cancel"), ("gajadi deh", "cancel"),
+    ("cancel", "cancel"), ("rekap aset", None), ("sudah fulfilled", None),
+    ("lanjut", "resume"), ("lanjutkan", "resume"), ("kembali", "resume"),
+    ("stok radio", None),
+    ("ralat PRN-02", "correction:PRN-02"),
+    ("maksud saya ITLT-008", "correction:ITLT-008"),
+    ("bukan ITLT-007, maksudnya ITLT-008", "correction:ITLT-008"),
+    ("semua", "show_all"), ("ya", "show_all"), ("tampilkan semua", "show_all"),
+    ("ITLT-007", None),
+]
+
+_SELF_TEST_FLOWS = [
+    # (flow, state, signal, payload, expected_action)
+    ("confirm_asset", {"step": "await_choice", "slots": {}},
+     "cancel", None, "close"),
+    ("confirm_asset", {"step": "await_choice", "slots": {}},
+     "show_all", None, "show_all"),
+    ("confirm_asset", {"step": "await_choice", "slots": {"action": "asset_user"}},
+     "correction", {"asset_refs": ["PRN-02"]}, "restart"),
+    ("confirm_asset", {"step": "await_choice", "slots": {}},
+     "new_topic", None, "push"),
+    ("unit_clarify", {"step": "await_info", "slots": {}},
+     "info_brand", None, "info_brand"),
+    ("guided_broken", {"step": "await_category", "slots": {}},
+     "collect", {"category": "laptop"}, "execute"),
+    ("guided_broken", {"step": "await_category", "slots": {}},
+     "collect", {}, "ask"),
+    ("nope", {}, "cancel", None, "close"),
+]
+
+_SELF_TEST_SIGNALS = [
+    # (flow, text, ref_hit, info, expected_signal)
+    ("confirm_asset", "semua", False, "", "show_all"),
+    ("confirm_asset", "batal", False, "", "cancel"),
+    ("confirm_asset", "ralat PRN-02", False, "", "correction"),
+    ("confirm_asset", "ITLT-007", True, "", "show_one"),
+    ("confirm_asset", "ITLT-007", False, "", "new_topic"),
+    ("confirm_asset", "stok tinta", False, "", "new_topic"),
+    ("unit_clarify", "mereknya apa", False, "info_brand", "info_brand"),
+    ("unit_clarify", "DT-02", True, "", "show_one"),
+    ("unit_clarify", "rekap aset", False, "", "new_topic"),
+    ("guided_broken", "laptop", False, "", "collect"),
+    ("guided_broken", "batal", False, "", "cancel"),
+]
+
+
+def run_self_test():
+    good, total, fails = 0, 0, []
+    for intent, ent, con, want in _SELF_TEST_COMMANDS:
+        total += 1
+        got = build_command(intent, ent, con)["valid"]
+        if got == want:
+            good += 1
+        else:
+            fails.append(("cmd", intent, want, got))
+    for text, want in _SELF_TEST_REPAIR:
+        total += 1
+        if want is None:
+            got = None if not (detect_cancel(text) or detect_resume(text)
+                               or detect_correction(text) or detect_show_all(text)) else "hit"
+        elif want == "cancel":
+            got = "cancel" if detect_cancel(text) else None
+        elif want == "resume":
+            got = "resume" if detect_resume(text) else None
+        elif want == "show_all":
+            got = "show_all" if detect_show_all(text) else None
+        else:
+            kind, payload = want.split(":", 1)
+            got = ("%s:%s" % (kind, detect_correction(text))
+                   if detect_correction(text) else None)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("repair", text, want, got))
+    for flow, state, sig, payload, want in _SELF_TEST_FLOWS:
+        total += 1
+        got = flow_next(flow, state, sig, payload).get("action")
+        if got == want:
+            good += 1
+        else:
+            fails.append(("flow", (flow, sig), want, got))
+    for flow, text, ref_hit, info, want in _SELF_TEST_SIGNALS:
+        total += 1
+        got = flow_signal(flow, {"step": "", "slots": {}}, text,
+                          ref_hit=ref_hit, info=info)
+        if got == want:
+            good += 1
+        else:
+            fails.append(("signal", (flow, text), want, got))
+    print("commands self-test: %d/%d benar (%.1f%%)"
+          % (good, total, good / total * 100 if total else 0))
+    for kind, case, want, got in fails:
+        print("  FAIL [%s] %r harap=%r dapat=%r" % (kind, case, want, got))
+    return good == total
+
+
+if __name__ == "__main__":
+    run_self_test()

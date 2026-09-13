@@ -25,6 +25,16 @@
                         Qwen 0.6B <b>only</b> polishes answer wording so it sounds less robotic.
                         The chatbot works fine even without Qwen.
                     </div>
+                    <group string="Persona">
+                        <field name="persona" widget="radio"
+                               options="{'horizontal': true}"/>
+                        <field name="persona_name"
+                               placeholder="Empty = persona default (Alya/Raka)"/>
+                    </group>
+                    <group string="Persona Traits">
+                        <field name="persona_summary" readonly="1" nolabel="1"
+                               colspan="2"/>
+                    </group>
                     <group string="Auto Dictionary (from Database)">
                         <field name="dict_count" readonly="1"/>
                         <field name="dict_last_generate" readonly="1"/>
@@ -72,6 +82,7 @@
         <field name="arch" type="xml">
             <list string="Ask AI Setting">
                 <field name="name"/>
+                <field name="persona"/>
                 <field name="dict_count"/>
                 <field name="dict_last_generate"/>
                 <field name="rephrase_enabled" widget="boolean_toggle"/>

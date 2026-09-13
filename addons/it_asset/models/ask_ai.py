@@ -40,6 +40,8 @@ import urllib.request as _urlrequest
 from odoo import api, fields, models
 
 from . import ask_ai_nlu as nlu
+from . import ask_ai_commands as cmds
+from . import ask_ai_persona as persona
 
 _logger = logging.getLogger(__name__)
 
@@ -272,9 +274,9 @@ class ITAskAI(models.AbstractModel):
         ``{html, intent, confidence, method, action?, session_id}``.
         """
         try:
-            consumed = self._consume_pending(question, session_id)
-        except Exception as exc:  # pending tak boleh merusak jawaban
-            _logger.warning("Ask AI pending gagal dibaca: %s", exc)
+            consumed = self._consume_flow(question, session_id)
+        except Exception as exc:  # flow tak boleh merusak jawaban
+            _logger.warning("Ask AI flow gagal dibaca: %s", exc)
             consumed = None
         out = consumed if consumed is not None else self._answer_inner(
             question, session_id=session_id)
@@ -284,7 +286,9 @@ class ITAskAI(models.AbstractModel):
         except Exception as exc:  # riwayat tak boleh merusak jawaban
             _logger.warning("Ask AI history gagal disimpan: %s", exc)
             out["session_id"] = session_id
-        for key in ("pending_action", "pending_ids", "pending_label"):
+        for key in ("pending_action", "pending_ids", "pending_label",
+                    "flow_name", "flow_step", "flow_slots", "flow_stack",
+                    "flow_clear"):
             out.pop(key, None)
         return out
 
@@ -296,13 +300,31 @@ class ITAskAI(models.AbstractModel):
         "Lihat di modul" di frontend.
 
         Urutan ringan (hemat token & CPU):
-          kamus lokal (typo-tolerant) -> rule/override -> Qwen decide
-          (opsional) -> tool ORM -> Qwen rephrase (opsional, fakta tetap).
+          persona (strip nama + bahasa) -> kamus lokal (typo-tolerant) ->
+          rule/override -> Qwen decide (opsional) -> tool ORM ->
+          Qwen rephrase (opsional, gaya persona, fakta tetap).
         """
         text = (question or "").strip()
         if not text:
             return self._out(text, nlu.INTENT_UNKNOWN, 0.0, "empty",
                              "Tulis dulu pertanyaannya 🙂", "clarification")
+
+        # -1) Persona: bahasa user + kupas panggilan nama ("Alya, stok..?").
+        try:
+            pkey, pname = self._persona_ctx()
+        except Exception:
+            pkey, pname = "alya", "Alya"
+        lang = persona.detect_language(text)
+        stripped = persona.strip_persona_name(text, [pname, "Alya", "Raka"])
+        if stripped != text:
+            text = stripped
+        if not text:
+            # user hanya memanggil nama -> sapa sebagai greeting
+            return self._out(question or "", nlu.INTENT_GREETING, 0.95,
+                             "persona_name",
+                             self._social_reply(nlu.INTENT_GREETING, "", lang,
+                                                pkey, pname),
+                             "deterministic_answer")
 
         # 0) Kamus lokal: koreksi typo ringan tanpa token/API/Qwen.
         #    Mis. "stokc radiio ht" -> tahu maksud "stok radio ht".
@@ -342,9 +364,12 @@ class ITAskAI(models.AbstractModel):
         method = classification["method"]
 
         # Fast-path sosial: jawaban canned bervariasi, tanpa tool (cermin WACS).
+        # Persona: varian English bila user berbahasa Inggris; identity
+        # selalu memakai nama persona aktif.
         if method == "rule" and intent in _SOCIAL_INTENTS:
             return self._out(text, intent, conf, "deterministic_answer",
-                             _canned_social(intent, text), "deterministic_answer")
+                             self._social_reply(intent, text, lang, pkey, pname),
+                             "deterministic_answer")
 
         # Fast-path OOD: tolak bervariasi, tanpa tool (cermin WACS).
         if method == "ood_rule":
@@ -374,6 +399,31 @@ class ITAskAI(models.AbstractModel):
             ctx_update["ask_ai_ctx"] = sctx
         runner = self.with_context(**ctx_update) if ctx_update else self
 
+        # E: jejak grounding untuk audit/kurasi (kamus apa yang dipakai).
+        grounding = {"dict_matches": dict_hint.get("matches", {})}
+
+        # F: pencarian rusak terpandu — item tanpa kategori ("kabel rusak"
+        # tanpa kategori jelas) ditanya kategorinya dulu via flow data-driven,
+        # bukan daftar semua aset rusak. "aset rusak" polos tetap langsung.
+        if intent == nlu.INTENT_ASSET_SEARCH:
+            try:
+                pre_entities = runner._merged_entities(text)[0]
+            except Exception:
+                pre_entities = {}
+            if (pre_entities.get("condition") == "broken"
+                    and not pre_entities.get("category")
+                    and not pre_entities.get("asset_refs")
+                    and (pre_entities.get("item") or "")
+                    and len(pre_entities.get("item") or "") >= 3):
+                prompt = cmds.FLOW_DEFS["guided_broken"]["prompts"]["await_category"]
+                out = self._out(text, intent, conf, "flow_start", prompt,
+                                 "guided_broken",
+                                 suggestions=["laptop", "printer", "radio", "cctv"])
+                out.update(self._flow_keys("guided_broken", "await_category", {}))
+                out["grounding"] = grounding
+                self._record_feedback(text, out)
+                return out
+
         route = nlu.route(classification)
         if route == nlu.ROUTE_HANDOVER:
             entities, _constraints = self._merged_entities(text)
@@ -399,6 +449,32 @@ class ITAskAI(models.AbstractModel):
                             suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
+
+        # A+C: bangun command tervalidasi + validasi slot ke DB/kamus
+        # SEBELUM tool jalan (pola CALM: perintah tak-valid tak dieksekusi).
+        entities, constraints = runner._merged_entities(text)
+        cmd = cmds.build_command(intent, entities, constraints)
+        grounding.update({"command": cmd["command"], "slots": cmd["slots"],
+                          "slot_errors": cmd["errors"]})
+        if not cmd["valid"]:
+            out = self._out(text, intent, conf, "command_repair",
+                             nlu.clarification_reply(intent, entities)
+                             + "<div class='ai-sub'>Detail: %s.</div>"
+                             % _esc("; ".join(cmd["errors"])),
+                             "clarification",
+                             suggestions=self._suggest_for(intent))
+            out["grounding"] = grounding
+            _logger.info("Ask AI grounding intent=%s cmd=%s valid=False errors=%s",
+                         intent, cmd["command"], cmd["errors"])
+            self._record_feedback(text, out)
+            return out
+        slot_out = runner._validate_slots_db(text, intent, entities)
+        if slot_out is not None:
+            slot_out["grounding"] = grounding
+            _logger.info("Ask AI grounding intent=%s cmd=%s slot_repair",
+                         intent, cmd["command"])
+            self._record_feedback(text, slot_out)
+            return slot_out
 
         # Eksekusi tool sesuai intent (cermin routeDecision WACS).
         handler = self._TOOLS.get(intent)
@@ -433,6 +509,7 @@ class ITAskAI(models.AbstractModel):
                             nlu.data_miss_reply(text)
                             + (result.get("hint") or ""), "data_miss",
                             suggestions=self._suggest_for(intent))
+            out["grounding"] = grounding
             self._record_feedback(text, out)
             return out
 
@@ -440,9 +517,13 @@ class ITAskAI(models.AbstractModel):
                         result.get("tool", intent),
                         action=result.get("action"),
                         suggestions=result.get("suggestions"))
+        out["grounding"] = grounding
+        _logger.info("Ask AI grounding intent=%s cmd=%s slots=%s dict=%s",
+                     intent, cmd["command"], sorted(cmd["slots"]),
+                     sorted((dict_hint.get("matches") or {})))
         # Rephrase Qwen (opsional, default mati): poles bahasa tanpa ubah fakta.
         try:
-            polished = self._maybe_rephrase(out.get("html") or "", intent)
+            polished = self._maybe_rephrase(out.get("html") or "", intent, lang)
             if polished:
                 out["html"] = polished
                 out["rephrased"] = True
@@ -541,11 +622,12 @@ class ITAskAI(models.AbstractModel):
     # ------------------------------------------------------------------
     # Rephrase Qwen 0.6B — poles bahasa, FAKTA TIDAK BOLEH BERUBAH
     # ------------------------------------------------------------------
-    def _maybe_rephrase(self, html_answer, intent):
+    def _maybe_rephrase(self, html_answer, intent, lang="id"):
         """Poles jawaban HTML dengan Qwen bila rephrase_enabled=True.
 
         Aturan keras: hanya gaya bahasa; angka/nama/tag/kode/SN, struktur
         HTML dan tabel WAJIB dipertahankan. Gagal/timeout -> kembalikan "".
+        Gaya mengikuti persona aktif (Alya/Raka) + bahasa user.
         """
         try:
             Param = self.env["ir.config_parameter"].sudo()
@@ -576,6 +658,11 @@ class ITAskAI(models.AbstractModel):
             "jangan ubah angka, nama, kode/tag aset, SN, merek, status, tabel, "
             "dan tag HTML apa pun. Jangan tambah fakta baru. Kembalikan HTML "
             "lengkap yang sudah dipoles, tanpa penjelasan tambahan.")
+        try:
+            pkey, pname = self._persona_ctx()
+        except Exception:
+            pkey, pname = "alya", "Alya"
+        system += " " + persona.rephrase_persona_block(pkey, pname, lang)
         payload = {
             "temperature": max(0.0, min(1.0, temperature)),
             "max_tokens": max(64, min(1024, max_tokens)),
@@ -708,6 +795,31 @@ class ITAskAI(models.AbstractModel):
                 "llm_constraints": decision["constraints"]}
 
     # ------------------------------------------------------------------
+    # persona (Alya / Raka) — nama & bahasa dari Setting
+    # ------------------------------------------------------------------
+    def _persona_ctx(self):
+        """(persona_key, display_name) dari System Parameter. Tak pernah gagal."""
+        try:
+            Param = self.env["ir.config_parameter"].sudo()
+            key = (Param.get_param("it_asset.ask_ai.persona", "alya") or "alya")
+            configured = Param.get_param("it_asset.ask_ai.persona_name", "") or ""
+        except Exception:
+            key, configured = "alya", ""
+        key = persona.normalize_persona((key or "").strip().lower())
+        return key, persona.display_name(key, configured)
+
+    @staticmethod
+    def _social_reply(intent, text, lang, pkey, pname):
+        """Jawaban sosial sadar persona: varian EN bila lang=='en',
+        identity selalu memakai nama persona aktif."""
+        if lang == "en" and intent in persona.SOCIAL_EN:
+            tpl = persona.SOCIAL_EN[intent]
+            return tpl.format(name=_esc(pname)) if "{name}" in tpl else tpl
+        if intent == nlu.INTENT_IDENTITY:
+            return persona.identity_text(pkey, pname, lang)
+        return _canned_social(intent, text)
+
+    # ------------------------------------------------------------------
     # perakitan output + feedback (cermin CaptureReasonFor WACS)
     # ------------------------------------------------------------------
     def _merged_entities(self, text):
@@ -745,6 +857,89 @@ class ITAskAI(models.AbstractModel):
         if (llm.get("constraints") or {}).get("low_only"):
             constraints["low_only"] = True
         return entities, constraints
+
+    def _category_known(self, cat):
+        """True bila kategori dikenal gazetteer/alias/kamus.
+
+        Kamus kosong -> True (perilaku lama) agar kategori kustom di DB
+        tetap jalan sebelum Generate pertama.
+        """
+        low = (cat or "").strip().lower()
+        if not low:
+            return True
+        try:
+            if low in [c.lower() for c in nlu.CATEGORY_GAZETTEER]:
+                return True
+        except Exception:
+            pass
+        try:
+            if nlu.resolve_fleet_alias(cat):
+                return True
+        except Exception:
+            pass
+        try:
+            Term = self.env["it_asset.ask_ai.term"]
+            if not Term.search_count([]):
+                return True
+            return bool(Term.search(
+                ["|", ("term", "ilike", cat), ("normalized", "ilike", cat)],
+                limit=1))
+        except Exception:
+            return True
+
+    def _kamus_suggest(self, cat, limit=3):
+        """Saran istilah kamus mirip kategori tak dikenal (max `limit`)."""
+        words = [w for w in (cat or "").split() if len(w) > 2]
+        if not words:
+            return []
+        try:
+            rows = self.env["it_asset.ask_ai.term"].search_read(
+                [("term", "ilike", words[0])], ["term"], limit=limit)
+        except Exception:
+            rows = []
+        return [r["term"] for r in rows if r.get("term")][:limit]
+
+    def _validate_slots_db(self, text, intent, entities):
+        """Level C (pola CALM): slot ada tapi tak cocok isi DB/kamus.
+
+        Kembalikan out tanya-balik spesifik, atau None bila lolos.
+        Hanya untuk intent berbasis ref/kategori; intent lain jalan seperti
+        biasa agar perilaku lama tak berubah.
+        """
+        refs = entities.get("asset_refs") or []
+        if intent in (nlu.INTENT_ASSET_DETAIL, nlu.INTENT_ASSET_USER,
+                      nlu.INTENT_ASSET_HISTORY) and refs:
+            kw = refs[0]
+            try:
+                found = self.env["it_asset.asset"].search_count(
+                    self._asset_domain_for(kw)) or self.env["it_asset.unit"].search_count(
+                        self._unit_domain_for(kw))
+            except Exception:
+                found = 1
+            if not found:
+                return self._out(
+                    text, intent, 0.0, "slot_repair",
+                    "Kode <b>%s</b> tidak ditemukan di data aset maupun unit. 🔍"
+                    "<br/>Periksa kembali kodenya (mis. <i>ITLT-002</i>, "
+                    "<i>PRN-01</i>, <i>DT-02</i>), atau ketik "
+                    "<i>“rekap aset”</i>." % _esc(kw),
+                    "clarification",
+                    suggestions=["rekap aset", "stok radio ht", "bantuan"])
+        if intent in (nlu.INTENT_ASSET_SEARCH, nlu.INTENT_CHECK_STOCK):
+            cat = (entities.get("category") or "").strip()
+            if cat and not self._category_known(cat):
+                sug = self._kamus_suggest(cat)
+                extra = ("<br/>Mungkin maksud Anda: %s"
+                         % ", ".join("<i>%s</i>" % _esc(s) for s in sug)) if sug else ""
+                return self._out(
+                    text, intent, 0.0, "slot_repair",
+                    "Kategori <b>%s</b> belum saya kenal. 🤔%s"
+                    "<br/>Coba kategori umum seperti <i>laptop</i>, "
+                    "<i>printer</i>, <i>radio</i>, atau ketik "
+                    "<i>“rekap aset”</i>." % (_esc(cat), extra),
+                    "clarification",
+                    suggestions=(sug[:3] if sug else []) + ["rekap aset", "bantuan"])
+        return None
 
     def _out(self, text, intent, conf, method, html, tool,
              action=None, handoff=False, suggestions=None):
@@ -876,6 +1071,49 @@ class ITAskAI(models.AbstractModel):
             session.write({"pending_action": False,
                            "pending_ids": False,
                            "pending_label": False})
+        # Flow engine: tulis / bersihkan state flow eksplisit. Stack
+        # dipertahankan antar-jawaban biasa (untuk "lanjut/kembali"),
+        # hanya flow_clear (batal/selesai) yang menghapusnya.
+        if out.get("flow_clear"):
+            session.write({"flow_name": False, "flow_step": False,
+                           "flow_slots": False, "flow_stack": False})
+        else:
+            if "flow_stack" in out:
+                try:
+                    session.write({"flow_stack": out["flow_stack"] or []})
+                except Exception as exc:
+                    _logger.warning("Ask AI flow-stack gagal disimpan: %s", exc)
+            if out.get("flow_name"):
+                try:
+                    session.write({
+                        "flow_name": (out["flow_name"] or "")[:40],
+                        "flow_step": (out.get("flow_step") or "")[:40],
+                        "flow_slots": out.get("flow_slots") or {},
+                    })
+                except Exception as exc:
+                    _logger.warning("Ask AI flow gagal disimpan: %s", exc)
+            elif pend_action in _PENDING_ACTIONS and pend_ids:
+                # bridge: tool masih mengembalikan pending_* lama ->
+                # turunkan flow eksplisit agar pesan berikut lewat runner.
+                fname, fstep = self._flow_from_pending(pend_action)
+                if fname:
+                    try:
+                        session.write({
+                            "flow_name": fname, "flow_step": fstep,
+                            "flow_slots": {
+                                "action": pend_action,
+                                "ids": [int(i) for i in (out.get("pending_ids") or [])]
+                                if isinstance(out.get("pending_ids"), list)
+                                else self._pending_id_list(
+                                    ",".join(str(i) for i in (out.get("pending_ids") or []))),
+                                "label": (out.get("pending_label") or "")[:80],
+                            },
+                        })
+                    except Exception as exc:
+                        _logger.warning("Ask AI flow-bridge gagal: %s", exc)
+            elif session.flow_name:
+                session.write({"flow_name": False, "flow_step": False,
+                               "flow_slots": False})
         # Ingatan topik: simpan kategori/domain terakhir (untuk pesan berikut).
         try:
             cur, _c = nlu.extract_entities(text)
@@ -983,6 +1221,257 @@ class ITAskAI(models.AbstractModel):
             if part.isdigit() and int(part) not in ids:
                 ids.append(int(part))
         return ids[:_PENDING_CAP]
+
+    # ------------------------------------------------------------------
+    # flow engine (pola CALM): repair dulu, selebihnya delegasi ke pending
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _flow_from_pending(pending_action):
+        if pending_action == nlu.INTENT_UNIT_DETAIL:
+            return "unit_clarify", "await_info"
+        if pending_action in _PENDING_ACTIONS:
+            return "confirm_asset", "await_choice"
+        return "", ""
+
+    def _flow_state_from_session(self, session):
+        """(flow_name, step, slots, stack) dari sesi (termasuk bridge legacy)."""
+        flow_name = session.flow_name or ""
+        step = session.flow_step or ""
+        raw_slots = session.flow_slots
+        slots = dict(raw_slots) if isinstance(raw_slots, dict) else {}
+        raw_stack = session.flow_stack
+        stack = list(raw_stack) if isinstance(raw_stack, list) else []
+        if not flow_name and session.pending_action in _PENDING_ACTIONS:
+            flow_name, step = self._flow_from_pending(session.pending_action)
+            slots = {"action": session.pending_action,
+                     "ids": self._pending_id_list(session.pending_ids),
+                     "label": session.pending_label or ""}
+        return flow_name, step, slots, stack
+
+    @staticmethod
+    def _flow_keys(flow_name, step, slots, stack=None):
+        out = {"flow_name": flow_name, "flow_step": step,
+               "flow_slots": slots or {}}
+        if stack is not None:
+            out["flow_stack"] = list(stack)
+        return out
+
+    def _match_candidate_ref(self, refs, ids):
+        """True bila salah satu ref cocok kandidat ids (untuk confirm_asset)."""
+        try:
+            assets = self.env["it_asset.asset"].search_read(
+                [("id", "in", ids)], ["asset_tag", "name", "lot_id"], limit=_PENDING_CAP)
+        except Exception:
+            return False
+        blobs = []
+        for a in assets:
+            lot = a.get("lot_id")
+            lot_name = lot[1] if isinstance(lot, (list, tuple)) else ""
+            blobs.append(" ".join([
+                nlu._stripped_ref(a.get("asset_tag") or ""),
+                nlu._stripped_ref(a.get("name") or ""),
+                nlu._stripped_ref(lot_name or "")]))
+        for r in refs or []:
+            key = nlu._stripped_ref(r)
+            if key and any(key in b for b in blobs):
+                return True
+        return False
+
+    def _push_flow(self, session, flow_name, step, slots, stack):
+        """Simpan flow aktif ke stack (cap 3), bersihkan flow kini. None = lanjut pipeline."""
+        entry = {"flow_name": flow_name, "step": step, "slots": slots or {}}
+        new_stack = ([entry] + list(stack or []))[:3]
+        try:
+            session.write({"flow_name": False, "flow_step": False,
+                           "flow_slots": False, "pending_action": False,
+                           "pending_ids": False, "pending_label": False,
+                           "flow_stack": new_stack})
+        except Exception as exc:
+            _logger.warning("Ask AI flow-push gagal: %s", exc)
+        return None
+
+    def _render_flow_question(self, text, flow_name, slots):
+        """Gambar ulang pertanyaan flow (untuk resume). None bila tak bisa."""
+        if flow_name == "confirm_asset":
+            ids = slots.get("ids") or []
+            try:
+                assets = self.env["it_asset.asset"].search_read(
+                    [("id", "in", ids)], _ASSET_FIELDS, order="id desc")
+            except Exception:
+                assets = []
+            if not assets:
+                return None
+            action = slots.get("action") or nlu.INTENT_ASSET_DETAIL
+            label = slots.get("label") or ""
+            out = self._out(text, action, 1.0, "flow_resume",
+                             self._confirm_html(action, label, assets[:8], len(assets)),
+                             action,
+                             suggestions=self._suggest_tags(assets, ["semua"]))
+            out.update(self._flow_keys(flow_name, "await_choice", slots))
+            return out
+        if flow_name == "unit_clarify":
+            ids = slots.get("ids") or []
+            try:
+                units = self.env["it_asset.unit"].search_read(
+                    [("id", "in", ids)], _UNIT_FIELDS, order="name asc")
+            except Exception:
+                units = []
+            if not units:
+                return None
+            unit = units[0]
+            res = self._unit_clarify(unit)
+            out = self._out(text, nlu.INTENT_UNIT_DETAIL, 1.0, "flow_resume",
+                             res["html"], "unit_detail",
+                             suggestions=res.get("suggestions"))
+            out.update(self._flow_keys(flow_name, "await_info",
+                                        {"ids": [u["id"] for u in units],
+                                         "label": unit.get("name") or ""}))
+            return out
+        if flow_name == "guided_broken":
+            prompt = cmds.FLOW_DEFS["guided_broken"]["prompts"]["await_category"]
+            out = self._out(text, nlu.INTENT_ASSET_SEARCH, 1.0, "flow_resume",
+                             prompt, "guided_broken",
+                             suggestions=["laptop", "printer", "radio", "cctv"])
+            out.update(self._flow_keys(flow_name, "await_category", slots))
+            return out
+        return None
+
+    def _consume_flow(self, question, session_id):
+        """Runner flow: repair (batal/ralat/lanjut) + new-topic push,
+        selebihnya delegasi ke _consume_pending lama. None = bukan lanjutan."""
+        session = self._pending_session(session_id)
+        if not session:
+            return None
+        text = (question or "").strip()
+        if not text:
+            return None
+        flow_name, step, slots, stack = self._flow_state_from_session(session)
+        if not flow_name:
+            if stack and cmds.detect_resume(text):
+                top = stack[-1]
+                rendered = self._render_flow_question(
+                    text, top.get("flow_name", ""),
+                    top.get("slots") or {})
+                if rendered is not None:
+                    rendered["flow_stack"] = list(stack[:-1])
+                    return rendered
+            return None
+        # 1) repair: batal -> tutup flow (+ stack)
+        if cmds.detect_cancel(text):
+            out = self._out(
+                text, nlu.INTENT_UNKNOWN, 0.0, "flow_cancel",
+                "Baik, saya batalkan. 🙂 Ada lagi yang bisa saya bantu dari data IT?",
+                "flow_close",
+                suggestions=["rekap aset", "stok radio ht", "bantuan"])
+            out["flow_clear"] = True
+            return out
+        # 2) repair: lanjutkan -> gambar ulang pertanyaan flow ini
+        if cmds.detect_resume(text):
+            rendered = self._render_flow_question(text, flow_name, slots)
+            if rendered is not None:
+                rendered["flow_stack"] = list(stack)
+                return rendered
+            return None
+        # 3) guided_broken: kumpulkan kategori
+        if flow_name == "guided_broken":
+            return self._consume_guided_broken(text, slots)
+        # 4) repair: koreksi -> coba sebagai jawaban flow
+        correction = cmds.detect_correction(text)
+        if correction:
+            delegated = self._consume_pending(correction, session_id)
+            if delegated is not None:
+                delegated["method"] = "flow_correct"
+                return delegated
+            return self._push_flow(session, flow_name, step, slots, stack)
+        # 5-6) petakan ke sinyal murni (sama dengan yang diuji di tests),
+        # lalu putuskan: jawab flow -> delegasi pending lama; topik baru -> push.
+        info = cmds.unit_info_transition(text) if flow_name == "unit_clarify" else ""
+        ref_hit = False
+        if flow_name in ("confirm_asset", "unit_clarify"):
+            try:
+                refs = nlu.extract_entities(text)[0].get("asset_refs") or []
+            except Exception:
+                refs = []
+            if refs:
+                if flow_name == "confirm_asset":
+                    ref_hit = self._match_candidate_ref(refs, slots.get("ids") or [])
+                else:
+                    ref_hit = self._match_unit_ref(refs, slots.get("ids") or [])
+        signal = cmds.flow_signal(flow_name, {"step": step, "slots": slots},
+                                  text, ref_hit=ref_hit, info=info)
+        if signal in ("show_all", "show_one", "info_brand", "info_status",
+                      "info_assets", "info_history"):
+            return self._consume_pending(text, session_id)
+        if signal == "new_topic":
+            return self._push_flow(session, flow_name, step, slots, stack)
+        return None
+
+    def _match_unit_ref(self, refs, ids):
+        """True bila salah satu ref cocok nama unit kandidat."""
+        try:
+            units = self.env["it_asset.unit"].search_read(
+                [("id", "in", ids)], ["name"], limit=_PENDING_CAP)
+        except Exception:
+            return False
+        variants = {nlu._stripped_ref(u.get("name") or "") for u in units}
+        variants.discard("")
+        for r in refs or []:
+            if nlu._stripped_ref(r) in variants:
+                return True
+        return False
+
+    def _consume_guided_broken(self, text, slots):
+        """Kumpulkan kategori untuk guided_broken, lalu eksekusi asset_search."""
+        correction = cmds.detect_correction(text)
+        if correction:
+            text = correction
+        try:
+            eff = self._dict_assist(text).get("effective_text") or text
+        except Exception:
+            eff = text
+        try:
+            entities = nlu.extract_entities(eff)[0]
+        except Exception:
+            entities = {}
+        cat = (entities.get("category") or nlu.resolve_fleet_alias(eff)
+               or entities.get("item") or "").strip()
+        if not cat or len(cat) < 3:
+            prompt = cmds.FLOW_DEFS["guided_broken"]["prompts"]["await_category"]
+            out = self._out(text, nlu.INTENT_ASSET_SEARCH, 0.0, "flow_ask",
+                             "Saya belum menangkap kategorinya. 🙂<br/>" + prompt,
+                             "clarification",
+                             suggestions=["laptop", "printer", "radio", "cctv"])
+            out.update(self._flow_keys("guided_broken", "await_category", slots or {}))
+            return out
+        handler = self._TOOLS.get(nlu.INTENT_ASSET_SEARCH)
+        try:
+            result = handler(self, "rusak " + cat)
+        except Exception as exc:
+            _logger.warning("Ask AI guided-broken gagal: %s", exc)
+            result = None
+        if not isinstance(result, dict) or result.get("miss"):
+            out = self._out(text, nlu.INTENT_ASSET_SEARCH, 0.95, "flow_execute",
+                             nlu.data_miss_reply(text) + ((result or {}).get("hint") or ""),
+                             "data_miss",
+                             suggestions=["rekap aset", "aset rusak", "bantuan"])
+            out["flow_clear"] = True
+            return out
+        out = self._out(text, nlu.INTENT_ASSET_SEARCH, 0.95, "flow_execute",
+                         result["html"], result.get("tool", "asset_search"),
+                         action=result.get("action"),
+                         suggestions=result.get("suggestions"))
+        try:
+            polished = self._maybe_rephrase(out.get("html") or "",
+                                            nlu.INTENT_ASSET_SEARCH,
+                                            persona.detect_language(text))
+            if polished:
+                out["html"] = polished
+                out["rephrased"] = True
+        except Exception as exc:
+            _logger.warning("Ask AI rephrase gagal, pakai jawaban asli: %s", exc)
+        out["flow_clear"] = True
+        out["grounding"] = {"flow": "guided_broken", "slots": {"category": cat}}
+        return out
 
     def _consume_pending(self, question, session_id):
         """Selesaikan pertanyaan konfirmasi tertunda. None = bukan lanjutan."""
@@ -2588,11 +3077,24 @@ class ITAskAI(models.AbstractModel):
 
     def _tool_identity(self, _text):
         """Jaring pengaman: identitas via jalur NLU/LLM (bukan fast-path rule)."""
-        return {"html": _canned_social(nlu.INTENT_IDENTITY, _text),
+        try:
+            pkey, pname = self._persona_ctx()
+        except Exception:
+            pkey, pname = "alya", "Alya"
+        lang = persona.detect_language(_text)
+        return {"html": self._social_reply(nlu.INTENT_IDENTITY, _text, lang,
+                                           pkey, pname),
                 "tool": "identity"}
 
     def _tool_creator(self, _text):
         """Jaring pengaman: pembuat via jalur NLU/LLM (bukan fast-path rule)."""
+        try:
+            pkey, pname = self._persona_ctx()
+        except Exception:
+            pkey, pname = "alya", "Alya"
+        lang = persona.detect_language(_text)
+        if lang == "en":
+            return {"html": persona.SOCIAL_EN["creator"], "tool": "creator"}
         return {"html": _canned_social(nlu.INTENT_CREATOR, _text),
                 "tool": "creator"}
 

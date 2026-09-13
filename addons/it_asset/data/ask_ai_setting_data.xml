@@ -13,6 +13,8 @@
             <field name="rephrase_max_tokens">150</field>
             <field name="rephrase_temperature">0.7</field>
             <field name="history_retention_days">10</field>
+            <field name="persona">alya</field>
+            <field name="persona_name">Alya</field>
         </record>
     </data>
 </odoo>
