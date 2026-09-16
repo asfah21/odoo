@@ -214,6 +214,8 @@ _SLANG_TABLE = {
     "daptor": "adaptor", "conector": "konektor", "connector": "konektor",
     "antene": "antena", "breket": "bracket", "bracketnya": "bracket nya",
     "sikring": "sekring", "solasi": "isolasi", "koaksial": "coaxial",
+    "konverter": "converter", "konventer": "converter", "convert": "converter",
+    "conventer": "converter",
     # ejaan aset IT
     "lptop": "laptop", "leptop": "laptop", "print": "printer",
     "pritner": "printer", "printernya": "printer nya",
@@ -691,6 +693,8 @@ _RULES = [
     (re.compile(r"\b(dasar|dasar kamu)\b.{0,15}\b(bodoh|bego|goblok|tolol|jelek|payah)\b", re.I), INTENT_INSULT, 0.94),
     # --- rekap ---
     (re.compile(r"\b(rekap|ringkas(an)?|total\s+aset|jumlah\s+aset|statistik|dashboard)\b", re.I), INTENT_RECAP, 0.94),
+    # --- stok generik ("stok aset" polos -> rekap, bukan cek consumable kosong) ---
+    (re.compile(r"^\W*(stok|stock)\s+(aset|asset|barang|inventaris)[\s?.!]*$", re.I), INTENT_RECAP, 0.94),
     # --- stok ---
     (re.compile(r"\b(stok|stock|sisa|tersisa|menipis|habis|restock|kekurangan\s+stok|minimum|consumable)\b", re.I), INTENT_CHECK_STOCK, 0.94),
     # --- superlatif (sebelum riwayat agar "riwayat paling banyak pindah"
@@ -747,7 +751,7 @@ _RULES = [
     # di bawah itu query seperti "berapa kabel"/"konektor?" SELAMANYA hanya
     # klarifikasi karena rule mem-bypass NLU. Tool tetap jujur miss bila
     # barangnya memang tak ada di DB.
-    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc|toner|tinta|kertas)\b", re.I), INTENT_CHECK_STOCK, 0.91),
+    (re.compile(r"\b(konektor|adaptor|adapter|converter|konverter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc|toner|tinta|kertas)\b", re.I), INTENT_CHECK_STOCK, 0.91),
     # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / lv / wt / dozer / grader / fleet / unit) ---
     (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
@@ -1214,8 +1218,8 @@ _TAG_PREFIX_KIND = {
 }
 
 STATE_KEYWORDS = {
-    "available": ["tersedia", "available", "ready", "siap pakai", "siap dipakai",
-                  "belum dipakai", "nganggur", "kosong"],
+    "available": ["tersedia", "available", "ready", "siap", "siap pakai",
+                  "siap dipakai", "belum dipakai", "nganggur", "kosong"],
     "in_use": ["dipakai", "digunakan", "terpakai", "in use", "sedang dipakai",
                "ter-assign"],
     "maintenance": ["maintenance", "out of service", "servis", "perbaikan",
@@ -1286,6 +1290,9 @@ _ITEM_STOPWORDS = {
     "tunjukkan", "tunjukin", "kasih", "kasi", "aset", "asset",
     # kata constraints jangan jadi keyword barang (kalau ikut, search miss)
     "menipis", "habis", "restock", "minimum", "rendah", "kosong", "dibawah",
+    # kata status/state jangan jadi keyword barang ("laptop ready?" -> "laptop")
+    "ready", "available", "avail", "siap", "dipakai", "digunakan",
+    "terpakai", "belum",
     # kata lokasi jangan jadi keyword barang ("yang Wolo?" -> item kosong)
     "wolo", "lokasi", "warehouse", "site", "gdg",
 }
@@ -1533,6 +1540,8 @@ _MEANINGFUL_SIGNALS = (
         "handover", "bast", "fstb", "damage", "rusak", "maintenance",
         "servis", "terpasang", "pengguna", "pakai", "laporan", "pengajuan",
         "spesifikasi", "spek", "kategori", "tipe", "serial", "tag",
+        "ready", "available", "tersedia", "siap",
+        "converter", "konverter", "kabel", "konektor", "adaptor", "adapter",
     }
 )
 

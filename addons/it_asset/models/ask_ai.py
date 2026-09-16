@@ -2447,18 +2447,60 @@ class ITAskAI(models.AbstractModel):
                broken, degraded, good, low))
         return {"html": html, "tool": "recap"}
 
+    # Varian ejaan ID<->EN: "konverter" vs "converter", "adaptor" vs
+    # "adapter", "konektor" vs "connector". ilike tak toleran beda huruf
+    # depan (k vs c), jadi kedua ejaan dicoba (OR) agar tak miss.
+    _SPELLING_VARIANTS = {
+        "konverter": "converter", "converter": "konverter",
+        "adaptor": "adapter", "adapter": "adaptor",
+        "konektor": "connector", "connector": "konektor",
+    }
+
+    @classmethod
+    def _kw_variants(cls, kw):
+        """Kembalikan [kw, ...varian ejaan] (dedup, max 3)."""
+        base = (kw or "").strip()
+        if not base:
+            return []
+        outs = [base]
+        low = base.lower()
+        for src, dst in cls._SPELLING_VARIANTS.items():
+            if src in low and dst not in low:
+                outs.append(base[:low.index(src)] + dst
+                            + base[low.index(src) + len(src):])
+                break
+        # NLU sudah menormalkan konverter->converter via slang; tetap coba
+        # ejaan lawannya agar DB berisi "Konverter" tetap ketemu.
+        if low == "converter" and "konverter" not in [o.lower() for o in outs]:
+            outs.append("konverter")
+        if low == "konverter" and "converter" not in [o.lower() for o in outs]:
+            outs.append("converter")
+        seen, uniq = set(), []
+        for o in outs:
+            if o.lower() not in seen:
+                seen.add(o.lower())
+                uniq.append(o)
+        return uniq[:3]
+
     def _consumable_search(self, kw):
         """Cari consumable: frasa dulu, lalu AND-kata, lalu OR-kata.
 
         Presisi dulu (biar 'adaptor bnc' tak langsung miss), recall
         belakangan (biar tetap ketemu walau kata tak berurutan).
+        Varian ejaan (konverter/converter) dicoba via OR agar tak miss
+        beda satu huruf.
         """
         C = self.env["it_asset.consumable"]
         phrase = (kw or "").strip()
         if not phrase:
             return []
-        tried = [["|", ("name", "ilike", phrase),
-                  ("product_id.name", "ilike", phrase)]]
+        phrases = self._kw_variants(phrase)
+        tried = []
+        or_phrase = []
+        for p in phrases:
+            or_phrase.extend([("name", "ilike", p),
+                              ("product_id.name", "ilike", p)])
+        tried.append(_or_domain(or_phrase))
         words = [w for w in phrase.split() if len(w) > 1]
         if len(words) > 1:
             ands = []
@@ -2615,10 +2657,14 @@ class ITAskAI(models.AbstractModel):
 
     # Kata generik kategori/jenis: bila item masih punya kata produk lain
     # ("mic" pada "mic radio"), itu barang spesifik -> consumable dulu.
+    # Kata status/state ("ready", "siap", ...) juga generik: "laptop ready"
+    # tetap murni menanyakan stok kategori laptop.
     _CATEGORY_NOISE_WORDS = frozenset([
         "radio", "rig", "ht", "handy", "talky", "laptop", "printer",
         "komputer", "monitor", "mouse", "keyboard", "server", "cctv",
         "it", "operasional",
+        "ready", "available", "avail", "tersedia", "siap",
+        "sisa", "tersisa", "stok", "stock",
     ])
 
     @staticmethod
@@ -2798,12 +2844,43 @@ class ITAskAI(models.AbstractModel):
         avail_n = A.search_count(avail_dom)
         inuse_n = A.search_count(inuse_dom)
         if not avail_n and not inuse_n:
-            return {"miss": True,
-                    "hint": "<div class='ai-foot'>Tidak ada aset “<b>%s</b>” "
-                            "tercatat. Coba kata yang lebih umum "
-                            "(mis. <i>kabel, mouse, tinta</i>), ketik "
-                            "<i>“stok menipis”</i>, atau "
-                            "<i>“rekap aset”</i>.</div>" % _esc(kw)}
+            # Fallback 1: kategori tak cocok nama DB (mis. "Laptop" vs
+            # "Notebook") — coba cari keyword di nama/tag/SN/produk.
+            if cat in self._ASSET_STOCK_CATEGORIES:
+                kw_base = self._asset_domain_for(kw)
+                kw_avail = A.search_count(
+                    kw_base + [("state", "=", "available")])
+                kw_inuse = A.search_count(
+                    kw_base + [("state", "=", "in_use")])
+                if kw_avail or kw_inuse:
+                    base, avail_dom, inuse_dom = (
+                        kw_base,
+                        kw_base + [("state", "=", "available")],
+                        kw_base + [("state", "=", "in_use")])
+                    avail_n, inuse_n = kw_avail, kw_inuse
+            # Fallback 2: aset ada tapi tak ada yang tersedia/dipakai
+            # (mis. semua maintenance/retired) — tampilkan apa adanya
+            # daripada "belum tercatat" yang menyesatkan.
+            if not avail_n and not inuse_n:
+                total_all = A.search_count(base)
+                if total_all:
+                    rows = A.search_read(base, _ASSET_FIELDS, limit=10,
+                                         order="id desc")
+                    return {"html": self._asset_table(
+                        "📦 “<b>%s</b>” — tidak ada yang tersedia/dipakai "
+                        "saat ini (total <b>%d</b> tercatat):"
+                        % (_esc(kw), total_all), rows)
+                        + "<div class='ai-foot'>Semua tercatat "
+                          "maintenance/retired atau belum tersedia. Ketik "
+                          "<i>“rekap aset”</i> untuk ringkasan.</div>"
+                        + kind_note,
+                        "tool": "check_stock"}
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Tidak ada aset “<b>%s</b>” "
+                                "tercatat. Coba kata yang lebih umum "
+                                "(mis. <i>kabel, mouse, tinta</i>), ketik "
+                                "<i>“stok menipis”</i>, atau "
+                                "<i>“rekap aset”</i>.</div>" % _esc(kw)}
         if not avail_n:
             rows = A.search_read(inuse_dom, _ASSET_FIELDS, limit=10,
                                  order="id desc")
@@ -2900,6 +2977,28 @@ class ITAskAI(models.AbstractModel):
                                 "Coba <i>“rekap aset”</i>.</div>" % _esc(kind_label)}
         total = A.search_count(domain)
         if not total:
+            # "laptop ready?" tapi tak ada yang tersedia: jangan miss buta.
+            # Bila kategorinya ada dalam status lain (dipakai/maintenance),
+            # tampilkan itu dengan catatan stok kosong — jauh lebih membantu
+            # daripada "belum ada di inventaris".
+            if entities.get("state") == "available" and entities.get("category"):
+                no_state = [d for d in domain if d[0] != "state"]
+                total_all = A.search_count(no_state + kind_domain) \
+                    if kind_domain else A.search_count(no_state)
+                if total_all:
+                    rows = A.search_read(
+                        no_state + kind_domain if kind_domain else no_state,
+                        _ASSET_FIELDS, limit=10, order="id desc")
+                    return {"html": self._asset_table(
+                        "📦 Stok “<b>%s</b>” kosong — tidak ada yang "
+                        "<b>Tersedia</b> saat ini (total <b>%d</b> tercatat):"
+                        % (_esc(entities.get("category") or "aset"),
+                           total_all), rows)
+                        + "<div class='ai-foot'>Semua sedang dipakai / "
+                          "maintenance. Balas tag-nya untuk cek siapa "
+                          "pemakainya, atau ketik "
+                          "<i>“rekap aset”</i>.</div>" + kind_note,
+                        "tool": "asset_search"}
             return {"miss": True,
                     "hint": "<div class='ai-foot'>Coba longgarkan filter atau "
                             "ketik <i>“rekap aset”</i>.</div>"}
