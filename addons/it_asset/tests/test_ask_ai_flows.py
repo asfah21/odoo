@@ -23,6 +23,7 @@ if _MODELS not in sys.path:
     sys.path.insert(0, _MODELS)
 
 import ask_ai_commands as cmds
+import ask_ai_nlu as nlu
 
 
 def run_story(steps):
@@ -153,6 +154,120 @@ class TestStories(unittest.TestCase):
             ("guided_broken", {"step": "await_category", "slots": {}}, "yang", False, ""),
         ])
         self.assertEqual(actions, ["ask"])
+
+
+def run_turn(text, prev=None):
+    """Simulasi satu turn: classify + extract + resolve_context.
+
+    ``prev``: konteks turn lalu {intent, entities, constraints} (tiruan
+    isi session.last_*). Kembalikan (intent, entities, constraints,
+    relation) — relation NEW berarti tanpa warisan konteks.
+    """
+    clf = nlu.classify(text)
+    ent, con = nlu.extract_entities(text)
+    intent, entities, constraints, relation = cmds.resolve_context(
+        text, clf, {"entities": ent, "constraints": con}, prev or {})
+    return intent, entities, constraints, relation
+
+
+def prev_of(intent, entities, constraints=None):
+    """Bentuk konteks-lalu dari hasil turn sebelumnya (tiruan remember)."""
+    return {"intent": intent, "entities": dict(entities),
+            "constraints": dict(constraints or {})}
+
+
+class TestConversationGoals(unittest.TestCase):
+    """Multi-turn goals.md §9 Test A–H (murni, tanpa Odoo/DB)."""
+
+    def test_a_repeat_berapa(self):
+        i1, e1, c1, r1 = run_turn("stok kabel")
+        self.assertEqual((i1, r1), ("check_stock", cmds.REL_NEW))
+        i2, e2, _c2, r2 = run_turn(
+            "berapa?", prev_of(i1, e1, c1))
+        self.assertEqual(i2, "check_stock")
+        self.assertEqual(e2.get("item"), "kabel")
+        self.assertEqual(r2, cmds.REL_CONTINUE)
+
+    def test_b_refine(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel")
+        i2, e2, _c2, r2 = run_turn(
+            "kabel antena", prev_of(i1, e1, c1))
+        self.assertEqual((i2, e2.get("item"), r2),
+                         ("check_stock", "kabel antena", cmds.REL_REFINE))
+
+    def test_c_followup_condition(self):
+        i1, e1, c1, _r1 = run_turn("stok radio ht")
+        self.assertEqual(i1, "check_stock")
+        i2, e2, _c2, r2 = run_turn(
+            "yang rusak?", prev_of(i1, e1, c1))
+        self.assertEqual(r2, cmds.REL_FOLLOW_UP)
+        self.assertEqual(e2.get("condition"), "broken")
+        # konteks produk ikut (untuk filter radio HT)
+        self.assertIn("radio", (e2.get("category") or "") + e2.get("item", ""))
+
+    def test_d_correct(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel")
+        i2, e2, _c2, r2 = run_turn(
+            "eh maksud saya radio base", prev_of(i1, e1, c1))
+        self.assertEqual((i2, e2.get("item"), r2),
+                         ("check_stock", "radio base", cmds.REL_CORRECT))
+
+    def test_e_ask_location(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel antena")
+        i2, e2, _c2, r2 = run_turn(
+            "di gudang mana?", prev_of(i1, e1, c1))
+        self.assertEqual(i2, "check_stock")
+        self.assertEqual(e2.get("item"), "kabel antena")
+        self.assertTrue(e2.get("ask_location"))
+        self.assertEqual(r2, cmds.REL_FOLLOW_UP)
+
+    def test_f_short_refine(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel")
+        i2, e2, _c2, r2 = run_turn(
+            "antena", prev_of(i1, e1, c1))
+        self.assertEqual((i2, e2.get("item"), r2),
+                         ("check_stock", "kabel antena", cmds.REL_REFINE))
+
+    def test_g_low_only_inherits_item(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel antena")
+        i2, e2, c2, r2 = run_turn(
+            "yang menipis?", prev_of(i1, e1, c1))
+        self.assertEqual(i2, "check_stock")
+        self.assertEqual(e2.get("item"), "kabel antena")
+        self.assertTrue(c2.get("low_only"))
+        self.assertEqual(r2, cmds.REL_FOLLOW_UP)
+
+    def test_h_chain_keeps_context(self):
+        prev = None
+        for text in ["stok kabel antena", "berapa?", "yang Wolo?",
+                     "yang rusak?"]:
+            intent, entities, constraints, _rel = run_turn(text, prev)
+            prev = prev_of(intent, entities, constraints)
+        # "yang rusak?" sinyal kuat -> intent-nya dipakai, slot diwarisi
+        self.assertEqual(prev["intent"], "asset_search")
+        self.assertEqual(prev["entities"].get("item"), "kabel antena")
+        self.assertEqual(prev["entities"].get("location"), "Wolo")
+        self.assertEqual(prev["entities"].get("condition"), "broken")
+
+    def test_replace_new_query(self):
+        i1, e1, c1, _r1 = run_turn("stok kabel")
+        i2, e2, _c2, r2 = run_turn(
+            "stok tinta", prev_of(i1, e1, c1))
+        self.assertEqual((i2, e2.get("item"), r2),
+                         ("check_stock", "tinta", cmds.REL_REPLACE))
+
+    def test_no_context_stays_new(self):
+        intent, _e, _c, relation = run_turn("berapa?")
+        self.assertEqual(relation, cmds.REL_NEW)
+
+    def test_location_extract(self):
+        ent, _con = nlu.extract_entities("stok kabel di Wolo")
+        self.assertEqual(
+            (ent.get("item"), ent.get("location")),
+            ("kabel", "Wolo"))
+        ent2, _con2 = nlu.extract_entities("di gudang mana?")
+        self.assertTrue(ent2.get("ask_location"))
+        self.assertEqual(ent2.get("item"), "")
 
 
 if __name__ == "__main__":

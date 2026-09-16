@@ -371,16 +371,14 @@ class ITAskAI(models.AbstractModel):
     def answer(self, question, session_id=None, mode="alpha"):
         """Jawab satu pertanyaan + simpan otomatis ke riwayat (retensi 10 hari).
 
-        ``mode``: "alpha" (rule/NLU + kamus, perilaku sekarang) atau "beta"
-        (Qwen decide + dictionary + DB only, untuk eksperimen). Mode selain
-        itu dinormalisasi ke "alpha". Mode ikut dikembalikan di ``out["mode"]``
-        agar frontend bisa menandainya (tidak di-pop).
+        Satu-satunya jalur: rule/NLU + kamus + tool ORM. Argumen ``mode``
+        peninggalan eksperimen Alpha/Beta diterima tapi diabaikan
+        (kompatibel mundur dengan klien lama yang mengirimnya).
 
         Kompatibel mundur: JS lama yang memanggil ``answer([text])`` tetap
         jalan (sesi baru dibuat otomatis). Mengembalikan dict siap-render
-        ``{html, intent, confidence, method, action?, session_id, mode}``.
+        ``{html, intent, confidence, method, action?, session_id}``.
         """
-        mode = "beta" if (mode or "") == "beta" else "alpha"
         try:
             consumed = self._consume_flow(question, session_id)
         except Exception as exc:  # flow tak boleh merusak jawaban
@@ -388,11 +386,8 @@ class ITAskAI(models.AbstractModel):
             consumed = None
         if consumed is not None:
             out = consumed
-        elif mode == "beta":
-            out = self._answer_beta(question, session_id)
         else:
             out = self._answer_inner(question, session_id=session_id)
-        out["mode"] = out.get("mode") or mode
         try:
             out["session_id"] = self._history_save(
                 question, out, session_id=session_id)
@@ -406,7 +401,7 @@ class ITAskAI(models.AbstractModel):
         return out
 
     def _preprocess(self, question):
-        """Preprocess bersama Alpha & Beta: empty/F4/persona/kamus/OOD-awal.
+        """Preprocess: empty/F4/persona/kamus/OOD-awal.
 
         Kembalikan dict {text (efektif/terkoreksi), lang, pkey, pname,
         dict_hint, ood0_reason, is_ood0, early}. ``early`` = out jawaban
@@ -470,194 +465,8 @@ class ITAskAI(models.AbstractModel):
                 "pname": pname, "dict_hint": dict_hint,
                 "ood0_reason": ood0_reason, "is_ood0": is_ood0, "early": None}
 
-    def _answer_beta(self, question, session_id=None):
-        """Jalur Beta (eksperimen MURNI): Qwen decide + dictionary + DB only.
-
-        Tanpa rule/override/NLU-TFIDF dan TANPA fallback ke Alpha. Bila Qwen
-        mati/tak menjawab, kembalikan pesan jujur (bukan jawaban Alpha yang
-        menyamar). Flow konfirmasi, guard F1/F2/F4, grounding, dan rephrase
-        dipakai sama seperti Alpha (lapisan keamanan & UX, bukan pendekatan
-        pemahaman).
-        """
-        pre = self._preprocess(question)
-        if pre.get("early") is not None:
-            out = pre["early"]
-            out["mode"] = "beta"
-            return out
-        text = pre["text"]
-        lang, pkey, pname = pre["lang"], pre["pkey"], pre["pname"]
-        dict_hint = pre["dict_hint"]
-        _ood0_reason, _is_ood0 = pre["ood0_reason"], pre["is_ood0"]
-
-        try:
-            llm_cfg = self._get_llm_config()
-        except Exception:
-            llm_cfg = {"enabled": False}
-        if not llm_cfg.get("enabled"):
-            out = self._out(
-                text, nlu.INTENT_UNKNOWN, 0.0, "beta_no_qwen",
-                "Mode <b>Beta</b> butuh Qwen Decide yang aktif — saat ini mati. "
-                "Aktifkan di <b>AI → Setting</b> (Qwen Decide) + jalankan "
-                "llama-server, atau pakai mode <b>Alpha</b> yang tak butuh Qwen.",
-                "beta_no_qwen",
-                suggestions=["rekap aset", "stok radio ht", "bantuan"])
-            out["mode"] = "beta_no_qwen"
-            self._record_feedback(text, out)
-            return out
-
-        decision = self._try_llm_decide(text)
-        if not decision:
-            # Beta murni: tanpa Qwen tidak ada tebakan maksud -> jujur buntu,
-            # JANGAN fallback ke Alpha (mengotori data eksperimen).
-            # Bedakan cooldown (sementara) vs mati agar tak dikira 'mati
-            # padahal Qwen jalan' — kasus klasik: baru gagal sekali lalu
-            # tiap pesan berikut langsung 'mati' 60 detik.
-            remain = self._llm_cooldown_remaining()
-            tried = self._llm_candidate_urls(
-                (llm_cfg.get("it_asset.ask_ai.llm_url") or ""))
-            tried_txt = ", ".join("<i>%s</i>" % _esc(u) for u in tried[:3])
-            _logger.info("Ask AI Beta: Qwen tak menjawab -> buntu jujur")
-            if remain > 1:
-                html = ("Mode <b>Beta</b> masih jeda <b>%d detik</b> setelah "
-                        "gagal hubungi Qwen (cooldown anti-timeout beruntun). "
-                        "Qwen-mu kemungkinan <b>hidup</b> — tunggu sebentar "
-                        "lalu kirim ulang, atau pakai <b>Alpha</b> sementara."
-                        % int(remain + 0.5))
-                method = "beta_cooldown"
-            else:
-                html = ("Mode <b>Beta</b> butuh Qwen yang hidup — llama-server tidak "
-                        "menjawab dari dalam Odoo (dicoba: %s).<br/>"
-                        "Dari Docker ini normal bila Setting masih "
-                        "<b>http://127.0.0.1:8081</b> (itu container Odoo sendiri!). "
-                        "Ganti ke <b>http://llm:8081</b> di <b>AI → Setting → llama-server URL</b> "
-                        "lalu <b>Test Qwen</b>, atau cek "
-                        "<i>docker compose -f docker-compose.yml -f docker-compose.llm.yml ps</i>. "
-                        "(Tanpa Qwen, Beta tidak bisa menebak "
-                        "maksud. Pakai <b>Alpha</b> untuk jalur non-Qwen.)"
-                        % tried_txt)
-                method = "beta_no_qwen"
-            out = self._out(
-                text, nlu.INTENT_UNKNOWN, 0.0, method, html, method,
-                suggestions=["rekap aset", "stok radio ht", "bantuan"])
-            out["flow_clear"] = True
-            out["mode"] = method
-            self._record_feedback(text, out)
-            return out
-
-        intent, conf = decision["intent"], decision["confidence"]
-
-        # Sosial via Qwen -> canned persona (pemahaman milik Qwen).
-        if intent in _SOCIAL_INTENTS:
-            out = self._out(text, intent, conf, "llm",
-                             self._social_reply(intent, text, lang, pkey, pname),
-                             "deterministic_answer")
-            out["mode"] = "beta"
-            return out
-
-        ctx_update = {"ask_ai_llm": {
-            "entities": decision["entities"] or {},
-            "constraints": decision["constraints"] or {},
-        }}
-        try:
-            sctx = self._get_session_ctx(session_id)
-        except Exception as exc:
-            _logger.warning("Ask AI session-ctx gagal dibaca: %s", exc)
-            sctx = {}
-        if sctx:
-            ctx_update["ask_ai_ctx"] = sctx
-        runner = self.with_context(**ctx_update)
-
-        # F3b: OOD pra-kamus menang atas LLM yang tidak EXECUTE.
-        if _is_ood0 and conf < nlu.confidence_threshold(intent):
-            _logger.info("Ask AI Beta OOD-precedence (conf=%.3f)", conf)
-            out = self._ood_scope_out(text, _ood0_reason)
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-
-        entities, constraints = runner._merged_entities(text)
-        cmd = cmds.build_command(intent, entities, constraints)
-        grounding = {"mode": "beta",
-                     "dict_matches": dict_hint.get("matches", {}),
-                     "command": cmd["command"], "slots": cmd["slots"],
-                     "slot_errors": cmd["errors"]}
-        if not cmd["valid"]:
-            out = self._out(text, intent, conf, "command_repair",
-                             nlu.clarification_reply(intent, entities)
-                             + "<div class='ai-sub'>Detail: %s.</div>"
-                             % _esc("; ".join(cmd["errors"])),
-                             "clarification",
-                             suggestions=self._suggest_for(intent))
-            out["grounding"] = grounding
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-        slot_out = runner._validate_slots_db(text, intent, entities,
-                                             original=question)
-        if slot_out is not None:
-            slot_out["grounding"] = grounding
-            slot_out["mode"] = "beta"
-            self._record_feedback(text, slot_out)
-            return slot_out
-
-        handler = self._TOOLS.get(intent)
-        if not handler:
-            out = self._out(text, nlu.INTENT_UNKNOWN, 0.0, "llm",
-                             nlu.scope_reply(text, ""), "unknown_fallback",
-                             suggestions=self._suggest_for(intent))
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-        try:
-            result = handler(runner, text)
-        except Exception as exc:
-            _logger.warning("Ask AI Beta tool %s gagal: %s", intent, exc)
-            out = self._out(text, intent, conf, "llm",
-                             "Maaf, saya gagal membaca data untuk itu. "
-                             "Coba lagi atau persempit kata kuncinya.",
-                             "tool_error",
-                             suggestions=self._suggest_for(intent))
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-        if result is None:
-            entities2, _c2 = runner._merged_entities(text)
-            out = self._out(text, intent, conf, "llm",
-                             nlu.clarification_reply(intent, entities2),
-                             "clarification",
-                             suggestions=self._suggest_for(intent))
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-        if result.get("miss"):
-            out = self._out(text, intent, conf, "llm",
-                             nlu.data_miss_reply(text)
-                             + (result.get("hint") or ""), "data_miss",
-                             suggestions=self._suggest_for(intent))
-            out["grounding"] = grounding
-            out["mode"] = "beta"
-            self._record_feedback(text, out)
-            return out
-        out = self._out(text, intent, conf, "llm", result["html"],
-                         result.get("tool", intent),
-                         action=result.get("action"),
-                         suggestions=result.get("suggestions"))
-        out["grounding"] = grounding
-        out["mode"] = "beta"
-        _logger.info("Ask AI Beta grounding intent=%s conf=%.3f slots=%s",
-                     intent, conf, sorted(cmd["slots"]))
-        try:
-            polished = self._maybe_rephrase(out.get("html") or "", intent, lang)
-            if polished:
-                out["html"] = polished
-                out["rephrased"] = True
-        except Exception as exc:
-            _logger.warning("Ask AI rephrase gagal, pakai jawaban asli: %s", exc)
-        self._record_feedback(text, out)
-        return out
-
     def _answer_inner(self, question, session_id=None):
-        """Jalur Alpha: rule/NLU deterministik + kamus (perilaku sekarang).
+        """Jalur jawab: rule/NLU deterministik + kamus.
 
         Selalu kembalikan dict siap-render. Lihat ``answer()`` untuk kontrak.
         """
@@ -712,6 +521,7 @@ class ITAskAI(models.AbstractModel):
         # Persona: varian English bila user berbahasa Inggris; identity
         # selalu memakai nama persona aktif.
         if method == "rule" and intent in _SOCIAL_INTENTS:
+            self._session_remember(session_id, intent, {}, None)
             return self._out(text, intent, conf, "deterministic_answer",
                              self._social_reply(intent, text, lang, pkey, pname),
                              "deterministic_answer")
@@ -727,6 +537,7 @@ class ITAskAI(models.AbstractModel):
                 conv = nlu.CONV_UNKNOWN if hasattr(nlu, "CONV_UNKNOWN") \
                     else "unknown"
             if conv and conv != (getattr(nlu, "CONV_UNKNOWN", "unknown")):
+                self._session_remember(session_id, conv, {}, None)
                 return self._out(
                     text, conv, 0.92, "conv_rule",
                     self._social_reply(conv, text, lang, pkey, pname),
@@ -735,10 +546,59 @@ class ITAskAI(models.AbstractModel):
             self._record_feedback(text, out)
             return out
 
+        # G (goals.md §2-5): resolusi konteks — pesan baru dipahami bersama
+        # turn sebelumnya (relation NEW/FOLLOW_UP/REFINE/CORRECT/CONTINUE),
+        # bukan terisolasi. Sosial/conv sudah pulang via fast-path; sinyal
+        # kuat (rule/override + topik sendiri) tetap NEW. Gagal resolve ->
+        # jalur normal seolah tanpa konteks.
+        relation = cmds.REL_NEW
+        resolved = None
+        try:
+            prev_turn = self._get_prev_turn(session_id)
+        except Exception as exc:
+            _logger.warning("Ask AI prev-turn gagal dibaca: %s", exc)
+            prev_turn = {}
+        if (prev_turn or {}).get("intent"):
+            try:
+                ent0, con0 = nlu.extract_entities(text)
+            except Exception:
+                ent0, con0 = {}, {"low_only": False}
+            try:
+                (r_intent, r_ent, r_con,
+                 relation) = cmds.resolve_context(
+                    text, classification,
+                    {"entities": ent0, "constraints": con0}, prev_turn)
+            except Exception as exc:
+                _logger.warning("Ask AI resolve-context gagal: %s", exc)
+                relation = cmds.REL_NEW
+            if relation not in (cmds.REL_NEW, cmds.REL_REPLACE):
+                try:
+                    r_conf = nlu.confidence_threshold(r_intent)
+                except Exception:
+                    r_conf = 0.9
+                classification = {
+                    "intent": r_intent, "confidence": r_conf,
+                    "category": nlu.get_intent_category(r_intent),
+                    "method": "context", "ood_reason": "",
+                }
+                intent, conf, method = r_intent, r_conf, "context"
+                resolved = {"entities": r_ent, "constraints": r_con}
+                self._session_remember(session_id, r_intent, r_ent, r_con)
+        # §11: jejak debug satu baris (tanpa data sensitif).
+        _logger.info(
+            "Ask AI ctx MSG=%r INTENT=%s REL=%s PREV=%s RESOLVED=%s",
+            text[:80], classification.get("intent"), relation,
+            (prev_turn or {}).get("intent") or "-",
+            ({k: (resolved or {}).get("entities", {}).get(k)
+              for k in ("item", "location", "condition")}
+             if resolved else "-"))
+
         # Entitas LLM (bila ada) hanya dipakai bila grounded — substring
         # dari teks user (cermin WACS: extractor pemilik kanal entitas,
         # model tak boleh mengarang nilai).
         ctx_update = {}
+        if resolved is not None:
+            ctx_update["ask_ai_resolved"] = resolved
         if method == "llm":
             ctx_update["ask_ai_llm"] = {
                 "entities": classification.get("llm_entities") or {},
@@ -848,6 +708,13 @@ class ITAskAI(models.AbstractModel):
                             suggestions=self._suggest_for(intent))
             self._record_feedback(text, out)
             return out
+        # Catat turn tool ini sebagai konteks pesan berikut (goals.md §2).
+        # Pending/confirm multi-kandidat tetap ditangani _consume_flow duluan.
+        try:
+            _rem_ent, _rem_con = runner._merged_entities(text)
+            self._session_remember(session_id, intent, _rem_ent, _rem_con)
+        except Exception as exc:
+            _logger.warning("Ask AI remember gagal: %s", exc)
         try:
             result = handler(runner, text)
         except Exception as exc:  # tool gagal → fallback aman, bukan karangan
@@ -1260,6 +1127,26 @@ class ITAskAI(models.AbstractModel):
         """Extractor lokal + overlay LLM yang grounded (cermin WACS:
         ``entity.Extract`` pemilik kanal, ``Decision`` hanya constraints
         tertutup; nilai model diadopsi hanya bila         tertulis di pertanyaan)."""
+        # Resolusi konteks (goals.md §2-5): turn ini sudah digabung dengan
+        # turn lalu di _answer_inner -> pakai apa adanya, jangan timpa.
+        try:
+            resolved = self.env.context.get("ask_ai_resolved") or {}
+        except Exception:
+            resolved = {}
+        if isinstance(resolved.get("entities"), dict):
+            ent = dict(resolved["entities"])
+            # Normalisasi kunci agar tool (yang akses entities["item"] dkk.)
+            # tak KeyError bila konteks lalu hanya menyimpan slot terisi.
+            ent.setdefault("asset_refs", [])
+            for _k in ("category", "radio_kind", "asset_type", "form_kind",
+                       "form_status", "period", "top_kind", "employee_name",
+                       "item", "state", "condition", "location"):
+                ent.setdefault(_k, "")
+            ent.setdefault("ask_location", False)
+            con = dict(resolved.get("constraints") or {"low_only": False})
+            if "low_only" not in con:
+                con["low_only"] = False
+            return ent, con
         entities, constraints = nlu.extract_entities(text)
         # Ingatan topik sesi: "yang rusak?" setelah "stok cctv" = CCTV rusak.
         # Hanya bila pesan ini tanpa ref & tanpa kategori (topik baru menang).
@@ -1630,6 +1517,70 @@ class ITAskAI(models.AbstractModel):
             "asset_type": session.last_asset_type,
             "radio_kind": session.last_radio_kind,
         }.items() if v}
+
+    # ------------------------------------------------------------------
+    # Konteks turn terakhir (goals.md §2): intent + entitas untuk resolusi
+    # pesan berikut. Memakai ulang last_ctx_at (60 mnt) sebagai kedaluwarsa —
+    # bukan sistem memory kedua.
+    # ------------------------------------------------------------------
+    def _get_prev_turn(self, session_id):
+        """{intent, entities, constraints} turn lalu, atau {} bila tak ada."""
+        if not session_id or not isinstance(session_id, int):
+            return {}
+        session = self.env["it_asset.ask_ai.session"].search(
+            [("id", "=", session_id),
+             ("user_id", "=", self.env.user.id)], limit=1)
+        if not session or not session.last_ctx_at \
+                or not session.last_intent:
+            return {}
+        try:
+            age = (_datetime.datetime.now() - session.last_ctx_at)
+            age = age.total_seconds()
+        except Exception:
+            return {}
+        if age > 3600:
+            return {}
+        try:
+            ent = dict(session.last_entities or {})
+        except Exception:
+            ent = {}
+        if not isinstance(ent, dict):
+            ent = {}
+        con = {"low_only": bool(ent.pop("low_only", False))}
+        return {"intent": session.last_intent, "entities": ent,
+                "constraints": con}
+
+    def _session_remember(self, session_id, intent, entities,
+                          constraints=None):
+        """Simpan turn ini sebagai konteks pesan berikut (best-effort).
+
+        Hanya slot terisi yang disimpan + low_only; last_ctx_at disegarkan
+        agar rantai follow-up tak kedaluwarsa di tengah percakapan.
+        """
+        if not session_id or not isinstance(session_id, int):
+            return
+        try:
+            session = self.env["it_asset.ask_ai.session"].search(
+                [("id", "=", session_id),
+                 ("user_id", "=", self.env.user.id)], limit=1)
+            if not session:
+                return
+            ent = {}
+            for key in ("item", "category", "radio_kind", "asset_type",
+                        "condition", "state", "location", "employee_name",
+                        "asset_refs"):
+                val = (entities or {}).get(key)
+                if val:
+                    ent[key] = val
+            if (constraints or {}).get("low_only"):
+                ent["low_only"] = True
+            session.write({
+                "last_intent": (intent or "")[:40],
+                "last_entities": ent,
+                "last_ctx_at": fields.Datetime.now(),
+            })
+        except Exception as exc:
+            _logger.warning("Ask AI remember gagal: %s", exc)
 
     @api.model
     def session_list(self, limit=30):
@@ -2527,6 +2478,123 @@ class ITAskAI(models.AbstractModel):
                 return rows
         return []
 
+    # ------------------------------------------------------------------
+    # Lokasi stok (goals.md §5/9 Test E/H): resolve nama gudang/site ke
+    # stock.warehouse/stock.location lalu baca stock.quant — read-only,
+    # tanpa master data baru. Tak ketemu -> miss jujur + daftar gudang.
+    # ------------------------------------------------------------------
+    def _resolve_location(self, name):
+        """Nama lokasi user -> {label, location_ids} atau None."""
+        name = (name or "").strip()
+        if len(name) < 2:
+            return None
+        try:
+            wh = self.env["stock.warehouse"].search_read(
+                [("name", "ilike", name)], ["name", "lot_stock_id"], limit=3)
+        except Exception:
+            wh = []
+        if wh:
+            lot = wh[0].get("lot_stock_id")
+            loc_id = lot[0] if isinstance(lot, (list, tuple)) else lot
+            return {"label": wh[0].get("name") or name,
+                    "location_ids": [loc_id] if loc_id else []}
+        try:
+            locs = self.env["stock.location"].search_read(
+                ["|", ("name", "ilike", name),
+                 ("complete_name", "ilike", name)],
+                ["name"], limit=5)
+        except Exception:
+            locs = []
+        if locs:
+            low = name.lower()
+            ranked = sorted(
+                locs, key=lambda r: (0 if low in (r.get("name") or "").lower()
+                                     else 1, r.get("id", 0)))
+            return {"label": ranked[0].get("name") or name,
+                    "location_ids": [r["id"] for r in ranked[:3]]}
+        return None
+
+    def _warehouse_names(self, limit=6):
+        """Daftar nama gudang untuk saran (miss lokasi tak dikenal)."""
+        try:
+            rows = self.env["stock.warehouse"].search_read(
+                [], ["name"], limit=limit, order="name asc")
+        except Exception:
+            rows = []
+        return [r["name"] for r in rows if r.get("name")]
+
+    def _location_qty_map(self, product_ids, loc_ids):
+        """product_id -> qty (sum quantity) di scope lokasi. Read-only."""
+        out = {}
+        if not product_ids or not loc_ids:
+            return out
+        try:
+            quants = self.env["stock.quant"].search_read(
+                [("product_id", "in", list(product_ids)),
+                 ("location_id", "child_of", list(loc_ids))],
+                ["product_id", "quantity"], limit=5000)
+        except Exception as exc:
+            _logger.warning("Ask AI location-qty gagal: %s", exc)
+            return out
+        for q in quants:
+            pid = q.get("product_id")
+            pid = pid[0] if isinstance(pid, (list, tuple)) else pid
+            out[pid] = out.get(pid, 0.0) + (q.get("quantity") or 0.0)
+        return out
+
+    @staticmethod
+    def _row_product_id(row):
+        pid = (row or {}).get("product_id")
+        if isinstance(pid, (list, tuple)):
+            return pid[0] if pid else 0
+        return pid or 0
+
+    def _tool_stock_by_location(self, kw):
+        """Breakdown 'di gudang mana?' per warehouse (goals.md Test E).
+
+        Kembalikan dict hasil atau None bila tak bisa (pemanggil jatuh ke
+        jawaban stok biasa).
+        """
+        rows = self._consumable_search(kw)
+        if not rows:
+            return None
+        try:
+            houses = self.env["stock.warehouse"].search_read(
+                [], ["name", "lot_stock_id"], limit=10, order="name asc")
+        except Exception:
+            houses = []
+        if not houses:
+            return None
+        pids = {self._row_product_id(r) for r in rows}
+        pids.discard(0)
+        if not pids:
+            return None
+        parts = ["📍 Stok “<b>%s</b>” per gudang:" % _esc(kw),
+                 "<div class='ai-table-wrap'><table class='ai-table'>"
+                 "<thead><tr><th>Gudang</th><th class='ai-num'>Qty</th></tr>"
+                 "</thead><tbody>"]
+        total, shown = 0.0, 0
+        for h in houses:
+            lot = h.get("lot_stock_id")
+            lid = lot[0] if isinstance(lot, (list, tuple)) else lot
+            if not lid:
+                continue
+            qty = sum(self._location_qty_map(pids, [lid]).values())
+            total += qty
+            parts.append("<tr><td><b>%s</b></td>"
+                         "<td class='ai-num'>%s</td></tr>"
+                         % (_esc(h.get("name") or "-"),
+                            _esc(qty if qty != int(qty) else int(qty))))
+            shown += 1
+        parts.append("</tbody></table></div>"
+                     "<div class='ai-foot'>Total semua gudang: <b>%s</b> pcs. "
+                     "Tanya mis. <i>“stok %s di Wolo?”</i> untuk per gudang.</div>"
+                     % (_esc(total if total != int(total) else int(total)),
+                        _esc(kw)))
+        if not shown:
+            return None
+        return {"html": "".join(parts), "tool": "check_stock"}
+
     def _consumable_hint(self, limit=4):
         """Contoh nama consumable yang benar ada (satu query, hanya di miss).
 
@@ -2581,7 +2649,57 @@ class ITAskAI(models.AbstractModel):
                 if not res.get("miss"):
                     return res
             rows = self._consumable_search(kw)
+            if entities.get("ask_location") and not entities.get("location"):
+                # "di gudang mana?" -> breakdown per gudang (goals.md Test E)
+                by_loc = self._tool_stock_by_location(kw)
+                if by_loc:
+                    return by_loc
+            loc_name = (entities.get("location") or "").strip()
+            if rows and loc_name:
+                # "stok X di Wolo?" -> qty per lokasi (goals.md Test H)
+                scope = self._resolve_location(loc_name)
+                if not scope or not scope.get("location_ids"):
+                    houses = self._warehouse_names()
+                    extra = ("<br/>Gudang tercatat: %s"
+                             % ", ".join("<i>%s</i>" % _esc(h)
+                                         for h in houses)) if houses else ""
+                    return {"miss": True,
+                            "hint": "<div class='ai-foot'>Gudang “<b>%s</b>” "
+                                    "tidak dikenal.%s</div>"
+                            % (_esc(loc_name), extra)}
+                pids = {self._row_product_id(r) for r in rows}
+                pids.discard(0)
+                qmap = self._location_qty_map(pids,
+                                              scope["location_ids"])
+                lrows = []
+                for r in rows:
+                    rr = dict(r)
+                    rr["qty_available"] = qmap.get(
+                        self._row_product_id(r), 0.0)
+                    lrows.append(rr)
+                return {"html": self._stock_table(
+                    "Stok “<b>%s</b>” di <b>%s</b> (%d item):"
+                    % (_esc(kw), _esc(scope["label"]), len(lrows)),
+                    lrows,
+                    "Angka = stok di %s." % _esc(scope["label"])),
+                    "tool": "check_stock"}
             if rows:
+                if constraints.get("low_only"):
+                    # "yang menipis?" + item warisan (goals.md Test G):
+                    # saring yang menipis DARI hasil, bukan semua DB.
+                    low_rows = [r for r in rows
+                                if (r.get("qty_available") or 0)
+                                <= (r.get("min_quantity") or 0)]
+                    if not low_rows:
+                        return {"html":
+                                "Semua stok “<b>%s</b>” aman ✅ — tidak ada "
+                                "yang di bawah minimum (total %d item "
+                                "terpantau)." % (_esc(kw), len(rows)),
+                                "tool": "check_stock"}
+                    return {"html": self._stock_table(
+                        "⚠️ “<b>%s</b>” perlu restock (%d dari %d item):"
+                        % (_esc(kw), len(low_rows), len(rows)), low_rows),
+                        "tool": "check_stock"}
                 return {"html": self._stock_table(
                     "Stok untuk “<b>%s</b>” (%d item):" % (_esc(kw), len(rows)),
                     rows), "tool": "check_stock",

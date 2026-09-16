@@ -67,21 +67,6 @@
                         </t>
                     </div>
                     <div class="ask-sidebar-footer">
-                        <div class="ask-sidebar-label">Mode</div>
-                        <div class="ask-mode-grid">
-                            <button t-attf-class="ask-mode-btn {{ state.mode === 'alpha' ? 'active' : '' }}"
-                                t-on-click="() => this.setMode('alpha')"
-                                title="Rule + kamus, seperti sekarang">
-                                <div class="ask-mode-name">Alpha</div>
-                                <div class="ask-mode-desc">Rule + kamus</div>
-                            </button>
-                            <button t-attf-class="ask-mode-btn {{ state.mode === 'beta' ? 'active' : '' }}"
-                                t-on-click="() => this.setMode('beta')"
-                                title="Qwen + dictionary + DB only">
-                                <div class="ask-mode-name">Beta</div>
-                                <div class="ask-mode-desc">Qwen + dict + DB</div>
-                            </button>
-                        </div>
                         <div class="ask-retention-note">
                             <i class="fa fa-clock-o me-1"/> Riwayat &gt; 10 hari terhapus otomatis.
                         </div>
@@ -146,7 +131,6 @@
                                         <div class="ask-bubble ask-bubble-ai">
                                             <div class="ask-bubble-name">GSI IT Assistant
                                                 <span class="ask-badge-ai">AI</span>
-                                                <span t-if="m.mode" class="ask-badge-ai ask-badge-mode" t-esc="m.mode"/>
                                             </div>
                                             <div class="ask-bubble-text" t-att-data-mid="m.id"/>
                                             <t t-if="m.action">

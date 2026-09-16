@@ -22,21 +22,17 @@ Prinsip arsitektur (diadopsi dari pola Rasa CALM + metode WACS):
   evidence ORM; tanpa evidence → `data_miss`/klarifikasi jujur, bukan karangan.
 - **Read-only keras.** Tidak ada tool tulis. Semua perubahan data tetap lewat
   form Odoo (handover, request, damage report, dsb).
-- **Ringan.** Tanpa Qwen pun bot jalan penuh (jalur Alpha). Qwen hanya
-  opsional: menebak maksud (Beta/decide) dan memoles bahasa (rephrase).
+- **Ringan.** Tanpa Qwen pun bot jalan penuh. Qwen hanya
+  opsional: menebak maksud cadangan (decide) dan memoles bahasa (rephrase).
 
-Dua pendekatan pemahaman bisa dibandingkan head-to-head:
+Satu jalur pemahaman (mode Beta eksperimen sudah dihapus):
 
-| | **Alpha** (default, seperti sekarang) | **Beta** (eksperimen) |
-|---|---|---|
-| Penebak maksud | Rule regex → override → TF-IDF → Qwen cadangan | **Hanya Qwen** |
-| Butuh Qwen? | Tidak | Ya (wajib) |
-| Kecepatan | Milidetik (lokal) | Detik (HTTP + inferensi CPU) |
-| Badge jawaban | `alpha` | `beta` / `beta_no_qwen` |
-| Qwen mati? | Tetap jalan normal | Pesan jujur "hidupkan Qwen dulu" (**tanpa fallback Alpha**) |
-
-Pemilih mode ada di sidebar chat (Alpha/Beta), tersimpan per-browser
-(`localStorage`), dikirim tiap pesan, dan di-echo sebagai badge di balasan AI.
+| | **Ask AI** |
+|---|---|
+| Penebak maksud | Rule regex → override → TF-IDF → Qwen cadangan |
+| Butuh Qwen? | Tidak (opsional: decide cadangan + rephrase) |
+| Kecepatan | Milidetik (lokal) |
+| Qwen mati? | Tetap jalan normal |
 
 ---
 
@@ -48,7 +44,7 @@ addons/it_asset/
 │   ├── ask_ai_nlu.py        # Otak deterministik: rule, override, OOD, TF-IDF, kontrak LLM
 │   ├── ask_ai_commands.py   # Polisi: skema command, flow murni, repair, guard anti-halu
 │   ├── ask_ai_persona.py    # Persona Alya/Raka, deteksi bahasa, kupas nama
-│   ├── ask_ai.py            # Orkestra: Alpha/Beta, tool ORM, flow runner, rephrase, riwayat
+│   ├── ask_ai.py            # Orkestra: tool ORM, flow runner, rephrase, riwayat
 │   ├── ask_ai_dictionary.py # Model kamus (it_asset.ask_ai.term)
 │   ├── ask_ai_settings.py   # Model setting singleton (it_asset.ask_ai.setting)
 │   └── ask_ai_history.py    # Model sesi + pesan chat
@@ -60,7 +56,7 @@ addons/it_asset/
 ├── static/src/components/ask_ai/
 │   ├── ask_ai.js    # Thin client OWL: render + kirim mode
 │   ├── ask_ai.xml   # Template: topbar, sidebar (mode picker), hero, bubbles
-│   └── ask_ai.scss  # Style termasuk kartu mode Alpha/Beta
+│   └── ask_ai.scss  # Style chat
 ├── tests/
 │   └── test_ask_ai_flows.py # Conversation tests multi-turn (15 skenario, tanpa Odoo)
 ├── data/ask_ai_setting_data.xml # 1 baris Setting default
@@ -167,17 +163,16 @@ yang tak ada di aslinya).
 
 ## 6. `ask_ai.py` — Orkestra + Tool ORM
 
-**Preprocess bersama** (`_preprocess`, dipakai Alpha & Beta): kosong →
+**Preprocess** (`_preprocess`): kosong →
 teguran-halu (F4) → strip nama + bahasa → koreksi kamus → vonis OOD pra-kamus.
 
-**Jalur Alpha** (`_answer_inner`): rule/override → OOD → LLM cadangan (opsional)
+**Jalur jawab** (`_answer_inner`): rule/override → OOD (jenis percakapan dulu;
+hanya unknown yang di-redirect) → resolusi konteks sesi (relation
+NEW/FOLLOW_UP/REFINE/CORRECT/CONTINUE + warisan intent/entity turn lalu,
+goals.md) → LLM cadangan (opsional)
 → demote sosial-tak-grounded → route → command → validasi DB → tool →
-rephrase (opsional).
-
-**Jalur Beta** (`_answer_beta`): Qwen decide **wajib** (tanpa rule/TF-IDF).
-Qwen mati → pesan jujur `beta_no_qwen` (tidak ada fallback Alpha — kemurnian
-eksperimen). Qwen ragu + OOD pra-kamus → scope reply. Selebihnya memakai
-mesin yang sama (command, slot-DB, tool, rephrase, grounding).
+rephrase (opsional). Konteks (intent + entity) disimpan per sesi
+(`last_intent`/`last_entities`, kedaluwarsa 60 mnt, jejak log `Ask AI ctx`).
 
 **Tool ORM** (evidence → HTML, semua di-escape): `recap`, `check_stock`
 (cerdas: kategori berupa aset → stok unit tersedia, bukan consumable),
@@ -228,10 +223,8 @@ Entitas LLM hanya diadopsi bila grounded (substring teks user).
 ## 8. Frontend & Operasional
 
 - `ask_ai.js` (thin client, tanpa logika bisnis): kirim `answer(text,
-  session_id, {mode})`, render HTML backend, badge mode, quick replies,
-  riwayat backend, mode tersimpan `localStorage`.
-- `ask_ai.xml`: topbar, sidebar (mode picker Alpha/Beta, retensi), hero,
-  bubbles (+badge mode), composer.
+  session_id)`, render HTML backend, quick replies, riwayat backend.
+- `ask_ai.xml`: topbar, sidebar (riwayat + retensi), hero, bubbles, composer.
 - Menu: `IT → AI → Chat / Setting / Dictionary`.
 - Operasional: `docker-compose.llm.yml` (image resmi
   `ghcr.io/ggml-org/llama.cpp:server` + healthcheck), `scripts/install-qwen.*`,

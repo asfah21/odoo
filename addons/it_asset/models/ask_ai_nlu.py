@@ -1230,7 +1230,45 @@ CONDITION_KEYWORDS = {
 }
 
 LOW_ONLY_STEMS = ["menipis", "habis", "restock", "minimum", "rendah",
-                  "kosong", "dibawah", "kurang"]
+                   "kosong", "dibawah", "kurang"]
+
+# Lokasi gudang/site (goals.md §5/9 Test E/H): pola DB-free — nama site
+# perusahaan ("Wolo") + pola umum "gudang|site|lokasi|warehouse X".
+# Resolusi ke stock.warehouse/stock.location terjadi di backend (DB-driven).
+_LOCATION_AFTER = [
+    re.compile(r"\bgudang\b\s+([a-zA-Z][a-zA-Z0-9 .\-]{1,30})", re.I),
+    re.compile(r"\b(site|lokasi|warehouse|gdg)\b\s+([a-zA-Z][a-zA-Z0-9 .\-]{1,30})",
+               re.I),
+]
+_LOCATION_QUESTION = re.compile(
+    r"\b(gudang|lokasi|site|warehouse)\b.{0,15}\b(mana|apa|saja)\b"
+    r"|\bdi\s+mana\b", re.I)
+_SITE_WORDS = ("wolo",)
+
+
+def resolve_location(text):
+    """(location_name, ask_location) — murni pola, tanpa DB.
+
+    'gudang Wolo' -> ('Wolo', False); 'di gudang mana?' -> ('', True);
+    'yang Wolo?' -> ('Wolo', False); tanpa sinyal -> ('', False).
+    """
+    t = text or ""
+    ask = bool(_LOCATION_QUESTION.search(t))
+    for pat in _LOCATION_AFTER:
+        m = pat.search(t)
+        if m:
+            name = re.sub(r"[?.,!]+$", "", m.group(m.lastindex)).strip()
+            name = re.sub(r"\b(nya|dong|kah|ya|aja|saja|itu|ini|tersebut)$",
+                          "", name, flags=re.I).strip()
+            if name.lower() in ("mana", "apa", "saja", "mana saja"):
+                return "", True
+            if len(name) >= 2:
+                return name[:30], ask
+    low = t.lower()
+    for w in _SITE_WORDS:
+        if re.search(r"\b" + re.escape(w) + r"\b", low):
+            return ("Wolo" if w == "wolo" else w), ask
+    return "", ask
 
 _ITEM_STOPWORDS = {
     "ada", "apa", "saja", "aja", "yang", "yg", "stok", "stock", "sisa",
@@ -1248,6 +1286,8 @@ _ITEM_STOPWORDS = {
     "tunjukkan", "tunjukin", "kasih", "kasi", "aset", "asset",
     # kata constraints jangan jadi keyword barang (kalau ikut, search miss)
     "menipis", "habis", "restock", "minimum", "rendah", "kosong", "dibawah",
+    # kata lokasi jangan jadi keyword barang ("yang Wolo?" -> item kosong)
+    "wolo", "lokasi", "warehouse", "site", "gdg",
 }
 
 _RE_EMPLOYEE_AFTER = re.compile(
@@ -1259,7 +1299,8 @@ def extract_entities(raw_text):
     """Mengembalikan (entities, constraints) — dua kanal terpisah (cermin WACS).
 
     entities: asset_refs, category, radio_kind, asset_type, form_kind,
-    form_status, period, top_kind, employee_name, item, state, condition.
+    form_status, period, top_kind, employee_name, item, state, condition,
+    location, ask_location.
     constraints: low_only (bool).
     """
     text = raw_text or ""
@@ -1331,13 +1372,16 @@ def extract_entities(raw_text):
             condition = key
             break
 
+    location, ask_location = resolve_location(text)
+
     constraints = {"low_only": any(s in norm for s in LOW_ONLY_STEMS)}
     return ({"asset_refs": asset_refs, "category": category,
              "radio_kind": radio_kind, "asset_type": asset_type,
              "form_kind": form_kind, "form_status": form_status,
              "period": period, "top_kind": top_kind,
              "employee_name": employee_name, "item": item,
-             "state": state, "condition": condition},
+             "state": state, "condition": condition,
+             "location": location, "ask_location": ask_location},
             constraints)
 
 
@@ -1502,7 +1546,7 @@ def has_meaningful_signal(entities, raw_text=""):
     if entities:
         for key in ("asset_refs", "category", "radio_kind", "asset_type",
                     "form_kind", "form_status", "period", "state",
-                    "condition", "employee_name"):
+                    "condition", "employee_name", "location"):
             if entities.get(key):
                 return True
     toks = set(normalize_id(raw_text or "").split())
@@ -1619,6 +1663,8 @@ _SELF_TEST_CASES = [
     # Consumable lapangan: kata barang -> cek stok (goals2.md §13)
     ("konektor?", "check_stock"), ("berapa kabel", "check_stock"),
     ("stok kabel", "check_stock"), ("berapa stok kabel", "check_stock"),
+    ("yang rusak?", "asset_search"),
+    ("berapa?", "unknown"),
     ("daptor bnc", "check_stock"),
     ("sisa stok radio rig", "check_stock"), ("antena masih ada?", "check_stock"),
     # Kategori polos + prefix tag (data asli: ITCT-032 = CCTV)

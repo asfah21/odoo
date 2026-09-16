@@ -32,7 +32,6 @@ export class ITAskAI extends Component {
             activeSessionId: null,
             search: "",
             showSidebar: false,
-            mode: this._loadMode(),
             sessions: [],
             quickReplies: [],
             messages: [
@@ -85,23 +84,6 @@ export class ITAskAI extends Component {
         }
     }
 
-    // ---------- mode eksperimen Alpha/Beta (persist lokal) ----------
-    _loadMode() {
-        try {
-            const m = window.localStorage.getItem("it_ask_ai_mode");
-            return m === "beta" ? "beta" : "alpha";
-        } catch (e) {
-            return "alpha";
-        }
-    }
-    setMode(m) {
-        this.state.mode = m === "beta" ? "beta" : "alpha";
-        try {
-            window.localStorage.setItem("it_ask_ai_mode", this.state.mode);
-        } catch (e) {
-            // Abaikan: mode tetap berlaku sesi ini.
-        }
-    }
     // ---------- helpers (rendering saja, tanpa logika bisnis) ----------
     _now() {
         return new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -245,7 +227,7 @@ export class ITAskAI extends Component {
         this.state.isTyping = true;
         this._scrollToBottom();
         try {
-            const res = await this.orm.call("it_asset.ask_ai", "answer", [text, this.state.activeSessionId], { mode: this.state.mode });
+            const res = await this.orm.call("it_asset.ask_ai", "answer", [text, this.state.activeSessionId], {});
             if (res && res.session_id && res.session_id !== this.state.activeSessionId) {
                 this.state.activeSessionId = res.session_id;
                 const row = this.state.sessions.find((s) => s.id === res.session_id);
@@ -259,7 +241,6 @@ export class ITAskAI extends Component {
                 content: (res && res.html) || "Maaf, backend tidak mengembalikan jawaban.",
                 time: this._now(),
                 action: (res && res.action) || null,
-                mode: (res && res.mode) || null,
             });
             this.state.quickReplies = (res && res.suggestions) || [];
             this._moveActiveFirst();

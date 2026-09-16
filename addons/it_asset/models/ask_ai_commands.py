@@ -40,7 +40,8 @@ COMMAND_TOOLS = frozenset([
 # (cermin CALM: model tak bisa menyelundupkan parameter tak dikenal).
 COMMAND_SLOTS = {
     "recap": (),
-    "check_stock": ("item", "category", "radio_kind", "low_only"),
+    "check_stock": ("item", "category", "radio_kind", "low_only",
+                    "location"),
     "asset_search": ("category", "radio_kind", "asset_type", "state",
                      "condition", "item"),
     "asset_detail": ("asset_refs", "item", "category"),
@@ -104,7 +105,7 @@ def validate_slot(name, value):
             if not _is_ref_like(v):
                 return "bad ref format: %s" % v
         return ""
-    if name in ("item", "category"):
+    if name in ("item", "category", "location"):
         return "" if len((value or "").strip()) >= 2 else "too short"
     if name == "employee_name":
         return "" if len((value or "").strip()) >= 3 else "too short"
@@ -370,6 +371,226 @@ def flow_next(flow_name, state, signal, payload=None):
     return {"action": "close"}
 
 
+# ============================================================================
+# G. Conversation relation — hubungkan pesan baru ke turn sebelumnya
+#    (goals.md §2-5). MURNI (tanpa I/O/Odoo), cermin gaya flow_signal di atas:
+#    backend menghitung Üintent/entity mentah, sini yang memutuskan hubungan
+#    + penggabungan. Keduanya harus sejalan dengan pemakaian di backend
+#    ``_answer_inner`` (resolusi konteks).
+# ============================================================================
+
+REL_NEW = "new"
+REL_FOLLOW_UP = "follow_up"
+REL_REFINE = "refine"
+REL_CORRECT = "correct"
+REL_REPLACE = "replace"
+REL_CONTINUE = "continue"
+REL_CONFIRM = "confirm"
+REL_DENY = "deny"
+REL_CANCEL = "cancel"
+REL_SAME_TOPIC = "same_topic"
+
+RELATIONS = (REL_NEW, REL_FOLLOW_UP, REL_REFINE, REL_CORRECT, REL_REPLACE,
+             REL_CONTINUE, REL_CONFIRM, REL_DENY, REL_CANCEL, REL_SAME_TOPIC)
+
+# Pertanyaan lanjutan ala "yang rusak?", "di gudang mana?", "yang Wolo?".
+_RE_FOLLOW_QUESTION = _re.compile(
+    r"^[\s\W]*(yang|yg|di|ke|dari|untuk|dengan|terus|trus|lalu)\b", _re.I)
+# Pengulangan/penegasan tanpa info baru: "berapa?", "berapa".
+_RE_BARE_BERAPA = _re.compile(
+    r"^[\s\W]*(berapa|berapaan|brp)[\s\W?]*$", _re.I)
+# Penolakan singkat tanpa flow ("bukan", "salah") — dicatat, tanpa aksi khusus.
+_RE_DENY = _re.compile(
+    r"^[\s\W]*(bukan|salah|tidak|gak|nggak)[\s\W]*$", _re.I)
+# Kata kerja query: bila ada -> pesan membawa topik sendiri (bukan refine).
+_REL_QUERY_WORDS = frozenset(
+    "stok stock berapa sisa habis menipis restock cari carikan lihat liat "
+    "tampil tampilkan tunjukkan daftar list rekap ringkas riwayat siapa "
+    "pengguna cek ada".split())
+
+
+def detect_relation(text, prev=None):
+    """Petakan pesan baru -> (relation, payload). Murni, tanpa I/O.
+
+    ``prev``: dict konteks turn lalu {intent, item} (boleh kosong).
+    Tanpa konteks lalu -> selalu NEW. Repair eksplisit (batal/lanjut/
+    ralat/semua) dipetakan dulu agar sejalan dengan flow engine.
+    """
+    prev = prev or {}
+    t = (text or "").strip()
+    if detect_cancel(t):
+        return REL_CANCEL, {}
+    if detect_resume(t):
+        return REL_CONTINUE, {}
+    corr = detect_correction(t)
+    if corr:
+        return REL_CORRECT, {"text": corr}
+    if detect_show_all(t) and len(t) <= 40:
+        return REL_CONFIRM, {}
+    if not (prev.get("intent") or ""):
+        return REL_NEW, {}
+    if _RE_BARE_BERAPA.match(t):
+        # "berapa?" setelah "stok kabel" = jalankan konteks terakhir
+        return REL_CONTINUE, {}
+    if _RE_DENY.match(t):
+        return REL_DENY, {}
+    if _RE_FOLLOW_QUESTION.match(t):
+        # "yang rusak?", "di gudang mana?", "yang Wolo?"
+        return REL_FOLLOW_UP, {}
+    words = [w for w in _re.sub(r"[?.,!]+$", "", t.lower()).split()
+             if len(w) > 1]
+    if words and not (set(words) & _REL_QUERY_WORDS) and len(words) <= 4:
+        # frasa benda pendek tanpa kata query: "kabel antena", "antena"
+        # setelah "stok kabel" = persempit topik terakhir
+        return REL_REFINE, {"text": t}
+    if words and (set(words) & _REL_QUERY_WORDS):
+        # query lengkap yang baru: "stok tinta" setelah "stok kabel"
+        return REL_REPLACE, {}
+    return REL_SAME_TOPIC, {}
+
+
+def refine_item(prev_item, new_item):
+    """Gabung item lama + kata baru (dedup, urutan lama dulu).
+
+    'kabel'+'antena' -> 'kabel antena'; 'kabel antena'+'antena' tetap.
+    Kosong salah satu -> yang terisi.
+    """
+    prev_words = (prev_item or "").split()
+    new_words = (new_item or "").split()
+    if not prev_words:
+        return (new_item or "").strip()
+    if not new_words:
+        return (prev_item or "").strip()
+    out = list(prev_words)
+    for w in new_words:
+        if w.lower() not in {x.lower() for x in out}:
+            out.append(w)
+    return " ".join(out)
+
+
+_CORRECTION_MARKERS = _re.compile(
+    r"^(maksud\s*saya|maksudnya|maksud|saya|eh)[\s,.:;\-]+", _re.I)
+
+
+def clean_correction_item(item):
+    """Kupas penanda koreksi dari awal item ('maksud radio base'->'radio base')."""
+    s = (item or "").strip()
+    while True:
+        shorter = _CORRECTION_MARKERS.sub("", s).strip(" ,:.-")
+        if shorter == s or not shorter:
+            break
+        s = shorter
+    return s
+
+
+# Kata modifier (kondisi/status/stok/lokasi) bukan nama barang — dikupas
+# dari item baru saat follow-up/refine agar "yang rusak?" tak menimpa item
+# "kabel antena" menjadi "rusak". Cermin STATE/CONDITION/LOW_ONLY NLU.
+_REFINE_NOISE = frozenset(
+    "rusak broken degraded lemot lambat mati pecah hancur "
+    "bagus baik normal good "
+    "tersedia available ready dipakai digunakan terpakai "
+    "menipis habis restock minimum rendah kosong kurang "
+    "wolo gudang lokasi warehouse site gdg".split())
+
+
+def strip_modifiers(item):
+    """Buang kata modifier dari item ('kabel rusak'->'kabel', 'rusak'->'')."""
+    return " ".join(
+        w for w in (item or "").split() if w.lower() not in _REFINE_NOISE
+    ).strip()
+
+
+def resolve_context(text, classification, current, prev):
+    """Gabungkan turn baru dengan konteks sesi. Murni, tanpa I/O.
+
+    ``classification``: {intent, confidence, method} turn ini (mentah).
+    ``current``: {entities, constraints} turn ini (mentah).
+    ``prev``: {intent, entities, constraints} turn lalu (boleh {}).
+
+    Kembalikan (intent, entities, constraints, relation). Aturan:
+    - tanpa konteks lalu -> (asli, NEW).
+    - CORRECT: item diganti payload koreksi, intent ikut turn lalu (bila tool).
+    - CONTINUE/FOLLOW_UP + metode lemah -> warisi intent turn lalu.
+    - FOLLOW_UP + intent tool kuat (mis. asset_search 'yang rusak?') ->
+      intent dipertahankan, slot kosong diwarisi (item/lokasi/kategori).
+    - REFINE: item digabung (prev + kata baru); intent ikut turn ini bila
+      tool, else turn lalu.
+    - REPLACE/NEW/SAME_TOPIC/DENY/CONFIRM/CANCEL -> apa adanya (backend
+      menangani repair/flow duluan; di sini hanya NEW/REPLACE jujur).
+    """
+    intent0 = (classification or {}).get("intent") or "unknown"
+    ent0 = dict((current or {}).get("entities") or {})
+    con0 = dict((current or {}).get("constraints") or {"low_only": False})
+    pintent = (prev or {}).get("intent") or ""
+    pent = dict((prev or {}).get("entities") or {})
+    pcon = dict((prev or {}).get("constraints") or {})
+    relation, payload = detect_relation(
+        text, {"intent": pintent, "item": pent.get("item", "")})
+    if not pintent:
+        return intent0, ent0, con0, REL_NEW
+    if relation == REL_CORRECT:
+        item = clean_correction_item(
+            payload.get("text", "") or ent0.get("item", ""))
+        ent = dict(pent)
+        for key, val in ent0.items():
+            if val or key not in ent:
+                ent[key] = val
+        if item:
+            ent["item"] = item
+        intent = pintent if pintent in COMMAND_TOOLS else intent0
+        return intent, ent, con0, relation
+    if relation == REL_CONTINUE:
+        if pintent in COMMAND_TOOLS:
+            ent = dict(pent)
+            con = dict(pcon)
+            if con0.get("low_only"):
+                con["low_only"] = True
+            return pintent, ent, con, relation
+        return intent0, ent0, con0, REL_NEW
+    if relation == REL_FOLLOW_UP:
+        ent = dict(pent)
+        for key, val in ent0.items():
+            if key == "item":
+                continue  # item ditangani di bawah (anti-cemar modifier)
+            if val:
+                ent[key] = val
+        new_bits = strip_modifiers(ent0.get("item", ""))
+        ent["item"] = refine_item(pent.get("item", ""), new_bits) \
+            if new_bits else pent.get("item", "")
+        con = dict(pcon)
+        if con0.get("low_only"):
+            con["low_only"] = True
+        if intent0 in COMMAND_TOOLS and (classification or {}).get(
+                "method") in ("rule", "override"):
+            # sinyal kuat ("yang rusak?" -> asset_search): intentnya dipakai,
+            # slot kosong (item/lokasi/...) diwarisi dari konteks
+            return intent0, ent, con, relation
+        if pintent in COMMAND_TOOLS:
+            return pintent, ent, con, relation
+        return intent0, ent0, con0, REL_NEW
+    if relation == REL_REFINE:
+        item = refine_item(pent.get("item", ""),
+                           strip_modifiers(ent0.get("item", "")))
+        ent = dict(pent)
+        for key, val in ent0.items():
+            if key == "item":
+                continue
+            if val:
+                ent[key] = val
+        ent["item"] = item
+        con = dict(pcon)
+        if con0.get("low_only"):
+            con["low_only"] = True
+        if intent0 in COMMAND_TOOLS:
+            return intent0, ent, con, relation
+        if pintent in COMMAND_TOOLS:
+            return pintent, ent, con, relation
+        return intent0, ent0, con0, REL_NEW
+    return intent0, ent0, con0, (
+        REL_REPLACE if relation == REL_REPLACE else REL_NEW)
+
+
 def dump_state(state):
     """Serialisasi state flow ke JSON string (disimpan di sesi)."""
     try:
@@ -570,6 +791,82 @@ _SELF_TEST_SIGNALS = [
 ]
 
 
+_SELF_TEST_RELATIONS = [
+    # (text, prev_intent, prev_item, want_relation)
+    ("berapa?", "check_stock", "kabel", REL_CONTINUE),
+    ("kabel antena", "check_stock", "kabel", REL_REFINE),
+    ("antena", "check_stock", "kabel", REL_REFINE),
+    ("yang rusak?", "check_stock", "kabel", REL_FOLLOW_UP),
+    ("yang menipis?", "check_stock", "kabel", REL_FOLLOW_UP),
+    ("yang Wolo?", "check_stock", "kabel antena", REL_FOLLOW_UP),
+    ("di gudang mana?", "check_stock", "kabel antena", REL_FOLLOW_UP),
+    ("eh maksud saya radio base", "check_stock", "kabel", REL_CORRECT),
+    ("stok tinta", "check_stock", "kabel", REL_REPLACE),
+    ("rekap aset", "check_stock", "kabel", REL_REPLACE),
+    ("batal", "check_stock", "kabel", REL_CANCEL),
+    ("semua", "check_stock", "kabel", REL_CONFIRM),
+    ("stok kabel", "", "", REL_NEW),
+    ("berapa?", "", "", REL_NEW),
+]
+
+_SELF_TEST_RESOLVE = [
+    # (text, classification, cur_entities, cur_constraints, prev, want_intent,
+    #  want_item, want_relation)
+    ("berapa?",
+     {"intent": "unknown", "confidence": 0.0, "method": "empty"},
+     {}, {}, {"intent": "check_stock",
+              "entities": {"item": "kabel", "category": "kabel"},
+              "constraints": {}},
+     "check_stock", "kabel", REL_CONTINUE),
+    ("kabel antena",
+     {"intent": "check_stock", "confidence": 0.91, "method": "rule"},
+     {"item": "kabel antena", "category": "kabel"}, {},
+     {"intent": "check_stock", "entities": {"item": "kabel"},
+      "constraints": {}},
+     "check_stock", "kabel antena", REL_REFINE),
+    ("antena",
+     {"intent": "check_stock", "confidence": 0.91, "method": "rule"},
+     {"item": "antena"}, {},
+     {"intent": "check_stock", "entities": {"item": "kabel"},
+      "constraints": {}},
+     "check_stock", "kabel antena", REL_REFINE),
+    ("yang rusak?",
+     {"intent": "asset_search", "confidence": 0.90, "method": "rule"},
+     {"condition": "broken"}, {},
+     {"intent": "check_stock",
+      "entities": {"item": "radio ht", "category": "radio"},
+      "constraints": {}},
+     "asset_search", "radio ht", REL_FOLLOW_UP),
+    ("yang menipis?",
+     {"intent": "check_stock", "confidence": 0.94, "method": "rule"},
+     {}, {"low_only": True},
+     {"intent": "check_stock",
+      "entities": {"item": "kabel antena", "category": "kabel"},
+      "constraints": {}},
+     "check_stock", "kabel antena", REL_FOLLOW_UP),
+    ("eh maksud saya radio base",
+     {"intent": "asset_search", "confidence": 0.90, "method": "rule"},
+     {"item": "maksud radio base", "category": "radio"}, {},
+     {"intent": "check_stock", "entities": {"item": "kabel"},
+      "constraints": {}},
+     "check_stock", "radio base", REL_CORRECT),
+    ("yang Wolo?",
+     {"intent": "unknown", "confidence": 0.0, "method": "empty"},
+     {"location": "Wolo"}, {},
+     {"intent": "check_stock",
+      "entities": {"item": "kabel antena", "category": "kabel"},
+      "constraints": {}},
+     "check_stock", "kabel antena", REL_FOLLOW_UP),
+    ("yang antena?",
+     {"intent": "unknown", "confidence": 0.0, "method": "empty"},
+     {"item": "antena"}, {},
+     {"intent": "check_stock",
+      "entities": {"item": "kabel", "category": "kabel"},
+      "constraints": {}},
+     "check_stock", "kabel antena", REL_FOLLOW_UP),
+]
+
+
 def run_self_test():
     good, total, fails = 0, 0, []
     for intent, ent, con, want in _SELF_TEST_COMMANDS:
@@ -613,6 +910,30 @@ def run_self_test():
             good += 1
         else:
             fails.append(("signal", (flow, text), want, got))
+    # G (goals.md §9): relation pesan baru thd konteks sesi
+    for text, pintent, pitem, want in _SELF_TEST_RELATIONS:
+        total += 1
+        got, _payload = detect_relation(
+            text, {"intent": pintent, "item": pitem})
+        if got == want:
+            good += 1
+        else:
+            fails.append(("relation", (text, pintent), want, got))
+    # G: resolusi konteks (intent + item warisan)
+    for (text, clf, ent, con, prev, want_intent, want_item,
+            want_rel) in _SELF_TEST_RESOLVE:
+        total += 1
+        got_intent, got_ent, _con, got_rel = resolve_context(
+            text, clf, {"entities": ent, "constraints": con}, prev)
+        if (got_intent == want_intent
+                and (got_ent or {}).get("item") == want_item
+                and got_rel == want_rel):
+            good += 1
+        else:
+            fails.append(("resolve", text,
+                          (want_intent, want_item, want_rel),
+                          (got_intent, (got_ent or {}).get("item"),
+                           got_rel)))
     # F1: kode hanya boleh disebut bila grounded di pertanyaan asli
     for code, original, want in [
         ("ITLT-007", "siapa pakai ITLT-007?", True),

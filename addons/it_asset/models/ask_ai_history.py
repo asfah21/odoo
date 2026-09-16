@@ -52,6 +52,12 @@ class ITAskAISession(models.Model):
     last_asset_type = fields.Char(string="Domain Terakhir", readonly=True)
     last_radio_kind = fields.Char(string="Jenis Radio Terakhir", readonly=True)
     last_ctx_at = fields.Datetime(string="Konteks Diperbarui", readonly=True)
+    # Konteks turn terakhir (goals.md §2): intent + entitas (item, kondisi,
+    # lokasi, ...) agar follow-up ("berapa?", "yang rusak?", "kabel antena")
+    # dipahami bersama pesan sebelumnya, bukan terisolasi. Kadaluarsa ikut
+    # last_ctx_at. Ditulis oleh it_asset.ask_ai._session_remember.
+    last_intent = fields.Char(string="Intent Terakhir", readonly=True)
+    last_entities = fields.Json(string="Entitas Terakhir", readonly=True)
 
     @api.depends("message_ids")
     def _compute_message_count(self):
