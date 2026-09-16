@@ -743,7 +743,11 @@ _RULES = [
     (re.compile(r"\b(rusak|broken|degraded|lemot|tersedia|available|dipakai|digunakan|terpakai|in\s+use|out\s+of\s+service|retired|laptop|printer|radio|monitor|mouse|keyboard|komputer|server|cctv|desktop|gps|tablet|headset|proyektor|projector|router|switch|aset\s+apa|daftar\s+aset|list\s+aset)\b", re.I), INTENT_ASSET_SEARCH, 0.90),
     # --- kata consumable/material berdiri sendiri -> cek stok (OP-2 + IT-5).
     # Ditaruh setelah aturan aset agar "mouse rusak"/"radio ht" tetap ke aset.
-    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc|toner|tinta|kertas)\b", re.I), INTENT_CHECK_STOCK, 0.88),
+    # Conf 0.91 (bukan 0.88): check_stock itu factual (threshold 0.90) —
+    # di bawah itu query seperti "berapa kabel"/"konektor?" SELAMANYA hanya
+    # klarifikasi karena rule mem-bypass NLU. Tool tetap jujur miss bila
+    # barangnya memang tak ada di DB.
+    (re.compile(r"\b(konektor|adaptor|adapter|antena|bracket|fuse|sekring|isolasi|timah|flux|solder|coaxial|jumper|kabel|bnc|toner|tinta|kertas)\b", re.I), INTENT_CHECK_STOCK, 0.91),
     # --- V2: alias fleet/unit berdiri sendiri (exca / excavator / dump truck / dt / lv / wt / dozer / grader / fleet / unit) ---
     (re.compile(r"\b(exca|beko|excavator|dump\s*truck|dumptruck|water\s*truck|watertruck|light\s*vehicle|dozer|grader|fleet|unit|dt|lv|wt)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- V2: jenis radio berdiri sendiri (ht / rig / handy talky) ---
@@ -1613,7 +1617,9 @@ _SELF_TEST_CASES = [
     ("laptop paling baru", "asset_top"),
     ("aset paling sering rusak", "asset_top"),
     # Consumable lapangan: kata barang -> cek stok (goals2.md §13)
-    ("konektor?", "check_stock"), ("daptor bnc", "check_stock"),
+    ("konektor?", "check_stock"), ("berapa kabel", "check_stock"),
+    ("stok kabel", "check_stock"), ("berapa stok kabel", "check_stock"),
+    ("daptor bnc", "check_stock"),
     ("sisa stok radio rig", "check_stock"), ("antena masih ada?", "check_stock"),
     # Kategori polos + prefix tag (data asli: ITCT-032 = CCTV)
     ("cctv", "asset_search"), ("list cctv", "asset_search"),

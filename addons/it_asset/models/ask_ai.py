@@ -2527,6 +2527,24 @@ class ITAskAI(models.AbstractModel):
                 return rows
         return []
 
+    def _consumable_hint(self, limit=4):
+        """Contoh nama consumable yang benar ada (satu query, hanya di miss).
+
+        Agar jawaban miss bersifat mengarahkan ('coba kata ini') bukan
+        buntu — user jadi tahu keyword yang dikenali database.
+        """
+        try:
+            rows = self.env["it_asset.consumable"].search_read(
+                [], ["name"], limit=limit, order="name asc")
+        except Exception:
+            rows = []
+        names = [r.get("name") for r in rows if r.get("name")]
+        if not names:
+            return ""
+        return ("<div class='ai-foot'>Contoh barang tercatat: %s — coba "
+                "<i>“stok [nama itu]”</i>.</div>"
+                % ", ".join("<i>%s</i>" % _esc(n) for n in names[:limit]))
+
     # Kata generik kategori/jenis: bila item masih punya kata produk lain
     # ("mic" pada "mic radio"), itu barang spesifik -> consumable dulu.
     _CATEGORY_NOISE_WORDS = frozenset([
@@ -2576,9 +2594,14 @@ class ITAskAI(models.AbstractModel):
                         "hint": "<div class='ai-foot'>Tidak ada stok maupun "
                                 "aset “<b>%s</b>” tercatat. Coba kata lain "
                                 "atau ketik <i>“rekap aset”</i>.</div>"
-                        % _esc(kw)}
+                        % _esc(kw) + self._consumable_hint()}
             # Bukan kategori aset -> fallback lama (keyword ke data aset).
-            return self._tool_asset_stock(text, entities, kw)
+            # Miss di sini diperkaya contoh nama yang benar ada agar user
+            # tak muter di klarifikasi ("stok kabel" -> miss jujur + saran).
+            res = self._tool_asset_stock(text, entities, kw)
+            if isinstance(res, dict) and res.get("miss"):
+                res["hint"] = (res.get("hint") or "") + self._consumable_hint()
+            return res
         # Tanpa keyword tapi ada topik sesi ("stok nya sisa?" setelah bahas
         # HT) -> stok kategori itu, bukan ringkasan umum. low_only tetap umum.
         if not constraints["low_only"]:
