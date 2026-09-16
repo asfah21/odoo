@@ -2774,17 +2774,25 @@ class ITAskAI(models.AbstractModel):
         if cat in self._ASSET_STOCK_CATEGORIES:
             base.append(("category_id.name", "ilike", entities["category"]))
         kind = (entities.get("radio_kind") or "")
-        kind_domain = []
+        kind_domain, kind_label, kind_note = [], "", ""
         if kind == "rig":
             kind_domain = ["|", ("name", "ilike", "rig"),
                            ("product_id.name", "ilike", "rig")]
+            kind_label = "Radio Rig"
         elif kind == "ht":
             kind_domain = ["|", ("name", "ilike", "HT"),
                            ("product_id.name", "ilike", "HT")]
+            kind_label = "Radio HT"
         if not base:
             base = self._asset_domain_for(kw)
         if kind_domain and A.search_count(base + kind_domain):
             base = base + kind_domain
+        elif kind_domain:
+            # Tak ada yang bernama HT/Rig persis: jangan labeli stok rig
+            # sebagai "radio ht" diam-diam — catat jujur di jawaban.
+            kind_note = ("<div class='ai-foot'>Tak ada yang bernama "
+                         "persis “<b>%s</b>” — menampilkan semua radio "
+                         "yang cocok.</div>" % _esc(kind_label))
         avail_dom = base + [("state", "=", "available")]
         inuse_dom = base + [("state", "=", "in_use")]
         avail_n = A.search_count(avail_dom)
@@ -2803,7 +2811,7 @@ class ITAskAI(models.AbstractModel):
                 "📦 Stok “<b>%s</b>” kosong — semua <b>%d</b> sedang "
                 "dipakai:" % (_esc(kw), inuse_n), rows)
                 + "<div class='ai-foot'>Balas tag-nya untuk cek siapa "
-                  "pemakainya.</div>",
+                  "pemakainya.</div>" + kind_note,
                     "tool": "check_stock"}
         rows = A.search_read(avail_dom, _ASSET_FIELDS, limit=15,
                              order="id desc")
@@ -2812,7 +2820,8 @@ class ITAskAI(models.AbstractModel):
         return {"html": self._asset_table(
             "📦 Stok “<b>%s</b>” — <b>%d</b> tersedia%s:" % (
                 _esc(kw), avail_n,
-                " • %d dipakai" % inuse_n if inuse_n else ""), rows) + extra,
+                " • %d dipakai" % inuse_n if inuse_n else ""), rows)
+            + extra + kind_note,
             "tool": "check_stock",
             "action": self._list_action("Assets", "it_asset.asset",
                                        avail_dom)}
