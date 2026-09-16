@@ -7,10 +7,13 @@ Alur per pesan (cermin ``processWithAgent`` + ``processMessageFallback`` WACS)::
       ↓
     [L1] llm_decide() → None (nonaktif; titik ekstensi, kontrak Decide WACS)
       ↓
-    [fast-path] rule sosial (greeting/thanks/goodbye/help) → jawaban canned,
+    [fast-path] rule sosial & percakapan (greeting/thanks/compliment/flirt/
+                romantic/poetic/joke/insult/casual/...) → jawaban canned,
                 tanpa tool (cermin ``deterministic_short_circuit``)
       ↓
-    [fast-path] ood_rule → scope reply bervariasi, tanpa tool
+    [fast-path] ood_rule → jenis percakapan dulu: bermaksud sosial/kasual/
+                emosional/puitis dijawab natural; HANYA unknown → scope
+                reply bervariasi, tanpa tool
                 (cermin ``deterministic_ood_route``)
       ↓
     [L2] override intent kuat → tool langsung (confidence 1.0)
@@ -146,6 +149,54 @@ def _or_domain(conds):
     return ["|"] * (len(conds) - 1) + conds
 
 
+def _same_ref(a, b):
+    """Bandingkan dua ref toleran pemisah + nol depan (delegasi ke NLU)."""
+    try:
+        return nlu.same_ref(a, b)
+    except AttributeError:
+        # fallback bila NLU lama tanpa same_ref
+        try:
+            sa = nlu._stripped_ref(a)
+            sb = nlu._stripped_ref(b)
+        except AttributeError:
+            import re as _re2
+            sa = _re2.sub(r"[^A-Z0-9]", "", (a or "").upper())
+            sb = _re2.sub(r"[^A-Z0-9]", "", (b or "").upper())
+        return bool(sa) and sa == sb
+
+
+def _partition_exact(rows, kw, keys=("asset_tag", "name", "lot_id")):
+    """Pisah kandidat fuzzy -> (exact, fuzzy) berdasar kesetaraan numerik.
+
+    ``rows``: list dict dari search_read. ``kw``: kode yang dicari user.
+    Exact = salah satu kolom ``keys`` same_ref dengan kw.
+    Menangkal over-match ilike: varian 'ITLT-07' (prefix keluarga 07x)
+    tak boleh menenggelamkan exact 'ITLT-007'.
+    """
+    exact, fuzzy = [], []
+    for r in rows or []:
+        hit = False
+        for k in keys:
+            try:
+                v = r.get(k)
+            except AttributeError:
+                v = None
+            if v:
+                name = v[1] if isinstance(v, (list, tuple)) else str(v)
+                if name and _same_ref(name, kw):
+                    hit = True
+                    break
+                # nama display "TAG - Nama - SN": coba tiap segmen
+                for seg in str(name).replace("/", " ").split(" - "):
+                    if seg and _same_ref(seg.strip(), kw):
+                        hit = True
+                        break
+                if hit:
+                    break
+        (exact if hit else fuzzy).append(r)
+    return exact, fuzzy
+
+
 # Jawaban lanjutan atas pertanyaan konfirmasi ("yang mana: tag spesifik atau
 # semua?"). Hanya dimaknai bila sesi punya pending; kalau tidak, teks jalan
 # normal seperti biasa.
@@ -170,7 +221,11 @@ _GENERIC_UNIT_WORDS = frozenset(
 
 _SOCIAL_INTENTS = (nlu.INTENT_GREETING, nlu.INTENT_THANKS,
                    nlu.INTENT_GOODBYE, nlu.INTENT_HELP,
-                   nlu.INTENT_IDENTITY, nlu.INTENT_CREATOR)
+                   nlu.INTENT_IDENTITY, nlu.INTENT_CREATOR,
+                   nlu.INTENT_COMPLIMENT, nlu.INTENT_FLIRT,
+                   nlu.INTENT_ROMANTIC, nlu.INTENT_POETIC,
+                   nlu.INTENT_JOKE, nlu.INTENT_INSULT,
+                   nlu.INTENT_CASUAL)
 
 # Jawaban canned bervariasi (rotasi deterministik) biar tak terasa template.
 # {daypart} diisi pagi/siang/sore/malam dari jam server.
@@ -223,6 +278,53 @@ _CANNED_SOCIAL = {
         "(Site Wolo)</b> 🛠️<br/>Saya berjalan lokal di server "
         "(Qwen3-0.6B + orkestrasi WACS) tanpa API eksternal.<br/>Ada masukan? "
         "Sampaikan ke tim IT Site Wolo ya.",
+    ],
+    # Percakapan OOD yang bermaksud sosial/kasual/emosional/puitis:
+    # dijawab natural, TANPA redirect ke domain IT.
+    nlu.INTENT_COMPLIMENT: [
+        "Wah, makasih banyak! 😊 Senang bisa membantu. Ada lagi yang mau "
+        "ditanyakan?",
+        "Aduh, jadi malu nih 🙈 Makasih apresiasinya! Saya di sini kalau "
+        "dibutuhkan lagi.",
+        "Dengan senang hati! ✨ Kabari saja kapan pun butuh bantuan ya.",
+    ],
+    nlu.INTENT_FLIRT: [
+        "Haha, bisa aja kamu 😄 Makasih gombalannya! Ada yang bisa saya "
+        "bantu hari ini?",
+        "Aduh aduh, rayuannya diterima dengan senang hati 😊 Balik fokus "
+        "— mau tanya apa nih?",
+    ],
+    nlu.INTENT_ROMANTIC: [
+        "Duh, so sweet 😊 Tapi sebagai asisten, tugasku menemani lewat "
+        "bantuan — aku selalu di sini kalau kamu butuh sesuatu ya.",
+        "Makasih perasaannya 🙏 Aku paling bisa menunjukkan perhatian "
+        "dengan membantu. Ada yang mau ditanyakan?",
+    ],
+    nlu.INTENT_POETIC: [
+        "Jalan-jalan ke Site Wolo 🌅<br/>Jangan lupa mampir ke gudang "
+        "IT —<br/>Ada yang bisa saya bantu hari ini? 😊",
+        "Bintang bertabur di langit malam ✨<br/>Asisten siap membantu, "
+        "tinggal bilang —<br/>Mau tanya apa nih?",
+    ],
+    nlu.INTENT_JOKE: [
+        "Kenapa laptop tidak pernah berbohong? Karena dia selalu "
+        "<i>transparan</i> soal spesifikasinya 😄 Ada lagi? Atau mau "
+        "tanya yang serius juga boleh!",
+        "Haha 😄 Boleh juga! Kalau butuh hiburan lain tinggal bilang — "
+        "kalau butuh info, saya juga siap.",
+    ],
+    nlu.INTENT_INSULT: [
+        "Maaf kalau jawabanku kurang membantu 🙏 Saya akan berusaha lebih "
+        "baik. Coba ceritakan maunya seperti apa ya?",
+        "Siap, kritiknya saya terima dengan tenang 😊 Biar saya perbaiki "
+        "— ada yang bisa saya bantu dengan benar?",
+    ],
+    nlu.INTENT_CASUAL: [
+        "Aku baik-baik saja, makasih sudah tanya! 😊 Kamu sendiri gimana? "
+        "Ada yang bisa saya bantu?",
+        "Santai aja di sini ✨ Lagi butuh info sesuatu atau sekadar "
+        "ngobrol?",
+        "Haha 😄 Oke oke. Saya siap kalau nanti ada yang mau ditanyakan ya!",
     ],
 }
 
@@ -407,17 +509,38 @@ class ITAskAI(models.AbstractModel):
         if not decision:
             # Beta murni: tanpa Qwen tidak ada tebakan maksud -> jujur buntu,
             # JANGAN fallback ke Alpha (mengotori data eksperimen).
+            # Bedakan cooldown (sementara) vs mati agar tak dikira 'mati
+            # padahal Qwen jalan' — kasus klasik: baru gagal sekali lalu
+            # tiap pesan berikut langsung 'mati' 60 detik.
+            remain = self._llm_cooldown_remaining()
+            tried = self._llm_candidate_urls(
+                (llm_cfg.get("it_asset.ask_ai.llm_url") or ""))
+            tried_txt = ", ".join("<i>%s</i>" % _esc(u) for u in tried[:3])
             _logger.info("Ask AI Beta: Qwen tak menjawab -> buntu jujur")
+            if remain > 1:
+                html = ("Mode <b>Beta</b> masih jeda <b>%d detik</b> setelah "
+                        "gagal hubungi Qwen (cooldown anti-timeout beruntun). "
+                        "Qwen-mu kemungkinan <b>hidup</b> — tunggu sebentar "
+                        "lalu kirim ulang, atau pakai <b>Alpha</b> sementara."
+                        % int(remain + 0.5))
+                method = "beta_cooldown"
+            else:
+                html = ("Mode <b>Beta</b> butuh Qwen yang hidup — llama-server tidak "
+                        "menjawab dari dalam Odoo (dicoba: %s).<br/>"
+                        "Dari Docker ini normal bila Setting masih "
+                        "<b>http://127.0.0.1:8081</b> (itu container Odoo sendiri!). "
+                        "Ganti ke <b>http://llm:8081</b> di <b>AI → Setting → llama-server URL</b> "
+                        "lalu <b>Test Qwen</b>, atau cek "
+                        "<i>docker compose -f docker-compose.yml -f docker-compose.llm.yml ps</i>. "
+                        "(Tanpa Qwen, Beta tidak bisa menebak "
+                        "maksud. Pakai <b>Alpha</b> untuk jalur non-Qwen.)"
+                        % tried_txt)
+                method = "beta_no_qwen"
             out = self._out(
-                text, nlu.INTENT_UNKNOWN, 0.0, "beta_no_qwen",
-                "Mode <b>Beta</b> butuh Qwen yang hidup — llama-server tidak "
-                "menjawab. Cek service <b>llm</b> / Test Qwen di Setting, lalu "
-                "kirim ulang pesanmu. (Tanpa Qwen, Beta tidak bisa menebak "
-                "maksud. Pakai <b>Alpha</b> untuk jalur non-Qwen.)",
-                "beta_no_qwen",
+                text, nlu.INTENT_UNKNOWN, 0.0, method, html, method,
                 suggestions=["rekap aset", "stok radio ht", "bantuan"])
             out["flow_clear"] = True
-            out["mode"] = "beta_no_qwen"
+            out["mode"] = method
             self._record_feedback(text, out)
             return out
 
@@ -593,9 +716,21 @@ class ITAskAI(models.AbstractModel):
                              self._social_reply(intent, text, lang, pkey, pname),
                              "deterministic_answer")
 
-        # Fast-path OOD: tolak bervariasi, tanpa tool (cermin WACS).
+        # Fast-path OOD: OOD tidak otomatis ditolak — tentukan dulu jenis
+        # percakapannya. Sapaan/pujian/gombalan/romantis/puisi/joke/hinaan/
+        # basa-basi dijawab natural; HANYA unknown yang diarahkan ke IT.
         if method == "ood_rule":
             reason = classification.get("ood_reason", "")
+            try:
+                conv = nlu.classify_conversation(text)
+            except AttributeError:
+                conv = nlu.CONV_UNKNOWN if hasattr(nlu, "CONV_UNKNOWN") \
+                    else "unknown"
+            if conv and conv != (getattr(nlu, "CONV_UNKNOWN", "unknown")):
+                return self._out(
+                    text, conv, 0.92, "conv_rule",
+                    self._social_reply(conv, text, lang, pkey, pname),
+                    "deterministic_answer")
             out = self._ood_scope_out(text, reason)
             self._record_feedback(text, out)
             return out
@@ -865,7 +1000,7 @@ class ITAskAI(models.AbstractModel):
                     "1", "true", "yes")
             if not enabled:
                 return ""
-            url = (Param.get_param(
+            url_cfg = (Param.get_param(
                 "it_asset.ask_ai.llm_url", "http://127.0.0.1:8081") or "").rstrip("/")
             try:
                 max_tokens = int(Param.get_param(
@@ -881,6 +1016,7 @@ class ITAskAI(models.AbstractModel):
             return ""
         if _time.time() < _LLM_COOLDOWN_UNTIL:
             return ""
+        urls = self._llm_candidate_urls(url_cfg)
         system = (
             "Kamu editor Bahasa Indonesia yang ramah. Poles TEKS PEMBUKA dan "
             "PENUTUP jawaban berikut agar natural dan tidak robotik. ATURAN KERAS: "
@@ -901,16 +1037,27 @@ class ITAskAI(models.AbstractModel):
             ],
         }
         try:
-            req = _urlrequest.Request(
-                url + "/v1/chat/completions",
-                data=_json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"})
-            started = _time.time()
-            with _urlrequest.urlopen(req, timeout=8) as resp:
-                data = _json.loads(resp.read().decode("utf-8"))
-            _logger.info("[AI_TIMING] qwen_rephrase total=%.2fs url=%s",
-                         _time.time() - started, url)
-            polished = (data["choices"][0]["message"]["content"] or "").strip()
+            polished = ""
+            for url in urls:
+                try:
+                    req = _urlrequest.Request(
+                        url + "/v1/chat/completions",
+                        data=_json.dumps(payload).encode("utf-8"),
+                        headers={"Content-Type": "application/json"})
+                    started = _time.time()
+                    with _urlrequest.urlopen(req, timeout=8) as resp:
+                        data = _json.loads(resp.read().decode("utf-8"))
+                    _logger.info("[AI_TIMING] qwen_rephrase total=%.2fs url=%s",
+                                 _time.time() - started, url)
+                    polished = (data["choices"][0]["message"]["content"] or "").strip()
+                    if polished:
+                        break
+                except Exception as exc_one:
+                    _logger.warning("Ask AI rephrase coba %s gagal: %s",
+                                     url, exc_one)
+                    continue
+            if not polished:
+                return ""
         except Exception as exc:
             _logger.warning("Ask AI rephrase gagal: %s", exc)
             return ""
@@ -965,9 +1112,38 @@ class ITAskAI(models.AbstractModel):
                 "1", "true", "yes")
         return cfg
 
+    @staticmethod
+    def _llm_candidate_urls(configured):
+        """URL Qwen yang dicoba berurutan (docker-aware).
+
+        Dari dalam container Odoo, ``127.0.0.1`` = container itu sendiri,
+        BUKAN host / sidecar llm — inilah penyebab klasik 'Beta bilang mati
+        padahal Qwen jalan' (curl dari host OK, dari Odoo refused).
+        Urutan: konfigurasi user dulu, lalu nama service compose (llm),
+        lalu host-gateway docker, lalu localhost.
+        """
+        seen, outs = set(), []
+        for u in [(configured or "").strip().rstrip("/"),
+                  "http://llm:8081",
+                  "http://host.docker.internal:8081",
+                  "http://127.0.0.1:8081"]:
+            if u and u not in seen:
+                seen.add(u)
+                outs.append(u)
+        return outs
+
+    @staticmethod
+    def _llm_cooldown_remaining():
+        return max(0.0, _LLM_COOLDOWN_UNTIL - _time.time())
+
     def _llm_transport(self, cfg):
-        """POST ke endpoint OpenAI-compatible llama.cpp (stdlib urllib)."""
-        url = cfg["it_asset.ask_ai.llm_url"].rstrip("/") + "/v1/chat/completions"
+        """POST ke endpoint OpenAI-compatible llama.cpp (stdlib urllib).
+
+        Mencoba kandidat URL berurutan; yang berhasil dipakai dan diingat
+        di ``cfg['working_url']`` untuk pesan diagnosis jujur.
+        """
+        urls = self._llm_candidate_urls(
+            cfg.get("it_asset.ask_ai.llm_url") or "")
         body = {
             "model": cfg["it_asset.ask_ai.llm_model"],
             "temperature": nlu.LLM_DECIDE_TEMPERATURE,
@@ -978,23 +1154,34 @@ class ITAskAI(models.AbstractModel):
             body["response_format"] = {"type": "json_object"}
 
         def call(system_prompt, user_text):
-            payload = dict(body)
-            payload["messages"] = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_text},
-            ]
-            req = _urlrequest.Request(
-                url, data=_json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json"})
-            started = _time.time()
-            try:
-                with _urlrequest.urlopen(req, timeout=cfg["timeout"]) as resp:
-                    data = _json.loads(resp.read().decode("utf-8"))
-            finally:
-                _logger.info(
-                    "[AI_TIMING] qwen_decide total=%.2fs url=%s",
-                    _time.time() - started, url)
-            return data["choices"][0]["message"]["content"]
+            last_exc = None
+            for url in urls:
+                endpoint = url + "/v1/chat/completions"
+                payload = dict(body)
+                payload["messages"] = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_text},
+                ]
+                req = _urlrequest.Request(
+                    endpoint, data=_json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"})
+                started = _time.time()
+                try:
+                    with _urlrequest.urlopen(req, timeout=cfg["timeout"]) as resp:
+                        data = _json.loads(resp.read().decode("utf-8"))
+                    _logger.info(
+                        "[AI_TIMING] qwen_decide total=%.2fs url=%s",
+                        _time.time() - started, url)
+                    cfg["working_url"] = url
+                    return data["choices"][0]["message"]["content"]
+                except Exception as exc:
+                    last_exc = exc
+                    _logger.warning(
+                        "Ask AI L1 coba %s gagal: %s", url, exc)
+                    continue
+            _logger.warning("Ask AI L1 semua URL gagal %s: %s",
+                            urls, last_exc)
+            raise last_exc if last_exc else RuntimeError("qwen unreachable")
 
         return call
 
@@ -1170,11 +1357,43 @@ class ITAskAI(models.AbstractModel):
                     "clarification",
                     suggestions=self._suggest_for(intent))
             try:
-                found = self.env["it_asset.asset"].search_count(
-                    self._asset_domain_for(kw)) or self.env["it_asset.unit"].search_count(
-                        self._unit_domain_for(kw))
+                cands = self.env["it_asset.asset"].search_read(
+                    self._asset_domain_for(kw),
+                    ["asset_tag", "name", "lot_id"], limit=30)
             except Exception:
-                found = 1
+                cands = [{"asset_tag": kw}]
+            try:
+                ucands = self.env["it_asset.unit"].search_read(
+                    self._unit_domain_for(kw), ["name"], limit=10)
+            except Exception:
+                ucands = []
+            exact, fuzzy = _partition_exact(cands, kw)
+            uexact, _ufuzzy = _partition_exact(ucands, kw, keys=("name",))
+            found = len(exact) + len(uexact)
+            if not found and (fuzzy or ucands):
+                # Kode mirip ada tapi exact tak ada (mis. tanya ITLT-007
+                # padahal yang ada ITLT-077/078/073): jujur tidak ditemukan
+                # + tawarkan yang mirip, JANGAN confirm seolah itu jawabannya.
+                similar = []
+                for r in (fuzzy[:3] + ucands[:2]):
+                    tag = r.get("asset_tag") or r.get("name") or ""
+                    if isinstance(tag, (list, tuple)):
+                        tag = tag[1] if len(tag) > 1 else str(tag[0])
+                    tag = str(tag).split(" - ")[0].strip()
+                    if tag and tag not in similar:
+                        similar.append(tag)
+                extra = ("<br/>Yang mirip di data: %s — balas kode persisnya "
+                         "bila itu maksudmu."
+                         % ", ".join("<b>%s</b>" % _esc(s) for s in similar)) \
+                    if similar else ""
+                return self._out(
+                    text, intent, 0.0, "slot_repair",
+                    "Kode <b>%s</b> tidak ditemukan di data aset maupun unit. 🔍%s"
+                    "<br/>Periksa kembali kodenya (mis. <i>ITLT-002</i>, "
+                    "<i>PRN-01</i>, <i>DT-02</i>), atau ketik "
+                    "<i>“rekap aset”</i>." % (_esc(kw), extra),
+                    "clarification",
+                    suggestions=(similar[:3] if similar else []) + ["rekap aset", "bantuan"])
             if not found:
                 return self._out(
                     text, intent, 0.0, "slot_repair",
@@ -1516,21 +1735,29 @@ class ITAskAI(models.AbstractModel):
         return out
 
     def _match_candidate_ref(self, refs, ids):
-        """True bila salah satu ref cocok kandidat ids (untuk confirm_asset)."""
+        """True bila salah satu ref cocok kandidat ids (untuk confirm_asset).
+
+        Exact numerik dulu (ITLT-007 != ITLT-077); substring hanya fallback
+        untuk SN/nama bebas.
+        """
         try:
             assets = self.env["it_asset.asset"].search_read(
                 [("id", "in", ids)], ["asset_tag", "name", "lot_id"], limit=_PENDING_CAP)
         except Exception:
             return False
+        tags = []
         blobs = []
         for a in assets:
             lot = a.get("lot_id")
             lot_name = lot[1] if isinstance(lot, (list, tuple)) else ""
+            tags.append(a.get("asset_tag") or "")
             blobs.append(" ".join([
                 nlu._stripped_ref(a.get("asset_tag") or ""),
                 nlu._stripped_ref(a.get("name") or ""),
                 nlu._stripped_ref(lot_name or "")]))
         for r in refs or []:
+            if r and any(_same_ref(r, t) for t in tags if t):
+                return True
             key = nlu._stripped_ref(r)
             if key and any(key in b for b in blobs):
                 return True
@@ -1666,15 +1893,18 @@ class ITAskAI(models.AbstractModel):
         return None
 
     def _match_unit_ref(self, refs, ids):
-        """True bila salah satu ref cocok nama unit kandidat."""
+        """True bila salah satu ref cocok nama unit kandidat (exact numerik)."""
         try:
             units = self.env["it_asset.unit"].search_read(
                 [("id", "in", ids)], ["name"], limit=_PENDING_CAP)
         except Exception:
             return False
-        variants = {nlu._stripped_ref(u.get("name") or "") for u in units}
+        names = [u.get("name") or "" for u in units]
+        variants = {nlu._stripped_ref(n) for n in names}
         variants.discard("")
         for r in refs or []:
+            if r and any(_same_ref(r, n) for n in names if n):
+                return True
             if nlu._stripped_ref(r) in variants:
                 return True
         return False
@@ -1769,6 +1999,13 @@ class ITAskAI(models.AbstractModel):
             blobs = [(a, _blob(a)) for a in assets]
             hit = None
             for r in refs:
+                # exact numerik dulu agar ITLT-007 tak nyangkut ke ITLT-077
+                for a, _blob2 in blobs:
+                    if (a.get("asset_tag") and _same_ref(r, a.get("asset_tag"))):
+                        hit = a
+                        break
+                if hit is not None:
+                    break
                 key = nlu._stripped_ref(r)
                 if not key:
                     continue
@@ -1866,11 +2103,14 @@ class ITAskAI(models.AbstractModel):
             return out
         # kode unit disebut lagi -> kartu lengkap
         try:
+            names = [u.get("name") or "" for u in units]
             variants = set()
             for u in units:
                 variants.add(nlu._stripped_ref(u.get("name") or ""))
             refs = (self._merged_entities(text)[0].get("asset_refs") or [])
-            if any(nlu._stripped_ref(r) in variants for r in refs):
+            if any(r and any(_same_ref(r, n) for n in names if n)
+                   for r in refs) or \
+               any(nlu._stripped_ref(r) in variants for r in refs):
                 return self._out(
                     text, nlu.INTENT_UNIT_DETAIL, 1.0, "pending_confirm",
                     self._unit_card(unit, assets), "unit_detail")
@@ -2151,7 +2391,24 @@ class ITAskAI(models.AbstractModel):
         if fleet_refs:
             kw = fleet_refs[0]
             units = U.search_read(self._unit_domain_for(kw), _UNIT_FIELDS,
-                                  limit=5, order="name asc")
+                                  limit=30, order="name asc")
+            exact, fuzzy = _partition_exact(units, kw, keys=("name",))
+            if exact:
+                units = exact
+            elif fuzzy:
+                similar = [u.get("name") or "" for u in fuzzy[:3]
+                           if u.get("name")]
+                hint = ("<div class='ai-foot'>Unit <b>%s</b> tidak ada. "
+                        "Yang mirip: %s. Periksa kode unitnya "
+                        "(mis. <i>DT-02</i>, <i>EX-05</i>, "
+                        "<i>LV-02</i>).</div>"
+                        % (_esc(kw), ", ".join(
+                            "<b>%s</b>" % _esc(s) for s in similar))) \
+                    if similar else \
+                    ("<div class='ai-foot'>Periksa kode unitnya "
+                     "(mis. <i>DT-02</i>, <i>EX-05</i>, "
+                     "<i>LV-02</i>).</div>")
+                return {"miss": True, "hint": hint}
             if not units:
                 return {"miss": True,
                         "hint": "<div class='ai-foot'>Periksa kode unitnya "
@@ -2565,13 +2822,23 @@ class ITAskAI(models.AbstractModel):
             if st in low:
                 unit_state = st
                 break
-        # Jika ada ref spesifik (DT-02), cari unit itu dulu.
+        # Jika ada ref spesifik (DT-02), cari unit itu dulu (exact-first).
         refs = entities.get("asset_refs") or []
         if refs:
             kw = refs[0]
             units = U.search_read(self._unit_domain_for(kw),
                                   ["name", "category_id", "state", "brand",
-                                   "model"], limit=10, order="name asc")
+                                   "model"], limit=30, order="name asc")
+            exact_u, _fuzzy_u = _partition_exact(units, kw, keys=("name",))
+            if exact_u:
+                units = exact_u
+            elif units:
+                # tak ada exact tapi ada mirip -> miss jujur (jangan
+                # tampilkan keluarga DT-02x sebagai jawaban DT-02)
+                return {"miss": True,
+                        "hint": "<div class='ai-foot'>Unit <b>%s</b> tidak ada. "
+                                "Periksa kode unitnya (mis. <i>DT-02</i>, "
+                                "<i>EX-05</i>).</div>" % _esc(kw)}
             if units:
                 return {"html": self._unit_table(
                     "🚜 Unit <b>%s</b> (%d):" % (_esc(kw), len(units)),
@@ -2639,7 +2906,46 @@ class ITAskAI(models.AbstractModel):
             return None
         A = self.env["it_asset.asset"]
         found = A.search_read(self._asset_domain_for(kw), _ASSET_FIELDS,
-                              limit=10, order="id desc")
+                              limit=30, order="id desc")
+        # Exact-first: varian fuzzy 'ITLT-07' prefix-match keluarga 07x
+        # (ITLT-077/078/073) sehingga tanya ITLT-007 selalu confirm.
+        # Exact (toleran pemisah + nol depan, beda angka tetap beda) menang.
+        if entities.get("asset_refs"):
+            exact, fuzzy = _partition_exact(found, kw)
+            if exact:
+                found = exact
+            elif fuzzy:
+                # tak ada exact aset: cek unit dulu (DT-02 dkk.),
+                # baru miss jujur + saran mirip (jangan confirm palsu)
+                try:
+                    units = self.env["it_asset.unit"].search_read(
+                        self._unit_domain_for(kw),
+                        ["name", "category_id", "state", "brand", "model"],
+                        limit=5, order="name asc")
+                except Exception:
+                    units = []
+                if units:
+                    return {"html": self._unit_table(
+                        "🚜 Unit mirip “<b>%s</b>”:" % _esc(kw), units)
+                        + "<div class='ai-foot'>Belum ada aset terpasang yang "
+                          "cocok — ini data unitnya.</div>", "tool": "asset_detail"}
+                similar = []
+                for r in fuzzy[:3]:
+                    tag = r.get("asset_tag") or r.get("name") or ""
+                    tag = str(tag).split(" - ")[0].strip()
+                    if tag and tag not in similar:
+                        similar.append(tag)
+                hint = ("<div class='ai-foot'>Kode <b>%s</b> tidak ada. "
+                        "Yang mirip: %s. Periksa kode tag/serialnya "
+                        "(mis. <i>ITLT-002</i>, <i>DT-02</i>), "
+                        "atau ketik <i>“rekap aset”</i>.</div>"
+                        % (_esc(kw), ", ".join(
+                            "<i>%s</i>" % _esc(s) for s in similar))) \
+                    if similar else \
+                    ("<div class='ai-foot'>Periksa kode tag/serialnya "
+                     "(mis. <i>ITLT-002</i>, <i>DT-02</i>), "
+                     "atau ketik <i>“rekap aset”</i>.</div>")
+                return {"miss": True, "hint": hint}
         if not found:
             # V2: kalau kode mirip fleet (DT-02) tapi bukan aset, coba unit.
             try:
@@ -2659,10 +2965,15 @@ class ITAskAI(models.AbstractModel):
                             "(mis. <i>ITLT-002</i>, <i>DT-02</i>), "
                             "atau ketik <i>“rekap aset”</i>.</div>"}
         if len(found) > 1:
-            total = A.search_count(self._asset_domain_for(kw))
-            ids = ([a["id"] for a in found]
-                   + A.search(self._asset_domain_for(kw), limit=_PENDING_CAP,
-                              offset=len(found)).ids)[:_PENDING_CAP]
+            if entities.get("asset_refs"):
+                # exact-first: kandidat sudah exact saja (unik per tag)
+                total = len(found)
+                ids = [a["id"] for a in found][:_PENDING_CAP]
+            else:
+                total = A.search_count(self._asset_domain_for(kw))
+                ids = ([a["id"] for a in found]
+                       + A.search(self._asset_domain_for(kw), limit=_PENDING_CAP,
+                                  offset=len(found)).ids)[:_PENDING_CAP]
             return {"html": self._confirm_html(
                         nlu.INTENT_ASSET_DETAIL, kw, found[:8], total),
                     "tool": "asset_detail",
@@ -2803,15 +3114,30 @@ class ITAskAI(models.AbstractModel):
         if entities["asset_refs"]:
             kw = entities["asset_refs"][0]
             domain = self._asset_domain_for(kw)
-            total = A.search_count(domain)
-            if not total:
+            cands = A.search_read(domain, _ASSET_FIELDS, limit=30,
+                                  order="id desc")
+            exact, fuzzy = _partition_exact(cands, kw)
+            if exact:
+                cands = exact
+            elif fuzzy:
+                similar = []
+                for r in fuzzy[:3]:
+                    tag = r.get("asset_tag") or r.get("name") or ""
+                    tag = str(tag).split(" - ")[0].strip()
+                    if tag and tag not in similar:
+                        similar.append(tag)
+                hint = ("<div class='ai-foot'>Kode <b>%s</b> tidak ada. "
+                        "Yang mirip: %s.</div>"
+                        % (_esc(kw), ", ".join(
+                            "<b>%s</b>" % _esc(s) for s in similar))) \
+                    if similar else ""
+                return {"miss": True, "hint": hint}
+            else:
                 return {"miss": True, "hint": ""}
+            total = len(cands)
             if total > 1:
-                found = A.search_read(domain, _ASSET_FIELDS, limit=8,
-                                      order="id desc")
-                ids = ([a["id"] for a in found]
-                       + A.search(domain, limit=_PENDING_CAP,
-                                  offset=len(found)).ids)[:_PENDING_CAP]
+                found = cands[:8]
+                ids = [a["id"] for a in cands][:_PENDING_CAP]
                 return {"html": self._confirm_html(
                             nlu.INTENT_ASSET_USER, kw, found, total),
                         "tool": "asset_user",
@@ -2819,7 +3145,7 @@ class ITAskAI(models.AbstractModel):
                         "pending_ids": ids,
                         "pending_label": kw,
                         "suggestions": self._suggest_tags(found, ["semua"])}
-            a = A.search_read(domain, _ASSET_FIELDS, limit=1)[0]
+            a = cands[0]
             return {"html": self._single_user_html(a),
                     "tool": "asset_user"}
         if entities["employee_name"]:
@@ -2885,17 +3211,18 @@ class ITAskAI(models.AbstractModel):
         if entities["asset_refs"]:
             kw = entities["asset_refs"][0]
             domain = self._asset_domain_for(kw)
-            total = self.env["it_asset.asset"].search_count(domain)
-            if not total:
+            cands = self.env["it_asset.asset"].search_read(
+                domain, ["id", "name", "asset_tag"], limit=30,
+                order="id desc")
+            exact, fuzzy = _partition_exact(cands, kw)
+            if exact:
+                cands = exact
+            else:
                 return {"miss": True, "hint": ""}
+            total = len(cands)
             if total > 1:
-                found = self.env["it_asset.asset"].search_read(
-                    domain, ["id", "name", "asset_tag"], limit=8,
-                    order="id desc")
-                ids = ([a["id"] for a in found]
-                       + self.env["it_asset.asset"].search(
-                           domain, limit=_PENDING_CAP,
-                           offset=len(found)).ids)[:_PENDING_CAP]
+                found = cands[:8]
+                ids = [a["id"] for a in cands][:_PENDING_CAP]
                 return {"html": self._confirm_html(
                             nlu.INTENT_ASSET_HISTORY, kw, found, total),
                         "tool": "asset_history",
@@ -2903,8 +3230,7 @@ class ITAskAI(models.AbstractModel):
                         "pending_ids": ids,
                         "pending_label": kw,
                         "suggestions": self._suggest_tags(found, ["semua"])}
-            a = self.env["it_asset.asset"].search_read(
-                domain, ["id", "name", "asset_tag"], limit=1)[0]
+            a = cands[0]
             rows = Assign.search_read(
                 [("asset_id", "=", a["id"])], _ASSIGN_FIELDS, limit=10,
                 order="assignment_date desc")

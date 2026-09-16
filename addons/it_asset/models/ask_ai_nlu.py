@@ -68,16 +68,53 @@ INTENT_HANDOVER_LIST = "handover_list"
 INTENT_DAMAGE_LIST = "damage_list"
 INTENT_REQUEST_STATUS = "request_status"
 INTENT_HUMAN_AGENT = "human_agent"
+INTENT_COMPLIMENT = "compliment"
+INTENT_FLIRT = "flirt"
+INTENT_ROMANTIC = "romantic"
+INTENT_POETIC = "poetic"
+INTENT_JOKE = "joke"
+INTENT_INSULT = "insult"
+INTENT_CASUAL = "casual"
 INTENT_UNKNOWN = "unknown"
 
 ALL_INTENTS = [
     INTENT_GREETING, INTENT_THANKS, INTENT_GOODBYE, INTENT_HELP,
-    INTENT_IDENTITY, INTENT_CREATOR, INTENT_UNIT_DETAIL, INTENT_ASSET_TOP,
+    INTENT_IDENTITY, INTENT_CREATOR, INTENT_COMPLIMENT, INTENT_FLIRT,
+    INTENT_ROMANTIC, INTENT_POETIC, INTENT_JOKE, INTENT_INSULT,
+    INTENT_CASUAL, INTENT_UNIT_DETAIL, INTENT_ASSET_TOP,
     INTENT_RECAP, INTENT_CHECK_STOCK, INTENT_ASSET_SEARCH, INTENT_ASSET_DETAIL,
     INTENT_ASSET_USER, INTENT_ASSET_HISTORY, INTENT_MAINTENANCE_LIST,
     INTENT_HANDOVER_LIST, INTENT_DAMAGE_LIST, INTENT_REQUEST_STATUS,
     INTENT_HUMAN_AGENT, INTENT_UNKNOWN,
 ]
+
+# Jenis percakapan untuk pesan OUT_OF_DOMAIN: OOD tidak otomatis berarti
+# ditolak — hanya CONV_UNKNOWN yang diarahkan kembali ke domain IT.
+CONV_GREETING = "greeting"
+CONV_THANKS = "thanks"
+CONV_COMPLIMENT = "compliment"
+CONV_FLIRT = "flirt"
+CONV_ROMANTIC = "romantic"
+CONV_POETIC = "poetic"
+CONV_JOKE = "joke"
+CONV_INSULT = "insult"
+CONV_CASUAL = "casual"
+CONV_UNKNOWN = "unknown"
+
+CONVERSATION_TYPES = (
+    CONV_GREETING, CONV_THANKS, CONV_COMPLIMENT, CONV_FLIRT,
+    CONV_ROMANTIC, CONV_POETIC, CONV_JOKE, CONV_INSULT,
+    CONV_CASUAL, CONV_UNKNOWN,
+)
+
+# Intent percakapan (sosial/kasual/emosional/puitis) — dijawab natural,
+# TANPA redirect ke domain IT. Hanya unknown yang diarahkan kembali.
+CONVERSATION_INTENTS = frozenset([
+    INTENT_GREETING, INTENT_THANKS, INTENT_GOODBYE, INTENT_HELP,
+    INTENT_IDENTITY, INTENT_CREATOR, INTENT_COMPLIMENT, INTENT_FLIRT,
+    INTENT_ROMANTIC, INTENT_POETIC, INTENT_JOKE, INTENT_INSULT,
+    INTENT_CASUAL,
+])
 
 CAT_FACTUAL = "factual"
 CAT_GENERAL = "general"
@@ -93,6 +130,13 @@ INTENT_CATEGORY = {
     INTENT_HELP: CAT_GENERAL,
     INTENT_IDENTITY: CAT_GENERAL,
     INTENT_CREATOR: CAT_GENERAL,
+    INTENT_COMPLIMENT: CAT_GENERAL,
+    INTENT_FLIRT: CAT_GENERAL,
+    INTENT_ROMANTIC: CAT_GENERAL,
+    INTENT_POETIC: CAT_GENERAL,
+    INTENT_JOKE: CAT_GENERAL,
+    INTENT_INSULT: CAT_GENERAL,
+    INTENT_CASUAL: CAT_GENERAL,
 }
 
 DEFAULT_CONF_FACTUAL = 0.90
@@ -241,6 +285,34 @@ _FLEET_ALIASES = {
 def _stripped_ref(ref):
     """Kanonik perbandingan: buang semua non-alnum, uppercase. 'DT-02'->'DT02'."""
     return re.sub(r"[^A-Z0-9]", "", (ref or "").upper())
+
+
+def ref_key(ref):
+    """Kunci kesetaraan numerik: prefix + angka (int) + ekor.
+
+    'ITLT-007' == 'ITLT-07' == 'ITLT-7' (toleran nol depan, goals2 §9),
+    tapi 'ITLT-007' != 'ITLT-077' (angka beda). Non-ref -> (stripped,).
+    Dipakai backend untuk exact-first agar varian fuzzy 'ITLT-07'
+    (prefix dari keluarga 07x) tak menenggelamkan jawaban exact.
+    """
+    up = (ref or "").upper().strip()
+    m = re.match(r"^([A-Z]{2,})[^A-Z0-9]*([0-9]+)([A-Z0-9/-]*)$", up)
+    if not m:
+        return (_stripped_ref(up),)
+    prefix, digits, tail = m.group(1), m.group(2), (m.group(3) or "")
+    try:
+        n = int(re.match(r"[0-9]+", digits).group(0))
+    except (AttributeError, ValueError):
+        return (_stripped_ref(up),)
+    return (prefix, n, tail)
+
+
+def same_ref(a, b):
+    """True bila dua ref merujuk nomor yang sama (toleran pemisah + nol depan)."""
+    try:
+        return ref_key(a) == ref_key(b)
+    except Exception:
+        return _stripped_ref(a) == _stripped_ref(b)
 
 
 def canonical_asset_ref(prefix, num):
@@ -595,6 +667,28 @@ _RULES = [
     (re.compile(r"\b(siapa\s+yang\s+(buat|membuat|bikin|menciptakan|mengembangkan)|dibuat\s+(oleh\s+)?siapa|pembuat(nya)?|developer(nya)?|pencipta)\b", re.I), INTENT_CREATOR, 0.95),
     # --- bantuan ---
     (re.compile(r"\b(bisa\s+apa|bantuan|contoh\s+pertanyaan|cara\s+pakai|help|menu\s+apa)\b", re.I), INTENT_HELP, 0.94),
+    # --- percakapan emosional/sosial (sebelum rule IT agar "kamu rusak ya"
+    # tidak dibaca sebagai pencarian aset; semuanya menuntut sapaan orang
+    # kedua / penanda eksplisit sehingga "laptop rusak" tetap ke IT) ---
+    # ROMANTIC dulu (penanda paling kuat dan paling butuh batasan).
+    (re.compile(r"\b(aku|aq|gue|gw|saya)\b.{0,25}\b(suka|cinta|sayang|rindu)\b.{0,25}\b(kamu|anda|mu\b)", re.I), INTENT_ROMANTIC, 0.94),
+    (re.compile(r"\b(nikah|menikah|kawin|pacar|jadian|tembak).{0,25}\b(kamu|anda)|((kamu|anda).{0,25}\b(nikah|pacar|jadian))", re.I), INTENT_ROMANTIC, 0.93),
+    (re.compile(r"\b(pacar|gebetan|jadian)\b.{0,25}\b(aku|gue|gw|saya)\b|\b(mau|ingin|pengen).{0,15}\b(pacar|gebetan)\b|\b(pacar\s*ku|gebetan\s*ku)\b", re.I), INTENT_ROMANTIC, 0.93),
+    # FLIRT: gombalan ringan ke asisten.
+    (re.compile(r"\b(kamu|anda)\b.{0,25}\b(cantik|ganteng|cute|imut|manis|menawan|charming)\b", re.I), INTENT_FLIRT, 0.93),
+    (re.compile(r"\b(single|jomblo|jones).{0,20}\b(kamu|anda)|(kamu|anda).{0,20}\b(single|jomblo)", re.I), INTENT_FLIRT, 0.92),
+    # COMPLIMENT: pujian atas bantuan/kinerja (sebelum JOKE agar "kamu lucu" dibaca apresiasi).
+    (re.compile(r"\b(kamu|anda|bot|asisten)\b.{0,25}\b(pintar|pinter|hebat|keren|bagus|baik|lucu|menggemaskan|luar biasa|the best|terbaik|membantu|sangat membantu|cepat|tanggap|keren banget)\b|\b(lucu|menggemaskan)\b.{0,25}\b(kamu|anda)\b", re.I), INTENT_COMPLIMENT, 0.93),
+    (re.compile(r"\b(keren|hebat|mantap|bagus banget|luar biasa|good job|nice)\b", re.I), INTENT_COMPLIMENT, 0.90),
+    # POETIC: minta / menulis puisi, pantun, sajak.
+    (re.compile(r"\b(puisi|pantun|sajak|syair|bait|rima)\b", re.I), INTENT_POETIC, 0.92),
+    (re.compile(r"\b(buatkan|bikinkan|tuliskan|bacakan)\b.{0,30}\b(puisi|pantun|sajak|syair)", re.I), INTENT_POETIC, 0.94),
+    # JOKE: minta lawakan / tebak-tebakan (bare "lucu" sudah ditangkap compliment di atas).
+    (re.compile(r"\b(lawakan|lawak|lelucon|tebak-tebakan|tebakan|plis ketawa|bikin ketawa|cerita lucu|dongeng lucu)\b", re.I), INTENT_JOKE, 0.93),
+    (re.compile(r"\b(ceritakan|ceritain|kasih|kasi)\b.{0,25}\b(lawak|lelucon|joke|humor)", re.I), INTENT_JOKE, 0.93),
+    # INSULT: hinaan ke asisten — tetap tenang & profesional (target orang kedua wajib).
+    (re.compile(r"\b(kamu|anda|kau|bot|asisten)\b.{0,25}\b(bodoh|bego|goblok|tolol|dungu|idiot|jelek|benci|nyebelin|menyebalkan|payah|gak guna|nggak guna|tidak guna|sampah|brengsek|lemot|rusak|eror|error|gagal paham)\b", re.I), INTENT_INSULT, 0.93),
+    (re.compile(r"\b(dasar|dasar kamu)\b.{0,15}\b(bodoh|bego|goblok|tolol|jelek|payah)\b", re.I), INTENT_INSULT, 0.94),
     # --- rekap ---
     (re.compile(r"\b(rekap|ringkas(an)?|total\s+aset|jumlah\s+aset|statistik|dashboard)\b", re.I), INTENT_RECAP, 0.94),
     # --- stok ---
@@ -656,6 +750,11 @@ _RULES = [
     (re.compile(r"\b(radio\s*ht|radio\s*rig|ht|rig|handy\s*talky)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
     # --- prefix tag tanpa angka (itct/itrg/itht -> daftar kategorinya) ---
     (re.compile(r"\b(itlt|itct|itrg|itht|itpr|prn)\b", re.I), INTENT_ASSET_SEARCH, 0.88),
+    # --- basa-basi ringan (paling akhir: hanya bila tak ada sinyal IT/sosial
+    # lain; pola sempit berjangkar agar tak menelan pertanyaan inventaris) ---
+    (re.compile(r"\b(lagi\s+apa|sedang\s+apa|udah\s+makan|sudah\s+makan|belum\s+makan|gabut|bosen|bosan|btw|ngomong-ngomong)\b", re.I), INTENT_CASUAL, 0.90),
+    (re.compile(r"^[\s\W]*(wkwk|haha|hehe|hihi|xixi)(\s*[\W]*\s*(wkwk|haha|hehe|hihi|xixi|aja|dong|ya|nih|deh))*[\s\W]*$", re.I), INTENT_CASUAL, 0.90),
+    (re.compile(r"^[\s\W]*(oh\s*(gitu|gitu ya|iya|oke|baik)|baik-baik(\s+saja)?|sehat-sehat)[\s\W]*$", re.I), INTENT_CASUAL, 0.90),
 ]
 
 
@@ -718,6 +817,20 @@ EXEMPLARS = [
     ("identity", "kamu itu apa"), ("identity", "jelaskan peranmu"),
     ("creator", "siapa developer aplikasi ini"), ("creator", "siapa yang menciptakan kamu"),
     ("creator", "kamu dibuat siapa"), ("creator", "info pembuat bot ini"),
+    ("compliment", "kamu pintar banget"), ("compliment", "wah keren jawabannya"),
+    ("compliment", "mantap terima kasih sangat membantu"),
+    ("flirt", "kamu cantik banget"), ("flirt", "eh kamu single gak"),
+    ("flirt", "kamu manis deh"),
+    ("romantic", "aku suka sama kamu"), ("romantic", "aku cinta kamu"),
+    ("romantic", "mau jadi pacar aku gak"),
+    ("poetic", "buatkan aku pantun"), ("poetic", "bacakan puisi dong"),
+    ("poetic", "tuliskan sajak untukku"),
+    ("joke", "ceritakan lawakan dong"), ("joke", "ada tebak-tebakan gak"),
+    ("joke", "kasih lelucon biar ketawa"),
+    ("insult", "kamu bodoh ya"), ("insult", "dasar bot payah"),
+    ("insult", "aku benci kamu"),
+    ("casual", "lagi apa"), ("casual", "udah makan belum"),
+    ("casual", "gabut nih"),
     ("unit_detail", "merek unit itu apa"), ("unit_detail", "spesifikasi fleet tersebut"),
     ("unit_detail", "status kendaraan tambang ini"), ("unit_detail", "radio apa saja di unit itu"),
     ("asset_top", "daftar aset tertua"), ("asset_top", "unit paling anyar"),
@@ -892,6 +1005,62 @@ def classify(raw_text):
 
 
 # ============================================================================
+# 5b. Jenis percakapan (conversation type) untuk pesan OUT_OF_DOMAIN
+#
+# OOD tidak otomatis berarti ditolak: tentukan dulu jenis percakapannya.
+# Hanya CONV_UNKNOWN yang diarahkan kembali ke domain IT; sisanya dijawab
+# natural sesuai maksudnya (sapa / sopan / apresiasi / hangat-playful /
+# natural-berbatasan / puitis / santai / tenang-profesional / kasual).
+# ============================================================================
+
+_INTENT_TO_CONV = {
+    INTENT_GREETING: CONV_GREETING,
+    INTENT_GOODBYE: CONV_GREETING,
+    INTENT_THANKS: CONV_THANKS,
+    INTENT_COMPLIMENT: CONV_COMPLIMENT,
+    INTENT_FLIRT: CONV_FLIRT,
+    INTENT_ROMANTIC: CONV_ROMANTIC,
+    INTENT_POETIC: CONV_POETIC,
+    INTENT_JOKE: CONV_JOKE,
+    INTENT_INSULT: CONV_INSULT,
+    INTENT_CASUAL: CONV_CASUAL,
+}
+
+
+def conversation_type(intent, ood_reason=""):
+    """Petakan (intent, ood_reason) -> jenis percakapan.
+
+    Rule/override/LLM-yakin untuk intent percakapan menang atas vonis OOD
+    (mis. 'kamu cantik' itu FLIRT walau mengandung kata OOD personal).
+    """
+    if intent in _INTENT_TO_CONV:
+        return _INTENT_TO_CONV[intent]
+    return CONV_UNKNOWN
+
+
+def classify_conversation(raw_text):
+    """Deteksi jenis percakapan saja (rule percakapan, tanpa sisi IT).
+
+    Dipakai jalur OOD sebagai jaring pengaman: bila klasifikasi penuh jatuh
+    ke ood_rule/empty tapi teksnya jelas sapaan/pujian/gombalan/puisi/
+    joke/hinaan/basa-basi, jawab sesuai jenisnya alih-alih menolak.
+    Kembalikan salah satu CONVERSATION_TYPES (default CONV_UNKNOWN).
+    """
+    trimmed = (raw_text or "").strip()
+    if not trimmed:
+        return CONV_UNKNOWN
+    hit = _apply_rules(trimmed)
+    if hit and hit["intent"] in _INTENT_TO_CONV:
+        return _INTENT_TO_CONV[hit["intent"]]
+    normalized = normalize_id(trimmed)
+    if normalized != trimmed.lower().strip():
+        hit = _apply_rules(normalized)
+        if hit and hit["intent"] in _INTENT_TO_CONV:
+            return _INTENT_TO_CONV[hit["intent"]]
+    return CONV_UNKNOWN
+
+
+# ============================================================================
 # L1 — Qwen Decide() (cermin internal/ai/agent/agent.go WACS)
 #
 # Qwen berjalan di runtime lokal (llama.cpp server + Qwen3-0.6B GGUF,
@@ -924,6 +1093,9 @@ _DECISION_FEW_SHOTS = [
     ("riwayat printer PRN-01", "asset_history", 0.9),
     ("kamu siapa", "identity", 0.9),
     ("siapa yang buat kamu", "creator", 0.9),
+    ("kamu keren banget", "compliment", 0.9),
+    ("ceritakan lawakan dong", "joke", 0.9),
+    ("lagi apa", "casual", 0.9),
 ]
 
 
@@ -1382,11 +1554,20 @@ _SELF_TEST_CASES = [
     ("kamu siapa", "identity"), ("fungsimu apa", "identity"), ("apa tugasmu", "identity"),
     ("siapa yang buat kamu", "creator"), ("siapa developernya", "creator"),
     ("siapa pembuat aplikasi ini", "creator"),
+    ("kamu pintar banget", "compliment"), ("wah keren", "compliment"),
+    ("kamu cantik", "flirt"), ("kamu single gak", "flirt"),
+    ("aku suka sama kamu", "romantic"), ("mau jadi pacar aku gak", "romantic"),
+    ("buatkan pantun", "poetic"), ("bacakan puisi", "poetic"),
+    ("ceritakan lawakan", "joke"), ("ada tebak-tebakan", "joke"),
+    ("kamu bodoh", "insult"), ("dasar bot payah", "insult"),
+    ("lagi apa", "casual"), ("udah makan belum", "casual"),
+    ("gabut", "casual"), ("wkwk", "casual"),
     ("rekap aset", "recap"), ("jumlah aset berapa", "recap"), ("ringkasan inventaris", "recap"),
     ("stok radio ht berapa", "check_stock"), ("berapa stok radio ht", "check_stock"), ("sisa kabel lan", "check_stock"),
     ("stok menipis apa saja", "check_stock"), ("stock mouse habis kah", "check_stock"),
     ("brp sisa tinta", "check_stock"), ("stoknya masih ada gak", "check_stock"),
     ("laptop tersedia apa saja", "asset_search"), ("aset rusak ada berapa", "asset_search"),
+    ("laptop rusak", "asset_search"), ("kamu rusak ya", "insult"),
     ("radio yang dipakai", "asset_search"), ("printer broken", "asset_search"),
     ("detail ITLT-007", "asset_detail"), ("kondisi PRN-01", "asset_detail"),
     ("spesifikasi aset itu", "asset_detail"), ("ITLT-007", "asset_detail"),

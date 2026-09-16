@@ -22,9 +22,6 @@
                     </div>
                 </div>
                 <div class="ask-topbar-right">
-                    <span class="ask-model-badge d-none d-md-inline-flex">
-                        <i class="fa fa-database me-1"/> Live Data IT
-                    </span>
                     <button class="btn btn-light border btn-sm" t-on-click="clearChat" title="Bersihkan percakapan">
                         <i class="fa fa-trash-o me-1"/> <span class="d-none d-sm-inline">Clear</span>
                     </button>

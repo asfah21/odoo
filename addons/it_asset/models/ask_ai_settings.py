@@ -417,25 +417,82 @@ class ITAskAISetting(models.Model):
         }
 
     def action_test_qwen(self):
-        """Ping llama-server (/v1/models). Failure = clear status, not an error."""
+        """Test dari SISI SERVER Odoo (bukan browser): /v1/models + chat kecil.
+
+        Mencoba kandidat URL docker-aware (konfigurasi -> http://llm:8081 ->
+        host-gateway -> localhost) agar 'curl host OK tapi Test FAILED'
+        langsung ketahuan penyebabnya (salah URL dari dalam container).
+        Bila kandidat non-konfigurasi yang OK, status menyarankannya.
+        """
         self.ensure_one()
         import json as _json
         import urllib.request as _urlrequest
-        url = (self.llm_url or "").rstrip("/") + "/v1/models"
+        configured = (self.llm_url or "").strip().rstrip("/")
+        cands = []
+        for u in [configured, "http://llm:8081",
+                  "http://host.docker.internal:8081",
+                  "http://127.0.0.1:8081"]:
+            if u and u not in cands:
+                cands.append(u)
+        timeout = 5
         try:
-            req = _urlrequest.Request(url, headers={"Content-Type": "application/json"})
-            with _urlrequest.urlopen(req, timeout=5) as resp:
-                data = _json.loads(resp.read().decode("utf-8"))
-            models = [m.get("id", "?") for m in data.get("data", [])][:3]
-            status = "OK — %s" % (", ".join(models) if models else "connected")
-        except Exception as exc:
-            status = "FAILED — %s. Run: scripts/install-qwen.ps1 (Windows) / install-qwen.sh (Linux)." % exc
+            timeout = max(2.0, min(30.0, float(self.llm_timeout or 5)))
+        except (TypeError, ValueError):
+            timeout = 5
+        errors = []
+        for url in cands:
+            try:
+                req = _urlrequest.Request(
+                    url + "/v1/models",
+                    headers={"Content-Type": "application/json"})
+                with _urlrequest.urlopen(req, timeout=timeout) as resp:
+                    data = _json.loads(resp.read().decode("utf-8"))
+                models = [m.get("id", "?") for m in data.get("data", [])][:3]
+                # verifikasi jalur decide juga (bukan cuma /models)
+                body = {
+                    "model": (self.llm_model or "qwen3-0.6b"),
+                    "temperature": 0.1, "max_tokens": 8,
+                    "messages": [{"role": "user", "content": "ping"}],
+                }
+                try:
+                    req2 = _urlrequest.Request(
+                        url + "/v1/chat/completions",
+                        data=_json.dumps(body).encode("utf-8"),
+                        headers={"Content-Type": "application/json"})
+                    with _urlrequest.urlopen(req2, timeout=timeout) as resp2:
+                        _json.loads(resp2.read().decode("utf-8"))
+                    chat = "chat OK"
+                except Exception as exc2:
+                    chat = "chat GAGAL (%s)" % exc2
+                label = ", ".join(models) if models else "connected"
+                if url == configured:
+                    status = "OK — %s via %s (%s)" % (label, url, chat)
+                else:
+                    status = ("OK via %s (bukan Setting-mu %s) — %s. "
+                              "Ganti llama-server URL ke %s lalu Save. (%s)"
+                              % (url, configured or "-", label, url, chat))
+                self.write({"qwen_status": status})
+                return {
+                    "type": "ir.actions.client",
+                    "tag": "display_notification",
+                    "params": {"title": "Test Qwen", "message": status,
+                               "type": "success"},
+                }
+            except Exception as exc:
+                errors.append("%s: %s" % (url, exc))
+                continue
+        status = ("FAILED dari dalam Odoo — %s. "
+                  "Qwen jalan di host belum tentu terjangkau container: "
+                  "pakai http://llm:8081 (sidecar compose) bukan 127.0.0.1. "
+                  "Cek: docker compose -f docker-compose.yml "
+                  "-f docker-compose.llm.yml ps / logs llm."
+                  % " | ".join(errors))
         self.write({"qwen_status": status})
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {"title": "Test Qwen", "message": status,
-                       "type": "success" if status.startswith("OK") else "warning"},
+                       "type": "warning"},
         }
 
     @api.model
