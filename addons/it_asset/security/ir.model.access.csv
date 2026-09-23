@@ -17,8 +17,11 @@ access_it_asset_material_request,it_asset.material_request,model_it_asset_materi
 access_it_asset_material_request_line,it_asset.material_request.line,model_it_asset_material_request_line,base.group_user,1,1,1,1
 access_it_asset_material_request_fulfill_wizard,it_asset.material_request.fulfill.wizard,model_it_asset_material_request_fulfill_wizard,base.group_user,1,1,1,1
 access_it_asset_material_request_fulfill_wizard_line,it_asset.material_request.fulfill.wizard.line,model_it_asset_material_request_fulfill_wizard_line,base.group_user,1,1,1,1
-access_it_asset_ask_ai_feedback,ask.ai.feedback,model_it_asset_ask_ai_feedback,base.group_user,1,1,0,0
+access_it_asset_ask_ai_feedback,ask.ai.feedback,model_it_asset_ask_ai_feedback,base.group_user,1,0,0,0
+access_it_asset_ask_ai_feedback_system,ask.ai.feedback.system,model_it_asset_ask_ai_feedback,base.group_system,1,1,1,1
 access_it_asset_ask_ai_session,ask.ai.session,model_it_asset_ask_ai_session,base.group_user,1,1,1,1
 access_it_asset_ask_ai_message,ask.ai.message,model_it_asset_ask_ai_message,base.group_user,1,1,1,1
-access_it_asset_ask_ai_term,ask.ai.term,model_it_asset_ask_ai_term,base.group_user,1,1,1,1
-access_it_asset_ask_ai_setting,ask.ai.setting,model_it_asset_ask_ai_setting,base.group_user,1,1,1,1
+access_it_asset_ask_ai_term,ask.ai.term,model_it_asset_ask_ai_term,base.group_user,1,0,0,0
+access_it_asset_ask_ai_term_system,ask.ai.term.system,model_it_asset_ask_ai_term,base.group_system,1,1,1,1
+access_it_asset_ask_ai_setting,ask.ai.setting,model_it_asset_ask_ai_setting,base.group_user,1,0,0,0
+access_it_asset_ask_ai_setting_system,ask.ai.setting.system,model_it_asset_ask_ai_setting,base.group_system,1,1,1,1

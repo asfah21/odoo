@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Sesi/pesan: Internal User hanya milik sendiri. Administration/Settings
+         melihat semua (kurasi, debug). Superuser/cron tetap bypass rule. -->
+    <record id="rule_it_ask_ai_session_own" model="ir.rule">
+        <field name="name">Ask AI session: own only</field>
+        <field name="model_id" ref="model_it_asset_ask_ai_session"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="rule_it_ask_ai_session_system" model="ir.rule">
+        <field name="name">Ask AI session: all (Settings)</field>
+        <field name="model_id" ref="model_it_asset_ask_ai_session"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+    <record id="rule_it_ask_ai_message_own" model="ir.rule">
+        <field name="name">Ask AI message: own only</field>
+        <field name="model_id" ref="model_it_asset_ask_ai_message"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+    </record>
+    <record id="rule_it_ask_ai_message_system" model="ir.rule">
+        <field name="name">Ask AI message: all (Settings)</field>
+        <field name="model_id" ref="model_it_asset_ask_ai_message"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('base.group_system'))]"/>
+    </record>
+</odoo>

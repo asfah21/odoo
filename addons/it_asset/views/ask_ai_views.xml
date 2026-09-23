@@ -25,6 +25,7 @@
               name="Setting"
               parent="menu_it_asset_ask_ai"
               action="action_it_ask_ai_setting_open"
+              groups="base.group_system"
               sequence="20"/>
 
     <!-- Child 3: Dictionary — Generate output -->
@@ -32,5 +33,13 @@
               name="Dictionary"
               parent="menu_it_asset_ask_ai"
               action="action_it_ask_ai_term"
+              groups="base.group_system"
               sequence="30"/>
+
+    <menuitem id="menu_it_asset_ask_ai_feedback"
+              name="Feedback"
+              parent="menu_it_asset_ask_ai"
+              action="action_it_ask_ai_feedback"
+              groups="base.group_system"
+              sequence="40"/>
 </odoo>

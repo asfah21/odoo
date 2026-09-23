@@ -12,5 +12,15 @@
             <field name="interval_type">days</field>
             <field name="active">True</field>
         </record>
+        <!-- Kamus hidup: rebuild snapshot term dari DB setiap hari. -->
+        <record id="ir_cron_ask_ai_dictionary_refresh" model="ir.cron">
+            <field name="name">Ask AI: refresh dictionary harian</field>
+            <field name="model_id" ref="model_it_asset_ask_ai_setting"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_refresh_dictionary()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
     </data>
 </odoo>

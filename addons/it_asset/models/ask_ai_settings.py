@@ -497,7 +497,7 @@ class ITAskAISetting(models.Model):
 
     @api.model
     def _cron_refresh_dictionary(self):
-        """Optional: daily dictionary refresh (enable via Automated Actions if needed)."""
+        """Cron harian: rebuild kamus dari produk/aset/unit/karyawan."""
         rec = self.search([], limit=1)
         if rec:
             try:

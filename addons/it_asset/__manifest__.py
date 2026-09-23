@@ -8,6 +8,7 @@
     'depends': ['base', 'product', 'hr', 'stock', 'web', 'mail'],
     'data': [
         'security/ir.model.access.csv',
+        'security/ask_ai_security.xml',
         'data/master_data.xml',
         'data/form_sequences.xml',
         'data/ask_ai_cron.xml',

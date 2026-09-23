@@ -119,3 +119,25 @@ class ITAskAIDictionary(models.Model):
         for rec in self:
             rec.usage_count += 1
         return True
+
+    @api.model
+    def bump_terms(self, words):
+        """Naikkan usage_count untuk term yang dipakai koreksi typo.
+
+        Dipanggil dari Ask AI (sudo) agar user biasa tanpa write kamus
+        tetap bisa menandai term yang berguna.
+        """
+        seen = set()
+        bumped = self.browse()
+        for raw in words or []:
+            w = (raw or "").strip().lower()
+            if not w or w in seen:
+                continue
+            seen.add(w)
+            recs = self.search([("normalized", "=", _norm(w))], limit=8)
+            if not recs:
+                recs = self.search([("term", "=ilike", w)], limit=3)
+            bumped |= recs
+        for rec in bumped:
+            rec.usage_count += 1
+        return len(bumped)

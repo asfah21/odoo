@@ -846,6 +846,11 @@ class ITAskAI(models.AbstractModel):
             suggested = nlu.INTENT_ASSET_SEARCH
         elif matched_kinds & {"employee"}:
             suggested = nlu.INTENT_ASSET_USER
+        try:
+            self.env["it_asset.ask_ai.term"].sudo().bump_terms(
+                list(corrections.values()))
+        except Exception:
+            pass
         return {"corrected": True, "effective_text": effective,
                 "matches": corrections, "suggested_intent": suggested,
                 "method": "dict"}
