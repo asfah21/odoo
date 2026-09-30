@@ -76,7 +76,7 @@
                     <div class="col-12 col-sm-6 col-xl-3">
                         <div class="kpi-card" t-on-click="() => this.openView('all')">
                             <div class="kpi-card-header">
-                                <span class="kpi-label">Total Assets</span>
+                                <span class="kpi-label">Total Inventory</span>
                                 <div class="kpi-icon-badge kpi-indigo">
                                     <i class="fa fa-cubes"></i>
                                 </div>
