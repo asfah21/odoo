@@ -306,11 +306,9 @@
                     </group>
                     <group string="Approval">
                         <group>
-                            <field name="checked_by_id" placeholder="Diperiksa Oleh"/>
-                            <field name="verified_by_id" placeholder="Diverifikasi Oleh"/>
+                            <field name="known_by_id" placeholder="Diketahui Oleh"/>
                         </group>
                         <group>
-                            <field name="known_by_id" placeholder="Diketahui Oleh"/>
                             <field name="approved_by_id" placeholder="Disetujui Oleh"/>
                         </group>
                     </group>
