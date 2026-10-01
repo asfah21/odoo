@@ -219,29 +219,33 @@ class ITAsset(models.Model):
                  vals['state'] = 'available'
                  vals['is_stock_synced'] = False
 
-        if any(k in vals for k in ['product_id', 'lot_id', 'state']):
-            for record in self:
-                p_id = vals.get('product_id', record.product_id.id)
-                l_id = vals.get('lot_id', record.lot_id.id)
-                st = vals.get('state', record.state)
-                product = self.env['product.product'].browse(p_id)
-                
-                if product.type in ['product', 'storable'] and st not in ['retired', 'maintenance']:
-                    self._preflight_stock_check(product, l_id)
+        if not self.env.context.get('skip_stock_move'):
+            if any(k in vals for k in ['product_id', 'lot_id', 'state']):
+                for record in self:
+                    p_id = vals.get('product_id', record.product_id.id)
+                    l_id = vals.get('lot_id', record.lot_id.id)
+                    st = vals.get('state', record.state)
+                    product = self.env['product.product'].browse(p_id)
+                    
+                    if product.type in ['product', 'storable'] and st not in ['retired', 'maintenance']:
+                        self._preflight_stock_check(product, l_id)
 
         old_data = {r.id: {'emp': r.employee_id.id, 'unit': r.unit_id.id} for r in self}
         res = super(ITAsset, self).write(vals)
 
         # Connect with Handover and Assignment History
-        if 'employee_id' in vals:
-            for record in self:
-                new_emp_id = vals.get('employee_id')
-                old_emp_id = old_data[record.id]['emp']
-                
-                if new_emp_id and new_emp_id != old_emp_id:
-                    record._create_handover_log(new_emp_id)
-                elif not new_emp_id and old_emp_id:
-                    record._close_assignment_log(old_emp_id)
+        # Skip when called from handover/item-handover process (they manage their own records)
+        if not self.env.context.get('skip_stock_move'):
+            if 'employee_id' in vals:
+                for record in self:
+                    new_emp_id = vals.get('employee_id')
+                    old_emp_id = old_data[record.id]['emp']
+                    
+                    if new_emp_id and new_emp_id != old_emp_id:
+                        record._create_handover_log(new_emp_id)
+                    elif not new_emp_id and old_emp_id:
+                        record._close_assignment_log(old_emp_id)
+
 
         if not self.env.context.get('skip_stock_move'):
             if 'employee_id' in vals or 'unit_id' in vals:

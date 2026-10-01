@@ -328,19 +328,36 @@ class ITItemHandoverLine(models.Model):
         if not asset:
             return
 
-        try:
-            self.env['it_asset.assignment'].create({
-                'asset_id': asset.id,
-                'employee_id': self.handover_id.receiver_id.id,
-                'assignment_date': self.handover_id.handover_date,
-                'state': 'active',
+        receiver = self.handover_id.receiver_id
+        handover_date = self.handover_id.handover_date
+
+        # Close existing active assignments for this asset
+        active_assignments = self.env['it_asset.assignment'].search([
+            ('asset_id', '=', asset.id),
+            ('state', '=', 'active'),
+        ])
+        if active_assignments:
+            active_assignments.write({
+                'return_date': handover_date or fields.Date.today(),
+                'state': 'returned',
             })
 
-            asset.write({
-                'employee_id': self.handover_id.receiver_id.id,
-                'state': 'in_use',
-            })
+        # Create new assignment history record
+        self.env['it_asset.assignment'].create({
+            'asset_id': asset.id,
+            'employee_id': receiver.id,
+            'assignment_date': handover_date,
+            'state': 'active',
+        })
 
-            _logger.info("Asset %s assigned to %s via Item Handover", asset.name, self.handover_id.receiver_id.name)
-        except Exception as e:
-            _logger.error("Failed to update asset assignment: %s", str(e))
+        # Update asset employee & state, bypass stock preflight check since
+        # stock moves are not required for this type of handover
+        asset.with_context(skip_stock_move=True).write({
+            'employee_id': receiver.id,
+            'state': 'in_use',
+        })
+
+        _logger.info(
+            "Asset %s assigned to %s via Item Handover %s",
+            asset.name, receiver.name, self.handover_id.name
+        )

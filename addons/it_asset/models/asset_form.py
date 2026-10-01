@@ -349,7 +349,43 @@ class ITAssetHandover(models.Model):
         return super().create(vals_list)
 
     def action_sign(self):
+        self.ensure_one()
         self.write({'state': 'signed'})
+
+        # Update asset: set assigned user & status
+        if self.asset_id and self.receiver_id:
+            asset = self.asset_id
+
+            # Close any existing active assignment for this asset
+            active_assignments = self.env['it_asset.assignment'].search([
+                ('asset_id', '=', asset.id),
+                ('state', '=', 'active'),
+            ])
+            if active_assignments:
+                active_assignments.write({
+                    'return_date': self.handover_date or fields.Date.today(),
+                    'state': 'returned',
+                })
+
+            # Create new assignment history
+            self.env['it_asset.assignment'].create({
+                'asset_id': asset.id,
+                'employee_id': self.receiver_id.id,
+                'assignment_date': self.handover_date or fields.Date.today(),
+                'state': 'active',
+            })
+
+            # Update asset employee & state (bypass stock preflight since
+            # stock moves are handled separately or not applicable here)
+            asset.with_context(skip_stock_move=True).write({
+                'employee_id': self.receiver_id.id,
+                'state': 'in_use',
+            })
+
+            _logger.info(
+                "Asset %s handed over to %s via Handover %s",
+                asset.name, self.receiver_id.name, self.name
+            )
 
 
 class ITAssetDamageReport(models.Model):
