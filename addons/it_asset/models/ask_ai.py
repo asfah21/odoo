@@ -99,7 +99,7 @@ def _levenshtein_le2(a, b, limit=2):
 _ASSET_FIELDS = [
     "name", "asset_tag", "asset_type", "it_type", "category_id",
     "product_id", "lot_id", "employee_id", "unit_id", "state",
-    "condition", "usage_type", "model", "specification",
+    "condition", "usage_type", "model", "specification", "room",
 ]
 _CONSUMABLE_FIELDS = ["name", "product_id", "qty_available", "min_quantity", "uom_id"]
 _ASSIGN_FIELDS = ["asset_id", "employee_id", "assignment_date", "return_date", "state"]

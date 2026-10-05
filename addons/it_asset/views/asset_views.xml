@@ -17,6 +17,7 @@
                 <field name="lot_id" string="Serial Number" optional="show"/>
                 <field name="employee_id" string="User" invisible="usage_type != 'personal'"/>
                 <field name="unit_id" string="Unit" invisible="usage_type != 'unit'"/>
+                <field name="room" string="Location / Room" invisible="usage_type != 'shared'"/>
                 <field name="radio_mode" string="Mode" invisible="asset_type != 'operation'" optional="show"/>
                 <field name="state" string="Status"
                        decoration-info="state == 'available'" 
@@ -89,6 +90,10 @@
                                     invisible="usage_type != 'unit' or is_consumable == True"
                                     options="{'no_create': True, 'no_open': False}"
                                     readonly="state == 'retired'"/>
+                            <field name="room" string="Home Location / Room"
+                                   placeholder="e.g. Pool Kendaraan Depan, Meeting Room Lt. 2"
+                                   invisible="usage_type != 'shared' or is_consumable == True"
+                                   readonly="state == 'retired'"/>
                             <field name="radio_mode" invisible="asset_type != 'operation'" readonly="state == 'retired'"/>
                             <field name="specification" string="Specification" invisible="asset_type != 'it'" readonly="state == 'retired'"/>
                             <field name="specification" string="Remark" invisible="asset_type == 'it'" readonly="state == 'retired'"/>
@@ -157,16 +162,18 @@
         <field name="model">it_asset.asset</field>
         <field name="arch" type="xml">
             <search string="Search Assets">
-                <field name="name" string="Asset" filter_domain="['|', '|', '|', ('name', 'ilike', self), ('asset_tag', 'ilike', self), ('model', 'ilike', self), ('specification', 'ilike', self)]"/>
+                <field name="name" string="Asset" filter_domain="['|', '|', '|', '|', ('name', 'ilike', self), ('asset_tag', 'ilike', self), ('model', 'ilike', self), ('specification', 'ilike', self), ('room', 'ilike', self)]"/>
                 <field name="asset_tag"/>
                 <field name="model"/>
                 <field name="category_id"/>
                 <field name="employee_id"/>
                 <field name="unit_id"/>
+                <field name="room" string="Location / Room"/>
                 <field name="product_id"/>
                 
                 <filter string="IT Assets" name="it_assets" domain="[('asset_type', '=', 'it')]"/>
                 <filter string="Operational Assets" name="operation_assets" domain="[('asset_type', '=', 'operation')]"/>
+                <filter string="Shared Assets" name="shared_assets" domain="[('usage_type', '=', 'shared')]"/>
                 <separator/>
                 <filter string="IT - Assets" name="it_type_asset" domain="[('asset_type', '=', 'it'), ('it_type', '=', 'asset')]"/>
                 <filter string="IT - Accessories" name="it_type_accessory" domain="[('asset_type', '=', 'it'), ('it_type', '=', 'accessory')]"/>
@@ -191,6 +198,8 @@
                     <filter string="Condition" name="group_by_condition" context="{'group_by': 'condition'}"/>
                     <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
                     <filter string="Unit/Vehicle" name="group_by_unit" context="{'group_by': 'unit_id'}"/>
+                    <filter string="Usage Type" name="group_by_usage_type" context="{'group_by': 'usage_type'}"/>
+                    <filter string="Location / Room" name="group_by_room" context="{'group_by': 'room'}"/>
                     <filter string="Mode" name="group_by_radio_mode" context="{'group_by': 'radio_mode'}"/>
                 </group>
             </search>

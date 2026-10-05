@@ -55,6 +55,8 @@ class ITAsset(models.Model):
         ('shared', 'Shared'),
     ], string='Usage Type', default='personal', required=True, tracking=True)
 
+    room = fields.Char(string='Home Location / Room', tracking=True, help="Standby location for shared assets (e.g. Pool Kendaraan Depan, Meeting Room Lt. 2)")
+
     radio_mode = fields.Selection([
         ('analog', 'Analog'),
         ('digital', 'Digital'),
@@ -152,6 +154,18 @@ class ITAsset(models.Model):
         # Pass empty name to super() so it doesn't add duplicate name search,
         # since we already included name in our domain above
         return super(ITAsset, self).name_search(name='', args=domain, operator=operator, limit=limit)
+
+    @api.onchange('usage_type')
+    def _onchange_usage_type(self):
+        if self.usage_type == 'shared':
+            self.employee_id = False
+            self.unit_id = False
+        elif self.usage_type == 'personal':
+            self.unit_id = False
+            self.room = False
+        elif self.usage_type == 'unit':
+            self.employee_id = False
+            self.room = False
 
     @api.onchange('employee_id', 'unit_id')
     def _onchange_assignment(self):

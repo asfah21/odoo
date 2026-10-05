@@ -350,6 +350,25 @@ class ITAssetExcelTemplate(models.AbstractModel):
             'target': 'self',
         }
 
+    def _format_asset_item_name(self, asset):
+        """
+        Format nama asset untuk export excel:
+        [Asset Tag] Category - Asset Name
+        Contoh: [AST-001] Laptop - ThinkPad T480
+        """
+        if not asset:
+            return ''
+        tag = f"[{asset.asset_tag}]" if asset.asset_tag else ""
+        category = asset.category_id.name if asset.category_id and asset.category_id.name else ""
+        name = asset.name or ""
+
+        main_desc = f"{category} - {name}" if (category and name) else (category or name)
+        if tag and main_desc:
+            return f"{tag} {main_desc}"
+        elif tag:
+            return tag
+        return main_desc
+
     # ============================================
     # 1. EXPORT ITEM HANDOVER (BAST) KE EXCEL
     # ============================================
@@ -388,9 +407,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
             
             # Nama Barang
             if line.item_type == 'asset' and line.asset_id:
-                item_name = line.asset_id.name if line.asset_id.name else ''
-                if line.asset_id.asset_tag:
-                    item_name += f" ({line.asset_id.asset_tag})"
+                item_name = self._format_asset_item_name(line.asset_id)
             elif line.item_type == 'consumable' and line.consumable_id:
                 item_name = line.consumable_id.name if line.consumable_id.name else ''
             else:
@@ -579,7 +596,7 @@ class ITAssetExcelTemplate(models.AbstractModel):
 
         # Baris 21: Asset utama (Laptop/PC dll)
         cell_data['B21'] = 1
-        cell_data['D21'] = handover.asset_id.name if handover.asset_id else ''
+        cell_data['D21'] = self._format_asset_item_name(handover.asset_id)
         cell_data['Q21'] = 1
         cell_data['S21'] = kondisi
         cell_data['X21'] = keterangan
